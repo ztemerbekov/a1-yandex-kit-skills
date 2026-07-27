@@ -2,8 +2,8 @@
   "name": "mcp-yandex-kit",
   "version": "0.1.0",
   "description": "MCP server for the Yandex KIT e-commerce platform API",
+  "mcpName": "io.github.ztemerbekov/mcp-yandex-kit",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "bin": {
     "mcp-yandex-kit": "dist/index.js"
@@ -20,7 +20,26 @@
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "node --import tsx --test $(find src -name '*.test.ts')",
-    "smoke": "node --import tsx src/smoke.ts"
+    "smoke": "node --import tsx src/smoke.ts",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test"
+  },
+  "keywords": [
+    "yandex",
+    "kit",
+    "e-commerce",
+    "mcp",
+    "model-context-protocol",
+    "ai"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ztemerbekov/a1-yandex-kit-skills.git",
+    "directory": "packages/mcp"
+  },
+  "homepage": "https://github.com/ztemerbekov/a1-yandex-kit-skills#readme",
+  "bugs": {
+    "url": "https://github.com/ztemerbekov/a1-yandex-kit-skills/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

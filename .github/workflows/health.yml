@@ -1,0 +1,113 @@
+name: Spec drift & live smoke health
+
+# Weekly health checks (the KIT API is in beta and has no sandbox — the smoke
+# job makes live READ-ONLY calls against the production store):
+# - spec-drift: refetch the official OpenAPI spec and open/update a `spec-drift`
+#   issue if it changed. Drift is a report, not a failure - the job stays green.
+# - smoke: live READ-ONLY calls against the production API; runs only when the
+#   YANDEX_KIT_TOKEN repo secret is set. The `secrets` context is not available
+#   in job-level `if:`, so the presence check reads the secret via step-level
+#   env; only that step and the smoke step itself see the token.
+# Never runs on pull_request, so the token secret is not exposed to PRs; both
+# jobs are also guarded so forks never run them.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  spec-drift:
+    runs-on: ubuntu-latest
+    if: github.repository == 'ztemerbekov/a1-yandex-kit-skills'
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fetch latest spec
+        # Capture the script's report (old/new path+operation counts) for the issue
+        # body. `shell: bash` turns on pipefail so a failed fetch is not masked by tee.
+        shell: bash
+        run: npm run --silent spec:fetch | tee "$RUNNER_TEMP/spec-fetch.log"
+      - name: Detect drift
+        id: drift
+        run: |
+          if [ -n "$(git status --porcelain specs/)" ]; then
+            echo "drift=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "drift=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Open or update the spec-drift issue
+        if: steps.drift.outputs.drift == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create spec-drift --repo "$GITHUB_REPOSITORY" \
+            --description "Upstream KIT OpenAPI spec changed" --color D93F0B --force
+          {
+            echo "The upstream spec at https://yandex.ru/dev/kit/ru/openapi/kit-swagger.openapi.json differs from \`specs/kit-swagger.openapi.json\`."
+            echo
+            echo "\`npm run spec:fetch\` output:"
+            echo '```'
+            cat "$RUNNER_TEMP/spec-fetch.log"
+            echo '```'
+            echo
+            echo "Next steps: review the spec diff, run \`npm run gen\`, update curated tools/tests if affected."
+            echo
+            echo "Workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$RUNNER_TEMP/issue-body.md"
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label spec-drift \
+            --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
+              --body-file "$RUNNER_TEMP/issue-body.md"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "Spec drift: upstream KIT OpenAPI spec changed" \
+              --label spec-drift --body-file "$RUNNER_TEMP/issue-body.md"
+          fi
+
+  smoke:
+    runs-on: ubuntu-latest
+    if: github.repository == 'ztemerbekov/a1-yandex-kit-skills'
+    steps:
+      - name: Check whether the YANDEX_KIT_TOKEN secret is set
+        id: token
+        env:
+          YANDEX_KIT_TOKEN: ${{ secrets.YANDEX_KIT_TOKEN }}
+        run: |
+          if [ -n "$YANDEX_KIT_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "YANDEX_KIT_TOKEN secret is not set - skipping the live smoke check."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.present == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.token.outputs.present == 'true'
+        run: npm ci
+      - if: steps.token.outputs.present == 'true'
+        run: npm run build
+      - name: Live smoke check (read-only)
+        if: steps.token.outputs.present == 'true'
+        env:
+          YANDEX_KIT_TOKEN: ${{ secrets.YANDEX_KIT_TOKEN }}
+        run: npm run smoke

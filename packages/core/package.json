@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "description": "Typed client for the Yandex KIT API, driven by the official OpenAPI spec",
   "license": "MIT",
-  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "files": [
@@ -22,7 +22,24 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && mkdir -p dist/generated && cp src/generated/*.json dist/generated/",
     "typecheck": "tsc -p tsconfig.check.json",
-    "test": "node --import tsx --test $(find src -name '*.test.ts')"
+    "test": "node --import tsx --test $(find src -name '*.test.ts')",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "yandex",
+    "kit",
+    "e-commerce",
+    "api-client",
+    "openapi"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ztemerbekov/a1-yandex-kit-skills.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/ztemerbekov/a1-yandex-kit-skills#readme",
+  "bugs": {
+    "url": "https://github.com/ztemerbekov/a1-yandex-kit-skills/issues"
   },
   "dependencies": {
     "ajv": "^8.20.0"
