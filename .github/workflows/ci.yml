@@ -29,4 +29,4 @@ jobs:
       - run: npm run build
       - run: npm test
       - name: Generated code drift
-        run: npm run gen && git diff --exit-code -- packages/core/src/generated
+        run: npm run gen && git diff --exit-code -- packages/core/src/generated docs/TOOLS.md

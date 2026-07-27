@@ -9,7 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "gen": "tsx src/gen-registry.ts && tsx src/gen-types.ts",
+    "gen": "tsx src/gen-registry.ts && tsx src/gen-types.ts && tsx src/gen-docs.ts",
     "fetch": "tsx src/fetch-spec.ts",
     "typecheck": "tsc -p tsconfig.check.json"
   },

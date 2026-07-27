@@ -9,6 +9,15 @@ import { registerStoreTools } from "./tools/store.js";
 import { registerProductTools } from "./tools/products.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerCategoryTools } from "./tools/categories.js";
+import { registerOrderTools } from "./tools/orders.js";
+import { registerCustomerTools } from "./tools/customers.js";
+import { registerGiftCardTools } from "./tools/giftcards.js";
+import { registerDiscountTools } from "./tools/discounts.js";
+import { registerPromocodeTools } from "./tools/promocodes.js";
+import { registerWebhookTools } from "./tools/webhooks.js";
+import { registerWarehouseTools } from "./tools/warehouses.js";
+import { registerCollectionTools } from "./tools/collections.js";
+import { registerFileTools } from "./tools/files.js";
 
 function loadConfigOrExit(): Config {
   try {
@@ -38,6 +47,15 @@ async function main(): Promise<void> {
   registerProductTools(server, client);
   registerVariantTools(server, client);
   registerCategoryTools(server, client);
+  registerOrderTools(server, client);
+  registerCustomerTools(server, client);
+  registerGiftCardTools(server, client);
+  registerDiscountTools(server, client);
+  registerPromocodeTools(server, client);
+  registerWebhookTools(server, client);
+  registerWarehouseTools(server, client);
+  registerCollectionTools(server, client);
+  registerFileTools(server, client);
 
   await server.connect(new StdioServerTransport());
   // stdout belongs to the stdio transport — diagnostics go to stderr.

@@ -1,6 +1,7 @@
 import { KitApiError } from "yandex-kit-core";
 
 export const READ_ONLY = { readOnlyHint: true } as const;
+export const DESTRUCTIVE = { destructiveHint: true } as const;
 
 export const MAX_PER_PAGE = 100;
 export const DEFAULT_PER_PAGE = 25;
