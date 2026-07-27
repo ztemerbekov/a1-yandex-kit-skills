@@ -1,0 +1,256 @@
+/**
+ * Meta tools: registry search, operation schema lookup and the kit_request
+ * escape hatch. Together they cover every operation of the KIT API, including
+ * the ones without a dedicated curated tool.
+ */
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import {
+  KitClient,
+  getRegistry,
+  resolveOperationSchema,
+  validateRequestBody,
+  type RegistryOp,
+} from "yandex-kit-core";
+
+import { READ_ONLY, fail, ok } from "../util.js";
+
+/** Field weights for search scoring (operationId/path > tag/summary > description). */
+const SEARCH_FIELDS: ReadonlyArray<{
+  weight: number;
+  get: (op: RegistryOp) => string | null | undefined;
+}> = [
+  { weight: 3, get: (op) => op.id },
+  { weight: 3, get: (op) => op.path },
+  { weight: 2, get: (op) => op.tag },
+  { weight: 2, get: (op) => op.summaryRu },
+  { weight: 1, get: (op) => op.descriptionRu },
+];
+
+/**
+ * Score one operation against lowercase query tokens.
+ * requireAll: every token must match at least one field (search mode);
+ * otherwise any matching token contributes (suggestion mode).
+ */
+function scoreOp(op: RegistryOp, tokens: string[], requireAll: boolean): number {
+  let total = 0;
+  for (const token of tokens) {
+    let tokenScore = 0;
+    for (const field of SEARCH_FIELDS) {
+      const value = field.get(op);
+      if (value && value.toLowerCase().includes(token)) tokenScore += field.weight;
+    }
+    if (tokenScore === 0 && requireAll) return 0;
+    total += tokenScore;
+  }
+  return total;
+}
+
+function tokenize(query: string): string[] {
+  return query.toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+interface ScoredOp {
+  op: RegistryOp;
+  score: number;
+}
+
+function rankOps(tokens: string[], requireAll: boolean, tag?: string): ScoredOp[] {
+  const tagLc = tag?.toLowerCase();
+  const scored: ScoredOp[] = [];
+  for (const op of Object.values(getRegistry().ops)) {
+    if (tagLc && !op.tag.toLowerCase().includes(tagLc)) continue;
+    const score = scoreOp(op, tokens, requireAll);
+    if (score > 0) scored.push({ op, score });
+  }
+  scored.sort((a, b) => b.score - a.score || a.op.id.localeCompare(b.op.id));
+  return scored;
+}
+
+/** Closest operationIds for an unknown id (camelCase/snake_case-aware, lenient). */
+function suggestOperationIds(unknownId: string, limit = 3): string[] {
+  const tokens = unknownId
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-zа-яё0-9]+/iu)
+    .filter(Boolean);
+  if (tokens.length === 0) return [];
+  return rankOps(tokens, false)
+    .slice(0, limit)
+    .map((s) => s.op.id);
+}
+
+function unknownOperationError(operationId: string): Error {
+  const suggestions = suggestOperationIds(operationId);
+  const hint =
+    suggestions.length > 0
+      ? ` Did you mean: ${suggestions.join(", ")}?`
+      : "";
+  return new Error(
+    `Unknown operation_id "${operationId}".${hint} Use search_operations to find the right operation.`,
+  );
+}
+
+export function registerMetaTools(server: McpServer, client: KitClient): void {
+  server.registerTool(
+    "search_operations",
+    {
+      title: "Search KIT API operations",
+      description:
+        "Search the full catalog of all 133 Yandex KIT API operations by keyword. " +
+        "Matches operationId, URL path, tag and Russian summary/description " +
+        "(the API docs are in Russian, so Russian keywords like \"категории\" work too). " +
+        "Any operation found here can be executed with kit_request; " +
+        "use get_operation_schema to inspect its parameters and body shape first.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        query: z
+          .string()
+          .min(1)
+          .describe(
+            "Search keywords (whitespace-separated, case-insensitive; every token must match)",
+          ),
+        tag: z
+          .string()
+          .optional()
+          .describe('Optional tag filter, e.g. "Товары" or "Вебхуки" (case-insensitive substring)'),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe("Maximum number of results to return (1-50, default 10)"),
+      },
+    },
+    async ({ query, tag, limit }) => {
+      try {
+        const ranked = rankOps(tokenize(query), true, tag);
+        return ok({
+          total: ranked.length,
+          results: ranked.slice(0, limit).map(({ op }) => ({
+            operationId: op.id,
+            method: op.method,
+            path: op.path,
+            tag: op.tag,
+            summaryRu: op.summaryRu,
+            paginated: op.paginated,
+          })),
+        });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_operation_schema",
+    {
+      title: "Get KIT operation schema",
+      description:
+        "Get full metadata for one KIT API operation by operationId: HTTP method, path, " +
+        "path/query parameters, request content type, pagination info, and the fully " +
+        "dereferenced JSON schemas of the request body and response. " +
+        "Call this before kit_request or any create/update tool to learn the exact body shape.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        operation_id: z
+          .string()
+          .describe('Operation id in PascalCase, e.g. "CreateProduct" (find it via search_operations)'),
+      },
+    },
+    async ({ operation_id }) => {
+      try {
+        const op = getRegistry().ops[operation_id];
+        if (!op) return fail(unknownOperationError(operation_id));
+        const { request, response } = resolveOperationSchema(operation_id);
+        return ok({
+          operationId: op.id,
+          method: op.method,
+          path: op.path,
+          tag: op.tag,
+          summaryRu: op.summaryRu,
+          pathParams: op.pathParams,
+          queryParams: op.queryParams,
+          requestContentType: op.requestContentType ?? null,
+          paginated: op.paginated,
+          itemsProp: op.itemsProp ?? null,
+          requestSchema: request ?? null,
+          responseSchema: response ?? null,
+        });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "kit_request",
+    {
+      title: "Execute any KIT API operation",
+      description:
+        "Escape hatch that executes ANY of the 133 Yandex KIT API operations by operationId, " +
+        "including operations without a dedicated tool. " +
+        "WARNING: this performs REAL calls against the live store — write operations " +
+        "(create/update/delete/archive) take effect immediately and there is no sandbox. " +
+        "Workflow: search_operations -> get_operation_schema -> kit_request. " +
+        "The request body is validated against the OpenAPI schema before sending " +
+        "(set validate=false to skip).",
+      inputSchema: {
+        operation_id: z
+          .string()
+          .describe('Operation id in PascalCase, e.g. "GetProducts" (find it via search_operations)'),
+        path_params: z
+          .record(z.union([z.string(), z.number()]))
+          .optional()
+          .describe('Values for {placeholders} in the path, e.g. {"id": "123"}'),
+        query: z
+          .record(z.unknown())
+          .optional()
+          .describe("Query-string parameters (e.g. page, per_page for paginated lists)"),
+        body: z
+          .unknown()
+          .describe(
+            "JSON request body; get the exact shape from get_operation_schema(\"<OperationId>\")",
+          ),
+        validate: z
+          .boolean()
+          .default(true)
+          .describe("Validate body against the OpenAPI schema before sending (default true)"),
+      },
+    },
+    async ({ operation_id, path_params, query, body, validate }) => {
+      try {
+        const op = getRegistry().ops[operation_id];
+        if (!op) return fail(unknownOperationError(operation_id));
+        if (op.requestContentType === "multipart/form-data") {
+          return fail(
+            new Error(
+              "multipart operations are not supported by kit_request; " +
+                "UploadFile needs the dedicated upload_file tool (planned)",
+            ),
+          );
+        }
+        if (validate !== false && body !== undefined) {
+          const result = validateRequestBody(operation_id, body);
+          if (!result.valid) {
+            return fail(
+              new Error(
+                `Request body failed schema validation (nothing was sent): ${result.errors.join("; ")}`,
+              ),
+            );
+          }
+        }
+        return ok(
+          await client.call(operation_id, {
+            pathParams: path_params,
+            query,
+            body,
+          }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+}

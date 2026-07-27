@@ -1,0 +1,3166 @@
+{
+  "specTitle": "Yandex KIT API",
+  "specVersion": "1.0.0",
+  "opsCount": 133,
+  "ops": {
+    "GetCategories": {
+      "id": "GetCategories",
+      "method": "get",
+      "path": "/v1/categories",
+      "tag": "Категории товаров",
+      "summaryRu": "Получение списка категорий",
+      "descriptionRu": "Возвращает список категорий товаров с возможностью пагинации.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "ARCHIVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу категории."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryCollection",
+      "paginated": true,
+      "itemsProp": "categories"
+    },
+    "CreateCategory": {
+      "id": "CreateCategory",
+      "method": "post",
+      "path": "/v1/categories",
+      "tag": "Категории товаров",
+      "summaryRu": "Создание новой категории",
+      "descriptionRu": "Создает новую категорию товаров с указанными параметрами.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateCategoryRequest",
+      "responseSchemaRef": "#/components/schemas/Category",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCategoryById": {
+      "id": "GetCategoryById",
+      "method": "get",
+      "path": "/v1/categories/{id}",
+      "tag": "Категории товаров",
+      "summaryRu": "Получение категории по ID",
+      "descriptionRu": "Возвращает информацию о категории по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Category",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateCategory": {
+      "id": "UpdateCategory",
+      "method": "patch",
+      "path": "/v1/categories/{id}",
+      "tag": "Категории товаров",
+      "summaryRu": "Обновление категории",
+      "descriptionRu": "Обновляет существующую категорию товаров по ее идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/merge-patch+json",
+      "requestSchemaRef": "#/components/schemas/UpdateCategoryRequest",
+      "responseSchemaRef": "#/components/schemas/Category",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "ArchiveCategory": {
+      "id": "ArchiveCategory",
+      "method": "post",
+      "path": "/v1/categories/{id}/archive",
+      "tag": "Категории товаров",
+      "summaryRu": "Архивирование категории",
+      "descriptionRu": "Архивирует категорию товаров по ее идентификатору.\nАрхивированная категория не удаляется физически, а становится недоступной для покупки.\n\nЕсли категория единственная у продукта с неархивными товарами\n(`PUBLISHED/HIDDEN`), архивирование возможно только с `archive_variants=true`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "archive_variants",
+          "required": false,
+          "type": "boolean",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": false,
+          "descriptionRu": "Архивировать товары в удаляемых категориях."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UnarchiveCategory": {
+      "id": "UnarchiveCategory",
+      "method": "post",
+      "path": "/v1/categories/{id}/unarchive",
+      "tag": "Категории товаров",
+      "summaryRu": "Восстановление категории из архива",
+      "descriptionRu": "Восстанавливает архивированную категорию товаров по ее идентификатору.\nВосстановленная категория становится доступной для покупки.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCharacteristics": {
+      "id": "GetCharacteristics",
+      "method": "get",
+      "path": "/v1/characteristics",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Получение списка характеристик",
+      "descriptionRu": "Возвращает список характеристик товаров с возможностью фильтрации и пагинации.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы"
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "ARCHIVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу характеристики."
+        },
+        {
+          "name": "search_text",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Текст для поиска по названию характеристики."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CharacteristicCollection",
+      "paginated": true,
+      "itemsProp": "characteristics"
+    },
+    "CreateCharacteristic": {
+      "id": "CreateCharacteristic",
+      "method": "post",
+      "path": "/v1/characteristics",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Создание новой характеристики",
+      "descriptionRu": "Создает новую характеристику товара с указанными параметрами.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateCharacteristicRequest",
+      "responseSchemaRef": "#/components/schemas/Characteristic",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCharacteristicById": {
+      "id": "GetCharacteristicById",
+      "method": "get",
+      "path": "/v1/characteristics/{id}",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Получение характеристики по ID",
+      "descriptionRu": "Возвращает информацию о характеристике по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Characteristic",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateCharacteristic": {
+      "id": "UpdateCharacteristic",
+      "method": "patch",
+      "path": "/v1/characteristics/{id}",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Обновление характеристики",
+      "descriptionRu": "Обновляет существующую характеристику товара по ее идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/merge-patch+json",
+      "requestSchemaRef": "#/components/schemas/UpdateCharacteristicRequest",
+      "responseSchemaRef": "#/components/schemas/Characteristic",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "ArchiveCharacteristic": {
+      "id": "ArchiveCharacteristic",
+      "method": "post",
+      "path": "/v1/characteristics/{id}/archive",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Архивирование характеристики",
+      "descriptionRu": "Архивирует характеристику по ее идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UnarchiveCharacteristic": {
+      "id": "UnarchiveCharacteristic",
+      "method": "post",
+      "path": "/v1/characteristics/{id}/unarchive",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Восстановление характеристики из архива",
+      "descriptionRu": "Восстанавливает архивированную характеристику по ее идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCharacteristicGroups": {
+      "id": "GetCharacteristicGroups",
+      "method": "get",
+      "path": "/v1/characteristics/groups",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Получение списка групп характеристик",
+      "descriptionRu": "Возвращает список групп характеристик с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CharacteristicGroupCollection",
+      "paginated": true,
+      "itemsProp": "characteristic_groups"
+    },
+    "CreateCharacteristicGroup": {
+      "id": "CreateCharacteristicGroup",
+      "method": "post",
+      "path": "/v1/characteristics/groups",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Создание группы характеристик",
+      "descriptionRu": "Создает новую группу характеристик товаров.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateCharacteristicGroupRequest",
+      "responseSchemaRef": "#/components/schemas/CharacteristicGroup",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCharacteristicGroupById": {
+      "id": "GetCharacteristicGroupById",
+      "method": "get",
+      "path": "/v1/characteristics/groups/{id}",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Получение группы характеристик по ID",
+      "descriptionRu": "Возвращает группу характеристик по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CharacteristicGroup",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateCharacteristicGroup": {
+      "id": "UpdateCharacteristicGroup",
+      "method": "patch",
+      "path": "/v1/characteristics/groups/{id}",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Обновление группы характеристик",
+      "descriptionRu": "Обновляет группу характеристик. Передаются только изменяемые поля.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateCharacteristicGroupRequest",
+      "responseSchemaRef": "#/components/schemas/CharacteristicGroup",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteCharacteristicGroup": {
+      "id": "DeleteCharacteristicGroup",
+      "method": "delete",
+      "path": "/v1/characteristics/groups/{id}",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Удаление группы характеристик",
+      "descriptionRu": "Удаляет группу характеристик.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UploadFile": {
+      "id": "UploadFile",
+      "method": "post",
+      "path": "/v1/files",
+      "tag": "Файлы",
+      "summaryRu": "Загрузка файла",
+      "descriptionRu": "Загружает файл в систему с автоматической дедупликацией.\n\nЕсли файл с таким же содержимым уже существует в системе,\nбудет возвращен существующий файл вместо создания дубликата.\n\nМаксимальный размер файла — 100 MB.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "multipart/form-data",
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/File",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetFileById": {
+      "id": "GetFileById",
+      "method": "get",
+      "path": "/v1/files/{id}",
+      "tag": "Файлы",
+      "summaryRu": "Получение файла по ID",
+      "descriptionRu": "Возвращает информацию о ранее загруженном файле по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/File",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetProducts": {
+      "id": "GetProducts",
+      "method": "get",
+      "path": "/v1/products",
+      "tag": "Товары",
+      "summaryRu": "Получение списка продуктов",
+      "descriptionRu": "Возвращает список продуктов с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы"
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/ProductCollection",
+      "paginated": true,
+      "itemsProp": "products"
+    },
+    "CreateProduct": {
+      "id": "CreateProduct",
+      "method": "post",
+      "path": "/v1/products",
+      "tag": "Товары",
+      "summaryRu": "Создание нового продукта",
+      "descriptionRu": "Создает новый продукт.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateProductRequest",
+      "responseSchemaRef": "#/components/schemas/Product",
+      "paginated": false,
+      "itemsProp": "category_ids"
+    },
+    "GetProductById": {
+      "id": "GetProductById",
+      "method": "get",
+      "path": "/v1/products/{id}",
+      "tag": "Товары",
+      "summaryRu": "Получение продукта по ID",
+      "descriptionRu": "Возвращает информацию о продукте по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Product",
+      "paginated": false,
+      "itemsProp": "category_ids"
+    },
+    "UpdateProduct": {
+      "id": "UpdateProduct",
+      "method": "patch",
+      "path": "/v1/products/{id}",
+      "tag": "Товары",
+      "summaryRu": "Обновление продукта",
+      "descriptionRu": "Обновляет существующий продукт по его идентификатору.\nПри передаче `category_ids` список привязок категорий полностью заменяется.\nАрхивированные категории из списка привязываются к продукту, но остаются `ARCHIVED`\nи не попадают в `Product.category_ids`, пока не будут разархивированы отдельно.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateProductRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetSimilarProductCardIDs": {
+      "id": "GetSimilarProductCardIDs",
+      "method": "get",
+      "path": "/v1/products/cards/{product_card_id}/similar",
+      "tag": "Товары",
+      "summaryRu": "Получение списка похожих карточек товара.",
+      "descriptionRu": "Возвращает список уникальных идентификаторов похожих карточек товара по идентификатору карточки товара.\nПохожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/ProductCardIDCollection",
+      "paginated": true,
+      "itemsProp": "product_card_ids"
+    },
+    "AddSimilarProductCards": {
+      "id": "AddSimilarProductCards",
+      "method": "post",
+      "path": "/v1/products/cards/{product_card_id}/similar/add",
+      "tag": "Товары",
+      "summaryRu": "Добавление похожих карточек товара",
+      "descriptionRu": "Добавляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.\nПохожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/SimilarProductCardsRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteSimilarProductCards": {
+      "id": "DeleteSimilarProductCards",
+      "method": "post",
+      "path": "/v1/products/cards/{product_card_id}/similar/remove",
+      "tag": "Товары",
+      "summaryRu": "Удаление похожих карточек товара",
+      "descriptionRu": "Удаляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.\nПохожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/SimilarProductCardsRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetVariants": {
+      "id": "GetVariants",
+      "method": "get",
+      "path": "/v1/variants",
+      "tag": "Товары",
+      "summaryRu": "Получение списка товаров",
+      "descriptionRu": "Возвращает список товаров с возможностью фильтрации и пагинации.\n\n Возможна фильтрация по:\n  - идентификатору продукта;\n  - статусу товара;\n  - тексту названия товара, артикулу, штрихкоду и KIT ID.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "product_id",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по идентификатору продукта."
+        },
+        {
+          "name": "product_card_id",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по идентификатору карточки товара."
+        },
+        {
+          "name": "status",
+          "required": false,
+          "type": "array",
+          "enum": [
+            "PUBLISHED",
+            "HIDDEN",
+            "ARCHIVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу товара. По умолчанию возвращаются товары всех статусов, кроме `ARCHIVED`."
+        },
+        {
+          "name": "name",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Текст для поиска по тексту названия товара, артикулу, штрихкоду и KIT ID. Поиск регистронезависимый, частичный."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantCollection",
+      "paginated": true,
+      "itemsProp": "variants"
+    },
+    "CreateVariant": {
+      "id": "CreateVariant",
+      "method": "post",
+      "path": "/v1/variants",
+      "tag": "Товары",
+      "summaryRu": "Создание нового товара",
+      "descriptionRu": "Создает новый товар с указанными параметрами.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateVariantRequest",
+      "responseSchemaRef": "#/components/schemas/Variant",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetVariantById": {
+      "id": "GetVariantById",
+      "method": "get",
+      "path": "/v1/variants/{id}",
+      "tag": "Товары",
+      "summaryRu": "Получение товара по ID",
+      "descriptionRu": "Возвращает информацию о товаре по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Variant",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateVariant": {
+      "id": "UpdateVariant",
+      "method": "patch",
+      "path": "/v1/variants/{id}",
+      "tag": "Товары",
+      "summaryRu": "Обновление товара",
+      "descriptionRu": "Обновляет существующий товар по его идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/merge-patch+json",
+      "requestSchemaRef": "#/components/schemas/UpdateVariantRequest",
+      "responseSchemaRef": "#/components/schemas/Variant",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteVariant": {
+      "id": "DeleteVariant",
+      "method": "delete",
+      "path": "/v1/variants/{id}",
+      "tag": "Товары",
+      "summaryRu": "Безвозвратное удаление архивного товара",
+      "descriptionRu": "Безвозвратно удаляет товар. Операция доступна только для товаров\nв статусе `ARCHIVED` — для остальных возвращается ошибка 400.\nВосстановить товар после удаления невозможно.\n\nВ отличие от удаления, архивация `(POST /v1/variants/{id}/archive)`\nпереводит товар в статус `ARCHIVED` и делает его недоступным для\nпокупки, но данные сохраняются: товар остается в списке\n`GET /v1/variants` с фильтром `status=ARCHIVED` и его можно вернуть\nс помощью запроса `POST /v1/variants/{id}/unarchive`.\n\nЧтобы удалить активный товар, сначала переведите его в архив.\nНе удаляйте товар сразу после архивации, если он был опубликован\nи мог участвовать в заказах: безвозвратное удаление ухудшит\nклиентский опыт, например в истории заказов. Безвозвратно удаляйте\nтолько те архивные товары, которые точно больше не понадобятся.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "ArchiveVariant": {
+      "id": "ArchiveVariant",
+      "method": "post",
+      "path": "/v1/variants/{id}/archive",
+      "tag": "Товары",
+      "summaryRu": "Архивирование товара",
+      "descriptionRu": "Архивирует товар, меняя его статус на `ARCHIVED`.\nТовар не удаляется физически, а становится недоступным для покупки:\nданные сохраняются, товар доступен в списке `GET /v1/variants`\nс фильтром `status=ARCHIVED` и его можно восстановить с помощью запроса:\n`POST /v1/variants/{id}/unarchive`.\n\nБезвозвратно удалить архивный товар можно запросом: `DELETE /v1/variants/{id}`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UnarchiveVariant": {
+      "id": "UnarchiveVariant",
+      "method": "post",
+      "path": "/v1/variants/{id}/unarchive",
+      "tag": "Товары",
+      "summaryRu": "Восстановление товара из архива",
+      "descriptionRu": "Восстанавливает архивированный товар, меняя статус с `ARCHIVED` на `HIDDEN`.\nПосле восстановления товар можно будет опубликовать через обновление статуса.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetVariantExternalIDs": {
+      "id": "GetVariantExternalIDs",
+      "method": "get",
+      "path": "/v1/variants/{id}/external_ids",
+      "tag": "Товары",
+      "summaryRu": "Получение внешних идентификаторов товара",
+      "descriptionRu": "Возвращает список внешних идентификаторов товара по системе.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantExternalIDsCollection",
+      "paginated": false,
+      "itemsProp": "external_ids"
+    },
+    "SetVariantExternalID": {
+      "id": "SetVariantExternalID",
+      "method": "put",
+      "path": "/v1/variants/{id}/external_ids/{system_type}",
+      "tag": "Товары",
+      "summaryRu": "Установка внешнего идентификатора",
+      "descriptionRu": "Устанавливает или обновляет внешний идентификатор товара для указанной системы.",
+      "pathParams": [
+        "id",
+        "system_type"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/SetVariantExternalIdRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteVariantExternalID": {
+      "id": "DeleteVariantExternalID",
+      "method": "delete",
+      "path": "/v1/variants/{id}/external_ids/{system_type}",
+      "tag": "Товары",
+      "summaryRu": "Удаление внешнего идентификатора",
+      "descriptionRu": "Удаляет внешний идентификатор товара для указанной системы.",
+      "pathParams": [
+        "id",
+        "system_type"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetWarehouses": {
+      "id": "GetWarehouses",
+      "method": "get",
+      "path": "/v1/warehouses",
+      "tag": "Склады",
+      "summaryRu": "Получение списка складов",
+      "descriptionRu": "Возвращает список складов с возможностью пагинации.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "ARCHIVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу склада."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/WarehouseCollection",
+      "paginated": true,
+      "itemsProp": "warehouses"
+    },
+    "CreateWarehouse": {
+      "id": "CreateWarehouse",
+      "method": "post",
+      "path": "/v1/warehouses",
+      "tag": "Склады",
+      "summaryRu": "Создание нового склада",
+      "descriptionRu": "Создает новый склад. URL-идентификатор (slug) генерируется автоматически из названия.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateWarehouseRequest",
+      "responseSchemaRef": "#/components/schemas/Warehouse",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetWarehouseById": {
+      "id": "GetWarehouseById",
+      "method": "get",
+      "path": "/v1/warehouses/{id}",
+      "tag": "Склады",
+      "summaryRu": "Получение склада по ID",
+      "descriptionRu": "Возвращает информацию о складе по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Warehouse",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateWarehouse": {
+      "id": "UpdateWarehouse",
+      "method": "patch",
+      "path": "/v1/warehouses/{id}",
+      "tag": "Склады",
+      "summaryRu": "Обновление склада",
+      "descriptionRu": "Обновляет существующий склад. Slug нельзя изменить после создания.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/merge-patch+json",
+      "requestSchemaRef": "#/components/schemas/UpdateWarehouseRequest",
+      "responseSchemaRef": "#/components/schemas/Warehouse",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "ArchiveWarehouse": {
+      "id": "ArchiveWarehouse",
+      "method": "post",
+      "path": "/v1/warehouses/{id}/archive",
+      "tag": "Склады",
+      "summaryRu": "Архивирование склада",
+      "descriptionRu": "Архивирует склад, меняя его статус на `ARCHIVED`.\nСклад не удаляется физически, а становится недоступным для использования.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UnarchiveWarehouse": {
+      "id": "UnarchiveWarehouse",
+      "method": "post",
+      "path": "/v1/warehouses/{id}/unarchive",
+      "tag": "Склады",
+      "summaryRu": "Восстановление склада из архива",
+      "descriptionRu": "Восстанавливает архивированный склад, меняя его статус с `ARCHIVED` на `ACTIVE`.\nПосле восстановления склад можно будет использовать для хранения товаров.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCurrentUser": {
+      "id": "GetCurrentUser",
+      "method": "get",
+      "path": "/v1/users/current",
+      "tag": "Пользователи",
+      "summaryRu": "Получение текущего пользователя",
+      "descriptionRu": "Возвращает информацию о владельце API токена.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/User",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetStore": {
+      "id": "GetStore",
+      "method": "get",
+      "path": "/v1/store",
+      "tag": "Магазин",
+      "summaryRu": "Получение информации о магазине",
+      "descriptionRu": "Возвращает информацию о текущем магазине.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Store",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCustomers": {
+      "id": "GetCustomers",
+      "method": "get",
+      "path": "/v1/customers",
+      "tag": "Клиенты",
+      "summaryRu": "Получение списка клиентов",
+      "descriptionRu": "Возвращает список клиентов магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CustomerCollection",
+      "paginated": true,
+      "itemsProp": "customers"
+    },
+    "GetCustomerById": {
+      "id": "GetCustomerById",
+      "method": "get",
+      "path": "/v1/customers/{customer_id}",
+      "tag": "Клиенты",
+      "summaryRu": "Получение клиента по ID",
+      "descriptionRu": "Возвращает информацию о клиенте по его уникальному идентификатору.",
+      "pathParams": [
+        "customer_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Customer",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateCustomer": {
+      "id": "UpdateCustomer",
+      "method": "patch",
+      "path": "/v1/customers/{customer_id}",
+      "tag": "Клиенты",
+      "summaryRu": "Обновление клиента",
+      "descriptionRu": "Обновляет информацию о клиенте.",
+      "pathParams": [
+        "customer_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateCustomerRequest",
+      "responseSchemaRef": "#/components/schemas/Customer",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetOrdersByCustomerId": {
+      "id": "GetOrdersByCustomerId",
+      "method": "get",
+      "path": "/v1/customers/{customer_id}/orders",
+      "tag": "Заказы",
+      "summaryRu": "Получение списка заказов по ID клиента",
+      "descriptionRu": "Возвращает список заказов клиента по его уникальному идентификатору.",
+      "pathParams": [
+        "customer_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/OrderIDCollection",
+      "paginated": true,
+      "itemsProp": "order_ids"
+    },
+    "GetOrders": {
+      "id": "GetOrders",
+      "method": "get",
+      "path": "/v1/orders",
+      "tag": "Заказы",
+      "summaryRu": "Получение списка заказов",
+      "descriptionRu": "Возвращает список заказов магазина с пагинацией и поиском.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы"
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/OrderCollection",
+      "paginated": true,
+      "itemsProp": "orders"
+    },
+    "GetOrderById": {
+      "id": "GetOrderById",
+      "method": "get",
+      "path": "/v1/orders/{id}",
+      "tag": "Заказы",
+      "summaryRu": "Получение заказа по ID",
+      "descriptionRu": "Возвращает информацию о заказе по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Order",
+      "paginated": false,
+      "itemsProp": "delivery_chunks"
+    },
+    "GetOrderAddons": {
+      "id": "GetOrderAddons",
+      "method": "get",
+      "path": "/v1/orders/{id}/addons",
+      "tag": "Заказы",
+      "summaryRu": "Получение списка услуг заказа",
+      "descriptionRu": "Возвращает список услуг заказа по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/OrderAddonCollection",
+      "paginated": false,
+      "itemsProp": "order_addons"
+    },
+    "ConfirmOrder": {
+      "id": "ConfirmOrder",
+      "method": "post",
+      "path": "/v1/orders/{id}/confirm",
+      "tag": "Заказы",
+      "summaryRu": "Подтверждение заказа",
+      "descriptionRu": "Подтверждает заказ. Заказ должен быть в статусе `WAIT_FOR_CONFIRMATION`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "CancelOrder": {
+      "id": "CancelOrder",
+      "method": "post",
+      "path": "/v1/orders/{id}/cancel",
+      "tag": "Заказы",
+      "summaryRu": "Отмена заказа",
+      "descriptionRu": "Отменяет заказ. Возможность отмены зависит от текущего статуса заказа.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetPromocodeById": {
+      "id": "GetPromocodeById",
+      "method": "get",
+      "path": "/v1/promocodes/{id}",
+      "tag": "Промокоды",
+      "summaryRu": "Получение промокода по уникальному идентификатору",
+      "descriptionRu": "Возвращает информацию о промокоде по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Promocode",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdatePromocode": {
+      "id": "UpdatePromocode",
+      "method": "patch",
+      "path": "/v1/promocodes/{id}",
+      "tag": "Промокоды",
+      "summaryRu": "Обновление промокода",
+      "descriptionRu": "Обновляет промокод по уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdatePromocodeRequest",
+      "responseSchemaRef": "#/components/schemas/Promocode",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetPromocodes": {
+      "id": "GetPromocodes",
+      "method": "get",
+      "path": "/v1/promocodes",
+      "tag": "Промокоды",
+      "summaryRu": "Получение списка промокодов",
+      "descriptionRu": "Возвращает список промокодов магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Статус промокода."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/PromocodeCollection",
+      "paginated": true,
+      "itemsProp": "promocodes"
+    },
+    "CreatePromocode": {
+      "id": "CreatePromocode",
+      "method": "post",
+      "path": "/v1/promocodes",
+      "tag": "Промокоды",
+      "summaryRu": "Создание промокода",
+      "descriptionRu": "Создает новый промокод.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreatePromocodeRequest",
+      "responseSchemaRef": "#/components/schemas/Promocode",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetPromocodeCategoryIDs": {
+      "id": "GetPromocodeCategoryIDs",
+      "method": "get",
+      "path": "/v1/promocodes/{id}/categories",
+      "tag": "Промокоды",
+      "summaryRu": "Получение идентификаторов категорий",
+      "descriptionRu": "Возвращает идентификаторы категорий, к которым применяется промокод (на основе его уникального идентификатора).\nРаботает только для промокодов с параметром `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
+      "paginated": true,
+      "itemsProp": "category_ids"
+    },
+    "GetPromocodeCollectionIDs": {
+      "id": "GetPromocodeCollectionIDs",
+      "method": "get",
+      "path": "/v1/promocodes/{id}/collections",
+      "tag": "Промокоды",
+      "summaryRu": "Получение идентификаторов коллекций, к которым применяется промокод",
+      "descriptionRu": "Возвращает идентификаторы коллекций, к которым применяется промокод, по его уникальному идентификатору.\nИспользуется для промокодов с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
+      "paginated": true,
+      "itemsProp": "collection_ids"
+    },
+    "GetPromocodeVariantIDs": {
+      "id": "GetPromocodeVariantIDs",
+      "method": "get",
+      "path": "/v1/promocodes/{id}/variants",
+      "tag": "Промокоды",
+      "summaryRu": "Получение уникальных идентификаторов товаров промокода",
+      "descriptionRu": "Возвращает уникальные идентификаторы товаров, к которым применяется промокод (на основе его уникального идентификатора).\nРаботает только для промокодов с параметром `binding_mode = SELECTED_VARIANTS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "AddPromocodeObjects": {
+      "id": "AddPromocodeObjects",
+      "method": "post",
+      "path": "/v1/promocodes/{id}/objects/add",
+      "tag": "Промокоды",
+      "summaryRu": "Добавление объектов в промокод",
+      "descriptionRu": "Добавляет товары, категории или коллекции в промокод. Максимальное количество объектов — 500.\n\nПромокод должен иметь параметр `binding_mode = SELECTED_VARIANTS` (для добавления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для добавления категорий и коллекций).",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/PromocodeObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemovePromocodeObjects": {
+      "id": "RemovePromocodeObjects",
+      "method": "post",
+      "path": "/v1/promocodes/{id}/objects/remove",
+      "tag": "Промокоды",
+      "summaryRu": "Удаление объектов из промокода",
+      "descriptionRu": "Удаляет товары, категории или категории из промокода. Максимальное количество объектов — 500.\n\nПромокод должен иметь `binding_mode = SELECTED_VARIANTS` (для удаления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для удаления категорий или коллекций).",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/PromocodeObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetGifts": {
+      "id": "GetGifts",
+      "method": "get",
+      "path": "/v1/gifts",
+      "tag": "Подарки",
+      "summaryRu": "Получение списка подарков",
+      "descriptionRu": "Возвращает список подарков магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу подарка."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/GiftCollection",
+      "paginated": true,
+      "itemsProp": "gifts"
+    },
+    "CreateGift": {
+      "id": "CreateGift",
+      "method": "post",
+      "path": "/v1/gifts",
+      "tag": "Подарки",
+      "summaryRu": "Создание подарка",
+      "descriptionRu": "Создает новый подарок за покупку с товарами. Подарок создается в статусе `INACTIVE`.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateGiftRequest",
+      "responseSchemaRef": "#/components/schemas/Gift",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetGiftById": {
+      "id": "GetGiftById",
+      "method": "get",
+      "path": "/v1/gifts/{id}",
+      "tag": "Подарки",
+      "summaryRu": "Получение подарка по ID",
+      "descriptionRu": "Возвращает информацию о подарке по его уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Gift",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateGift": {
+      "id": "UpdateGift",
+      "method": "patch",
+      "path": "/v1/gifts/{id}",
+      "tag": "Подарки",
+      "summaryRu": "Обновление подарка",
+      "descriptionRu": "Обновляет подарок. Передаются только изменяемые поля.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateGiftRequest",
+      "responseSchemaRef": "#/components/schemas/Gift",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteGift": {
+      "id": "DeleteGift",
+      "method": "delete",
+      "path": "/v1/gifts/{id}",
+      "tag": "Подарки",
+      "summaryRu": "Удаление подарка",
+      "descriptionRu": "Удаляет подарок.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetGiftVariants": {
+      "id": "GetGiftVariants",
+      "method": "get",
+      "path": "/v1/gifts/{id}/variants",
+      "tag": "Подарки",
+      "summaryRu": "Получение идентификаторов товаров подарка",
+      "descriptionRu": "Возвращает уникальные идентификаторы товаров подарка с пагинацией.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "AddGiftVariants": {
+      "id": "AddGiftVariants",
+      "method": "post",
+      "path": "/v1/gifts/{id}/variants",
+      "tag": "Подарки",
+      "summaryRu": "Добавление товаров в подарок",
+      "descriptionRu": "Добавляет товары в подарок. В подарке может быть не более 50 товаров.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/GiftVariantsRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveGiftVariants": {
+      "id": "RemoveGiftVariants",
+      "method": "delete",
+      "path": "/v1/gifts/{id}/variants",
+      "tag": "Подарки",
+      "summaryRu": "Удаление товаров из подарка",
+      "descriptionRu": "Удаляет товары из подарка. В подарке должен остаться хотя бы один товар.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/GiftVariantsRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetGiftCards": {
+      "id": "GetGiftCards",
+      "method": "get",
+      "path": "/v1/gift_cards",
+      "tag": "Подарочные карты",
+      "summaryRu": "Получение списка подарочных карт",
+      "descriptionRu": "Возвращает список подарочных карт магазина с пагинацией и фильтрами.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "ACTIVATED",
+            "DEACTIVATED",
+            "REFUND_IN_PROGRESS",
+            "REFUNDED",
+            "CANCELLED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу подарочной карты."
+        },
+        {
+          "name": "purchased_date_from",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по дате покупки — начало диапазона (включительно)."
+        },
+        {
+          "name": "purchased_date_to",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по дате покупки — конец диапазона (включительно)."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/GiftCardCollection",
+      "paginated": true,
+      "itemsProp": "gift_cards"
+    },
+    "GetGiftCardById": {
+      "id": "GetGiftCardById",
+      "method": "get",
+      "path": "/v1/gift_cards/{gift_card_id}",
+      "tag": "Подарочные карты",
+      "summaryRu": "Получение подарочной карты по ID",
+      "descriptionRu": "Возвращает информацию о подарочной карте по ее уникальному идентификатору.",
+      "pathParams": [
+        "gift_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/GiftCard",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetContextCollections": {
+      "id": "GetContextCollections",
+      "method": "get",
+      "path": "/v1/context-collections",
+      "tag": "Контекстные коллекции",
+      "summaryRu": "Получение списка контекстных коллекций",
+      "descriptionRu": "Возвращает список контекстных коллекций магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/ContextCollectionList",
+      "paginated": true,
+      "itemsProp": "context_collections"
+    },
+    "CreateContextCollection": {
+      "id": "CreateContextCollection",
+      "method": "post",
+      "path": "/v1/context-collections",
+      "tag": "Контекстные коллекции",
+      "summaryRu": "Создание контекстной коллекции",
+      "descriptionRu": "Создает новую контекстную коллекцию с условиями подбора похожих товаров.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateContextCollectionRequest",
+      "responseSchemaRef": "#/components/schemas/ContextCollection",
+      "paginated": false,
+      "itemsProp": "conditions"
+    },
+    "GetContextCollectionById": {
+      "id": "GetContextCollectionById",
+      "method": "get",
+      "path": "/v1/context-collections/{id}",
+      "tag": "Контекстные коллекции",
+      "summaryRu": "Получение контекстной коллекции по ID",
+      "descriptionRu": "Возвращает контекстную коллекцию по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/ContextCollection",
+      "paginated": false,
+      "itemsProp": "conditions"
+    },
+    "UpdateContextCollection": {
+      "id": "UpdateContextCollection",
+      "method": "patch",
+      "path": "/v1/context-collections/{id}",
+      "tag": "Контекстные коллекции",
+      "summaryRu": "Обновление контекстной коллекции",
+      "descriptionRu": "Обновляет контекстную коллекцию по уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateContextCollectionRequest",
+      "responseSchemaRef": "#/components/schemas/ContextCollection",
+      "paginated": false,
+      "itemsProp": "conditions"
+    },
+    "DeleteContextCollection": {
+      "id": "DeleteContextCollection",
+      "method": "delete",
+      "path": "/v1/context-collections/{id}",
+      "tag": "Контекстные коллекции",
+      "summaryRu": "Удаление контекстной коллекции",
+      "descriptionRu": "Удаляет контекстную коллекцию по уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetDiscounts": {
+      "id": "GetDiscounts",
+      "method": "get",
+      "path": "/v1/discounts",
+      "tag": "Скидки",
+      "summaryRu": "Получение списка скидок",
+      "descriptionRu": "Возвращает список скидок магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE",
+            "ARCHIVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Статус скидки."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/DiscountCollection",
+      "paginated": true,
+      "itemsProp": "discounts"
+    },
+    "CreateDiscount": {
+      "id": "CreateDiscount",
+      "method": "post",
+      "path": "/v1/discounts",
+      "tag": "Скидки",
+      "summaryRu": "Создание скидки",
+      "descriptionRu": "Создает новую скидку.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateDiscountRequest",
+      "responseSchemaRef": "#/components/schemas/Discount",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetDiscountById": {
+      "id": "GetDiscountById",
+      "method": "get",
+      "path": "/v1/discounts/{id}",
+      "tag": "Скидки",
+      "summaryRu": "Получение скидки по ID",
+      "descriptionRu": "Возвращает информацию о скидке по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Discount",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateDiscount": {
+      "id": "UpdateDiscount",
+      "method": "patch",
+      "path": "/v1/discounts/{id}",
+      "tag": "Скидки",
+      "summaryRu": "Обновление скидки",
+      "descriptionRu": "Обновляет скидку.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateDiscountRequest",
+      "responseSchemaRef": "#/components/schemas/Discount",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetDiscountCategoryIDs": {
+      "id": "GetDiscountCategoryIDs",
+      "method": "get",
+      "path": "/v1/discounts/{id}/categories",
+      "tag": "Скидки",
+      "summaryRu": "Получение идентификаторов категорий для которых применяется скидка",
+      "descriptionRu": "Возвращает идентификаторы категорий для которых применяется скидка по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
+      "paginated": true,
+      "itemsProp": "category_ids"
+    },
+    "GetDiscountCollectionIDs": {
+      "id": "GetDiscountCollectionIDs",
+      "method": "get",
+      "path": "/v1/discounts/{id}/collections",
+      "tag": "Скидки",
+      "summaryRu": "Получение идентификаторов коллекций, к которым применяется скидка.",
+      "descriptionRu": "Возвращает идентификаторы коллекций, к которым применяется скидка, по ее уникальному идентификатору.\nИспользуется для скидок с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
+      "paginated": true,
+      "itemsProp": "collection_ids"
+    },
+    "GetDiscountVariantIDs": {
+      "id": "GetDiscountVariantIDs",
+      "method": "get",
+      "path": "/v1/discounts/{id}/variants",
+      "tag": "Скидки",
+      "summaryRu": "Получение уникальных идентификаторов товаров скидки",
+      "descriptionRu": "Возвращает уникальные идентификаторы товаров скидки по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "ArchiveDiscount": {
+      "id": "ArchiveDiscount",
+      "method": "post",
+      "path": "/v1/discounts/{id}/archive",
+      "tag": "Скидки",
+      "summaryRu": "Архивация скидки",
+      "descriptionRu": "Архивирует скидку.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UnarchiveDiscount": {
+      "id": "UnarchiveDiscount",
+      "method": "post",
+      "path": "/v1/discounts/{id}/unarchive",
+      "tag": "Скидки",
+      "summaryRu": "Разархивация скидки",
+      "descriptionRu": "Разархивирует скидку.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "AddDiscountObjects": {
+      "id": "AddDiscountObjects",
+      "method": "post",
+      "path": "/v1/discounts/{id}/objects/add",
+      "tag": "Скидки",
+      "summaryRu": "Добавление объектов в скидку",
+      "descriptionRu": "Добавляет товары или категории в скидку. Максимальное количество объектов — 500.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/DiscountObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveDiscountObjects": {
+      "id": "RemoveDiscountObjects",
+      "method": "post",
+      "path": "/v1/discounts/{id}/objects/remove",
+      "tag": "Скидки",
+      "summaryRu": "Удаление объектов из скидки",
+      "descriptionRu": "Удаляет товары или категории из скидки. Максимальное количество объектов — 500.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/DiscountObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCollectionById": {
+      "id": "GetCollectionById",
+      "method": "get",
+      "path": "/v1/collections/{collection_id}",
+      "tag": "Коллекции",
+      "summaryRu": "Получение коллекции по ID",
+      "descriptionRu": "Возвращает информацию о коллекции по ее уникальному идентификатору.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Collection",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateCollection": {
+      "id": "UpdateCollection",
+      "method": "patch",
+      "path": "/v1/collections/{collection_id}",
+      "tag": "Коллекции",
+      "summaryRu": "Обновление коллекции",
+      "descriptionRu": "Обновляет информацию о коллекции.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateCollectionRequest",
+      "responseSchemaRef": "#/components/schemas/Collection",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteCollectionById": {
+      "id": "DeleteCollectionById",
+      "method": "delete",
+      "path": "/v1/collections/{collection_id}",
+      "tag": "Коллекции",
+      "summaryRu": "Удаление коллекции",
+      "descriptionRu": "Удаляет коллекцию.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "AddCardsToCollection": {
+      "id": "AddCardsToCollection",
+      "method": "post",
+      "path": "/v1/collections/{collection_id}/cards/add",
+      "tag": "Коллекции",
+      "summaryRu": "Добавление карточек в статическую коллекцию",
+      "descriptionRu": "Добавляет карточки в статическую коллекцию.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/AddCardsToStaticCollectionRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveCardsFromCollection": {
+      "id": "RemoveCardsFromCollection",
+      "method": "post",
+      "path": "/v1/collections/{collection_id}/cards/remove",
+      "tag": "Коллекции",
+      "summaryRu": "Удаление карточек из статической коллекции",
+      "descriptionRu": "Удаляет карточки из статической коллекции.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/RemoveCardsFromStaticCollectionRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCollections": {
+      "id": "GetCollections",
+      "method": "get",
+      "path": "/v1/collections",
+      "tag": "Коллекции",
+      "summaryRu": "Получение списка коллекций",
+      "descriptionRu": "Возвращает список коллекций магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Статус коллекции."
+        },
+        {
+          "name": "type",
+          "required": false,
+          "type": "array",
+          "enum": [
+            "STATIC",
+            "DYNAMIC"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Тип коллекции."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionList",
+      "paginated": true,
+      "itemsProp": "collections"
+    },
+    "CreateCollection": {
+      "id": "CreateCollection",
+      "method": "post",
+      "path": "/v1/collections",
+      "tag": "Коллекции",
+      "summaryRu": "Создание коллекции",
+      "descriptionRu": "Создает новую коллекцию.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateCollectionRequest",
+      "responseSchemaRef": "#/components/schemas/Collection",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetVariantsByCollectionId": {
+      "id": "GetVariantsByCollectionId",
+      "method": "get",
+      "path": "/v1/collections/{collection_id}/variants",
+      "tag": "Коллекции",
+      "summaryRu": "Получение ID товаров коллекции по ID",
+      "descriptionRu": "Возвращает список ID товаров коллекции по ее уникальному идентификатору.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "GetRedirects": {
+      "id": "GetRedirects",
+      "method": "get",
+      "path": "/v1/redirects",
+      "tag": "Редиректы",
+      "summaryRu": "Получение списка редиректов",
+      "descriptionRu": "Возвращает список редиректов магазина с пагинацией и поиском по url_from/url_to.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "url_from",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Поиск по пути, с которого выполняется переадресация (подстрока)."
+        },
+        {
+          "name": "url_to",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Поиск по пути, на который выполняется переадресация (подстрока)."
+        },
+        {
+          "name": "url_any",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Поиск по любому из путей (url_from или url_to). Нельзя указывать вместе с url_from или url_to."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/RedirectList",
+      "paginated": true,
+      "itemsProp": "redirects"
+    },
+    "CreateRedirect": {
+      "id": "CreateRedirect",
+      "method": "post",
+      "path": "/v1/redirects",
+      "tag": "Редиректы",
+      "summaryRu": "Создание редиректа",
+      "descriptionRu": "Создает новый редирект страницы витрины. Редирект всегда создается с HTTP-кодом 301 (Moved Permanently).",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateRedirectRequest",
+      "responseSchemaRef": "#/components/schemas/Redirect",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetRedirectById": {
+      "id": "GetRedirectById",
+      "method": "get",
+      "path": "/v1/redirects/{redirect_id}",
+      "tag": "Редиректы",
+      "summaryRu": "Получение редиректа по ID",
+      "descriptionRu": "Возвращает редирект по его уникальному идентификатору.",
+      "pathParams": [
+        "redirect_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Redirect",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateRedirect": {
+      "id": "UpdateRedirect",
+      "method": "patch",
+      "path": "/v1/redirects/{redirect_id}",
+      "tag": "Редиректы",
+      "summaryRu": "Обновление редиректа",
+      "descriptionRu": "Обновляет редирект. Передавать нужно только изменяемые поля.",
+      "pathParams": [
+        "redirect_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateRedirectRequest",
+      "responseSchemaRef": "#/components/schemas/Redirect",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteRedirectById": {
+      "id": "DeleteRedirectById",
+      "method": "delete",
+      "path": "/v1/redirects/{redirect_id}",
+      "tag": "Редиректы",
+      "summaryRu": "Удаление редиректа",
+      "descriptionRu": "Удаляет редирект.",
+      "pathParams": [
+        "redirect_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetBlogById": {
+      "id": "GetBlogById",
+      "method": "get",
+      "path": "/v1/blogs/{blog_id}",
+      "tag": "Новости",
+      "summaryRu": "Получение новости по уникальному идентификатору",
+      "descriptionRu": "Возвращает новость по уникальному идентификатору.",
+      "pathParams": [
+        "blog_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Blog",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateBlog": {
+      "id": "UpdateBlog",
+      "method": "patch",
+      "path": "/v1/blogs/{blog_id}",
+      "tag": "Новости",
+      "summaryRu": "Обновление новости",
+      "descriptionRu": "Обновляет информацию о новости.",
+      "pathParams": [
+        "blog_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateBlogRequest",
+      "responseSchemaRef": "#/components/schemas/Blog",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteBlogById": {
+      "id": "DeleteBlogById",
+      "method": "delete",
+      "path": "/v1/blogs/{blog_id}",
+      "tag": "Новости",
+      "summaryRu": "Удаление новости",
+      "descriptionRu": "Удаляет новость по уникальному идентификатору.",
+      "pathParams": [
+        "blog_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetBlogs": {
+      "id": "GetBlogs",
+      "method": "get",
+      "path": "/v1/blogs",
+      "tag": "Новости",
+      "summaryRu": "Получение списка новостей",
+      "descriptionRu": "Возвращает список новостей с пагинацией и фильтрацией по статусу.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Статус новости."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/BlogCollection",
+      "paginated": true,
+      "itemsProp": "blogs"
+    },
+    "CreateBlog": {
+      "id": "CreateBlog",
+      "method": "post",
+      "path": "/v1/blogs",
+      "tag": "Новости",
+      "summaryRu": "Создание новости",
+      "descriptionRu": "Создает новость.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateBlogRequest",
+      "responseSchemaRef": "#/components/schemas/Blog",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetWebhooks": {
+      "id": "GetWebhooks",
+      "method": "get",
+      "path": "/v1/webhooks",
+      "tag": "Вебхуки",
+      "summaryRu": "Получение списка вебхуков",
+      "descriptionRu": "Получает список вебхуков.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/WebhookCollection",
+      "paginated": false,
+      "itemsProp": "webhooks"
+    },
+    "CreateWebhook": {
+      "id": "CreateWebhook",
+      "method": "post",
+      "path": "/v1/webhooks",
+      "tag": "Вебхуки",
+      "summaryRu": "Создание вебхука",
+      "descriptionRu": "Создает новый вебхук.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateWebhookRequest",
+      "responseSchemaRef": "#/components/schemas/WebhookWithSecret",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "ValidateWebhook": {
+      "id": "ValidateWebhook",
+      "method": "post",
+      "path": "/v1/webhooks/{webhook_id}/validate",
+      "tag": "Вебхуки",
+      "summaryRu": "Валидация вебхука",
+      "descriptionRu": "Запускает процедуру валидации вебхука. Система отправит POST-запрос на URL вебхука с `\"event\": \"WEBHOOK_VALIDATE\"`.\n\nЕсли передан параметр `activate=true` и ваш сервер вернет HTTP 2xx с телом `{\"message\": \"validated_store_{store_id}\"}`,\nвебхук будет автоматически переведен в статус `ACTIVE`. Идентификатор магазина (`store_id`) доступен через `GET /v1/store`.",
+      "pathParams": [
+        "webhook_id"
+      ],
+      "queryParams": [
+        {
+          "name": "activate",
+          "required": false,
+          "type": "boolean",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": false,
+          "descriptionRu": "Активировать ли вебхук после успешной валидации.\nЕсли `true` и сервер вернул корректный ответ(`{\"message\": \"validated_store_{store_id}\"}`), вебхук переводится в статус `ACTIVE`."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetWebhookById": {
+      "id": "GetWebhookById",
+      "method": "get",
+      "path": "/v1/webhooks/{webhook_id}",
+      "tag": "Вебхуки",
+      "summaryRu": "Получение вебхука по уникальному идентификатору",
+      "descriptionRu": "Получает вебхук по уникальному идентификатору.",
+      "pathParams": [
+        "webhook_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Webhook",
+      "paginated": false,
+      "itemsProp": "events"
+    },
+    "UpdateWebhook": {
+      "id": "UpdateWebhook",
+      "method": "patch",
+      "path": "/v1/webhooks/{webhook_id}",
+      "tag": "Вебхуки",
+      "summaryRu": "Обновление вебхука",
+      "descriptionRu": "Обновляет информацию о вебхуке.",
+      "pathParams": [
+        "webhook_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateWebhookRequest",
+      "responseSchemaRef": "#/components/schemas/Webhook",
+      "paginated": false,
+      "itemsProp": "events"
+    },
+    "DeleteWebhook": {
+      "id": "DeleteWebhook",
+      "method": "delete",
+      "path": "/v1/webhooks/{webhook_id}",
+      "tag": "Вебхуки",
+      "summaryRu": "Удаление вебхука",
+      "descriptionRu": "Удаляет вебхук по уникальному идентификатору.",
+      "pathParams": [
+        "webhook_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetBadgeById": {
+      "id": "GetBadgeById",
+      "method": "get",
+      "path": "/v1/badges/{badge_id}",
+      "tag": "Бейджи",
+      "summaryRu": "Получение бейджа по уникальному идентификатору",
+      "descriptionRu": "Получает бейдж по уникальному идентификатору.",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Badge",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateBadge": {
+      "id": "UpdateBadge",
+      "method": "patch",
+      "path": "/v1/badges/{badge_id}",
+      "tag": "Бейджи",
+      "summaryRu": "Обновление бейджа",
+      "descriptionRu": "Обновляет информацию о бейдже.",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateBadgeRequest",
+      "responseSchemaRef": "#/components/schemas/Badge",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteBadgeById": {
+      "id": "DeleteBadgeById",
+      "method": "delete",
+      "path": "/v1/badges/{badge_id}",
+      "tag": "Бейджи",
+      "summaryRu": "Удаление бейджа",
+      "descriptionRu": "Удаляет бейдж.",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetBadges": {
+      "id": "GetBadges",
+      "method": "get",
+      "path": "/v1/badges",
+      "tag": "Бейджи",
+      "summaryRu": "Получение списка бейджей",
+      "descriptionRu": "Получает список бейджей.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/BadgeCollection",
+      "paginated": true,
+      "itemsProp": "badges"
+    },
+    "CreateBadge": {
+      "id": "CreateBadge",
+      "method": "post",
+      "path": "/v1/badges",
+      "tag": "Бейджи",
+      "summaryRu": "Создание бейджа",
+      "descriptionRu": "Создает новый бейдж.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateBadgeRequest",
+      "responseSchemaRef": "#/components/schemas/Badge",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetBadgeVariantIDs": {
+      "id": "GetBadgeVariantIDs",
+      "method": "get",
+      "path": "/v1/badges/{badge_id}/variants",
+      "tag": "Бейджи",
+      "summaryRu": "Получение уникальных идентификаторов товаров бейджа",
+      "descriptionRu": "Возвращает уникальные идентификаторы товаров бейджа по его уникальному идентификатору.",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "GetBadgeCategoryIDs": {
+      "id": "GetBadgeCategoryIDs",
+      "method": "get",
+      "path": "/v1/badges/{badge_id}/categories",
+      "tag": "Бейджи",
+      "summaryRu": "Получение идентификаторов категорий бейджа",
+      "descriptionRu": "Возвращает идентификаторы категорий бейджа по его уникальному идентификатору.",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
+      "paginated": true,
+      "itemsProp": "category_ids"
+    },
+    "GetBadgeCollectionIDs": {
+      "id": "GetBadgeCollectionIDs",
+      "method": "get",
+      "path": "/v1/badges/{badge_id}/collections",
+      "tag": "Бейджи",
+      "summaryRu": "Получение идентификаторов коллекций бейджа",
+      "descriptionRu": "Возвращает идентификаторы коллекций бейджа по его уникальному идентификатору.",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
+      "paginated": true,
+      "itemsProp": "collection_ids"
+    },
+    "AddBadgeObjects": {
+      "id": "AddBadgeObjects",
+      "method": "post",
+      "path": "/v1/badges/{badge_id}/objects/add",
+      "tag": "Бейджи",
+      "summaryRu": "Добавление объектов в бейдж",
+      "descriptionRu": "Добавляет товары или категории в бейдж. Максимальное количество объектов — 500.\n\nБейдж должен иметь `binding_mode = SELECTED_VARIANTS` (для добавления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для добавления категорий и коллекций).",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/BadgeObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveBadgeObjects": {
+      "id": "RemoveBadgeObjects",
+      "method": "post",
+      "path": "/v1/badges/{badge_id}/objects/remove",
+      "tag": "Бейджи",
+      "summaryRu": "Удаление объектов из бейджа",
+      "descriptionRu": "Удаляет товары или категории из бейджа. Максимальное количество объектов — 500.\n\nБейдж должен иметь `binding_mode = SELECTED_VARIANTS` (для удаления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для удаления категорий и коллекций).",
+      "pathParams": [
+        "badge_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/BadgeObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetRegions": {
+      "id": "GetRegions",
+      "method": "get",
+      "path": "/v1/geo/regions",
+      "tag": "Гео",
+      "summaryRu": "Получение списка регионов",
+      "descriptionRu": "Получает список регионов. Регионы представляют собой иерархическую структуру географических областей (страны, регионы, города), где каждый регион имеет уникальный идентификатор, название и идентификатор родительского региона.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/RegionCollection",
+      "paginated": false,
+      "itemsProp": "regions"
+    },
+    "GetAddons": {
+      "id": "GetAddons",
+      "method": "get",
+      "path": "/v1/addons",
+      "tag": "Услуги",
+      "summaryRu": "Получение списка услуг",
+      "descriptionRu": "Возвращает список услуг магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/AddonCollection",
+      "paginated": true,
+      "itemsProp": "addons"
+    },
+    "CreateAddon": {
+      "id": "CreateAddon",
+      "method": "post",
+      "path": "/v1/addons",
+      "tag": "Услуги",
+      "summaryRu": "Создание услуги",
+      "descriptionRu": "Создает новую услугу.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateAddonRequest",
+      "responseSchemaRef": "#/components/schemas/Addon",
+      "paginated": false,
+      "itemsProp": "attachments"
+    },
+    "GetAddonById": {
+      "id": "GetAddonById",
+      "method": "get",
+      "path": "/v1/addons/{id}",
+      "tag": "Услуги",
+      "summaryRu": "Получение услуги по ID",
+      "descriptionRu": "Возвращает информацию об услуге по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Addon",
+      "paginated": false,
+      "itemsProp": "attachments"
+    },
+    "UpdateAddon": {
+      "id": "UpdateAddon",
+      "method": "patch",
+      "path": "/v1/addons/{id}",
+      "tag": "Услуги",
+      "summaryRu": "Обновление услуги",
+      "descriptionRu": "Обновляет существующую услугу.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateAddonRequest",
+      "responseSchemaRef": "#/components/schemas/Addon",
+      "paginated": false,
+      "itemsProp": "attachments"
+    },
+    "DeleteAddon": {
+      "id": "DeleteAddon",
+      "method": "delete",
+      "path": "/v1/addons/{id}",
+      "tag": "Услуги",
+      "summaryRu": "Удаление услуги",
+      "descriptionRu": "Удаляет существующую услугу.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetAddonVariantIDs": {
+      "id": "GetAddonVariantIDs",
+      "method": "get",
+      "path": "/v1/addons/{id}/variants",
+      "tag": "Услуги",
+      "summaryRu": "Получение уникальных идентификаторов товаров услуги",
+      "descriptionRu": "Возвращает уникальные идентификаторы товаров услуги по ее уникальному идентификатору.\nИмеет смысл только для услуг с `binding_mode = SELECTED_VARIANTS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "GetAddonCategoryIDs": {
+      "id": "GetAddonCategoryIDs",
+      "method": "get",
+      "path": "/v1/addons/{id}/categories",
+      "tag": "Услуги",
+      "summaryRu": "Получение идентификаторов категорий услуги",
+      "descriptionRu": "Возвращает идентификаторы категорий услуги по ее уникальному идентификатору.\nИмеет смысл только для услуг с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
+      "paginated": true,
+      "itemsProp": "category_ids"
+    },
+    "GetAddonCollectionIDs": {
+      "id": "GetAddonCollectionIDs",
+      "method": "get",
+      "path": "/v1/addons/{id}/collections",
+      "tag": "Услуги",
+      "summaryRu": "Получение идентификаторов коллекций услуги.",
+      "descriptionRu": "Возвращает идентификаторы коллекций услуги по ее уникальному идентификатору.\nИмеет смысл только для услуг с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
+      "paginated": true,
+      "itemsProp": "collection_ids"
+    },
+    "AddAddonObjects": {
+      "id": "AddAddonObjects",
+      "method": "post",
+      "path": "/v1/addons/{id}/objects/add",
+      "tag": "Услуги",
+      "summaryRu": "Добавление объектов в услугу",
+      "descriptionRu": "Добавляет товары, категории или коллекции в услугу. Лимит на количество объектов — 500.\nУслуга должна иметь `binding_mode = SELECTED_VARIANTS` (для добавления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для добавления категорий и коллекций).",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/AddonObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveAddonObjects": {
+      "id": "RemoveAddonObjects",
+      "method": "post",
+      "path": "/v1/addons/{id}/objects/remove",
+      "tag": "Услуги",
+      "summaryRu": "Удаление объектов из услуги",
+      "descriptionRu": "Удаляет товары, категории или коллекции из услуги. Лимит на количество объектов — 500.\nУслуга должна иметь `binding_mode = SELECTED_VARIANTS` (для удаления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для удаления категорий и коллекций).",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/AddonObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "yandex-kit-ai-toolkit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI toolkit for the Yandex KIT e-commerce platform API: typed client, MCP server and agent skills generated from the official OpenAPI spec",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w packages/core && npm run build -w packages/mcp",
+    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w packages/codegen && npm run typecheck -w packages/mcp",
+    "test": "npm run test -w packages/core && npm run test -w packages/mcp",
+    "gen": "npm run gen -w packages/codegen",
+    "spec:fetch": "npm run fetch -w packages/codegen",
+    "smoke": "npm run smoke -w packages/mcp"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.0",
+    "tsx": "^4.22.0",
+    "typescript": "^5.7.0"
+  }
+}
