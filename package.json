@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "npm run build -w packages/core && npm run build -w packages/mcp",
-    "typecheck": "npm run typecheck -w packages/core && npm run typecheck -w packages/codegen && npm run typecheck -w packages/mcp",
+    "typecheck": "npm run build -w packages/core && npm run typecheck -w packages/core && npm run typecheck -w packages/codegen && npm run typecheck -w packages/mcp",
     "test": "npm run test -w packages/core && npm run test -w packages/mcp",
     "gen": "npm run gen -w packages/codegen",
     "spec:fetch": "npm run fetch -w packages/codegen",
