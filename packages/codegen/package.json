@@ -9,11 +9,12 @@
     "node": ">=20"
   },
   "scripts": {
-    "gen": "tsx src/gen-registry.ts && tsx src/gen-types.ts && tsx src/gen-docs.ts",
+    "gen": "tsx src/gen-registry.ts && tsx src/gen-types.ts && tsx src/gen-docs.ts && tsx src/gen-skills.ts",
     "fetch": "tsx src/fetch-spec.ts",
     "typecheck": "tsc -p tsconfig.check.json"
   },
   "dependencies": {
+    "esbuild": "^0.28.1",
     "openapi-typescript": "^7.13.0"
   }
 }

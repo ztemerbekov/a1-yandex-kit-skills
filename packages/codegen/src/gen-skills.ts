@@ -1,0 +1,555 @@
+/**
+ * Generates the skills/ layer (shopify-ai-toolkit-style agent skills) from the
+ * operation registry, the OpenAPI spec snapshot and docs/TOOLS.md:
+ *
+ *   skills/<name>/SKILL.md                — frontmatter routing + workflow + endpoint tables
+ *   skills/<name>/data/kit_v1.json.gz     — gzipped OpenAPI spec (shared by the scripts)
+ *   skills/<name>/scripts/search_docs.mjs — dep-free search/inspect (node builtins only)
+ *   skills/<name>/scripts/validate.mjs    — esbuild bundle vendoring Ajv (offline validation)
+ *
+ * All six skills ship identical scripts + data, so each is standalone-installable.
+ * Output is deterministic: prose lives in template constants here, tables come from
+ * the registry in spec order, gzip of identical input is byte-stable, and the esbuild
+ * bundle is stable for a pinned esbuild version.
+ *
+ * Run: npm run gen (repo root) or tsx src/gen-skills.ts (after gen-registry + gen-docs).
+ */
+import { build } from "esbuild";
+import { gzipSync } from "node:zlib";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const SPEC_PATH = fileURLToPath(new URL("../../../specs/kit-swagger.openapi.json", import.meta.url));
+const REGISTRY_PATH = fileURLToPath(new URL("../../core/src/generated/registry.json", import.meta.url));
+const TOOLS_MD_PATH = fileURLToPath(new URL("../../../docs/TOOLS.md", import.meta.url));
+const SKILL_SRC_DIR = fileURLToPath(new URL("./skill-src/", import.meta.url));
+const CODEGEN_DIR = fileURLToPath(new URL("../", import.meta.url));
+const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
+
+const SKILL_VERSION = "0.1.0";
+const SKILL_AUTHOR = "gistrec";
+const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVariant", "UpdateWarehouse"];
+
+// ---------------------------------------------------------------------------
+// Inputs
+// ---------------------------------------------------------------------------
+
+interface RegistryOp {
+  id: string;
+  method: string;
+  path: string;
+  tag: string;
+  summaryRu: string;
+  requestContentType: string | null;
+}
+
+const registry: { opsCount: number; ops: Record<string, RegistryOp> } = JSON.parse(
+  readFileSync(REGISTRY_PATH, "utf8"),
+);
+// Object.entries preserves gen-registry's insertion order == spec order.
+const allOps = Object.values(registry.ops);
+
+const specBytes = readFileSync(SPEC_PATH);
+const specSchemas: Record<string, { enum?: string[]; properties?: Record<string, { nullable?: boolean }> }> =
+  JSON.parse(specBytes.toString("utf8")).components?.schemas ?? {};
+
+/** docs/TOOLS.md tool tables, keyed by tool-file basename (products, meta, ...). */
+function parseToolsMd(): Map<string, { name: string; description: string }[]> {
+  const sections = new Map<string, { name: string; description: string }[]>();
+  let current: { name: string; description: string }[] | null = null;
+  for (const line of readFileSync(TOOLS_MD_PATH, "utf8").split("\n")) {
+    const heading = line.match(/^## .+ \(`([a-z]+)\.ts`\)$/);
+    if (heading) {
+      current = [];
+      sections.set(heading[1]!, current);
+      continue;
+    }
+    if (line.startsWith("## ")) {
+      current = null; // "Operation coverage" and beyond
+      continue;
+    }
+    const row = line.match(/^\| `([a-z_]+)` \| (?:yes|no) \| (.+) \|$/);
+    if (row && current) current.push({ name: row[1]!, description: row[2]!.trim() });
+  }
+  return sections;
+}
+
+const toolSections = parseToolsMd();
+const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
+if (toolCount !== 61) {
+  throw new Error(`Expected 61 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+}
+
+// ---------------------------------------------------------------------------
+// Skill definitions
+// ---------------------------------------------------------------------------
+
+interface SkillDef {
+  name: string;
+  /** Frontmatter routing signal: what it does + "Use when ..." hint. */
+  description: string;
+  /** Markdown body between the H1 and the Workflow section. */
+  overview: string;
+  /** Registry tags whose endpoint tables the skill gets (null: router skill, no tables). */
+  tags: string[] | null;
+  /** docs/TOOLS.md sections listed under "Related MCP tools". */
+  toolFiles: string[];
+  /** Trailing note in "Related MCP tools" about tags without dedicated tools. */
+  toolsNote: string | null;
+  /** Existing operation ids used in the workflow examples. */
+  exampleQuery: string;
+  exampleOp: string;
+  /** First bullet of the Execute step (skill-specific tool names). */
+  executeToolsBullet: string;
+}
+
+const DOMAIN_TRAILER =
+  "For authentication (`Authorization: Bearer <token>`), the base URL " +
+  "(`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the " +
+  "`{code, message, trace_id}` error contract, see the `yandex-kit` skill.";
+
+const ROUTER_OVERVIEW = `Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
+Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
+prices and for managing orders between a merchant's backend and the platform. The official
+docs are in Russian; the full OpenAPI spec (${registry.opsCount} operations) is bundled with this skill in
+\`data/kit_v1.json.gz\` and searchable offline with the scripts below.
+
+## API essentials
+
+- **Base URL**: \`https://api.kit.yandex.net\`, every path is prefixed with \`/v1/\`.
+- **Auth**: \`Authorization: Bearer <token>\` (plain HTTP Bearer, not OAuth). The token is
+  generated in the merchant cabinet: **Settings → API → Generate token** — it is shown
+  **only once**, store it securely and generate a new one if lost.
+- **Rate limit**: 3 requests per second per store, no quota headers. Exceeding it returns
+  code \`LIMIT_EXCEEDED\` with **HTTP 400 (not 429)** — throttle client-side and detect the
+  error by its \`code\`, not by the status.
+- **Error contract**: every error is JSON \`{"code", "message", "trace_id"}\`. Codes:
+  \`AUTHENTICATION_ERROR\` (401), \`FORBIDDEN_ERROR\` (403), \`VALIDATION_ERROR\` (400),
+  \`LIMIT_EXCEEDED\` (400), \`UNSUPPORTED_MEDIA_TYPE\` (415), \`NOT_FOUND\` (404),
+  \`CONFLICT\` (409), \`UNKNOWN_ERROR\` (500). Quote \`trace_id\` when contacting support.
+- **Datetimes**: everything is UTC.
+- **No sandbox**: production only — prefer read-only calls while exploring and
+  double-check every write.
+- **Pagination**: list endpoints take \`page\` + \`per_page\` (max 100) query parameters.
+- **Content types**: request bodies are \`application/json\`, except exactly four operations
+  that use JSON Merge Patch (\`application/merge-patch+json\`): ${MERGE_PATCH_OPS.map((id) => `\`${id}\``).join(", ")} — send only the fields to change.
+  \`null\` clears a field only where the schema marks it nullable — of the four, that is
+  just \`parent_id\` and \`file_id\` of \`UpdateCategory\`; elsewhere \`null\` fails
+  validation (\`validate.mjs\` below will catch it). \`POST /v1/files\` (\`UploadFile\`)
+  is \`multipart/form-data\`.`;
+
+const ROUTER_DOMAIN_SKILLS = `## Domain skills
+
+Prefer the focused skill when the task clearly belongs to one domain — each bundles the
+same scripts and data, plus the endpoint tables of its tags:
+
+- \`yandex-kit-catalog\` — products, variants (SKUs, prices, stocks), categories,
+  characteristics, collections, context collections, badges.
+- \`yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
+- \`yandex-kit-marketing\` — discounts, promo codes, gifts.
+- \`yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects, blog/news.
+- \`yandex-kit-webhooks\` — webhooks: order events, HTTPS callbacks, signing secret.`;
+
+const WEBHOOKS_OVERVIEW = `Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
+order lifecycle notifications and managing those subscriptions.
+
+Key facts:
+
+- Callback URLs must be **HTTPS** — plain \`http://\` URLs are rejected.
+- Exactly **three event types** exist: \`ORDER_STATUS_CHANGED\`,
+  \`ORDER_PAYMENT_STATUS_CHANGED\` and \`ORDER_DELIVERY_STATUS_CHANGED\`.
+- Creating a webhook (\`CreateWebhook\`) returns a signing \`secret\` that is shown
+  **only once** — persist it immediately; it cannot be retrieved later (delete and
+  recreate the webhook if lost).
+- **The signature algorithm is not documented by Yandex.** Use the secret to verify that
+  incoming calls are authentic, but check the KIT community chat
+  (https://t.me/+f9qV8snaY1pmM2Ji) or Yandex support for the current signing scheme
+  before relying on any particular construction.
+- \`ValidateWebhook\` asks the API to POST a \`WEBHOOK_VALIDATE\` event to your URL — use it
+  to test reachability after deploying the receiver.
+
+${DOMAIN_TRAILER}`;
+
+const SKILLS: SkillDef[] = [
+  {
+    name: "yandex-kit",
+    description:
+      "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, " +
+      "base URL, rate limits, error contract, pagination and offline spec search/validation scripts. " +
+      "Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, marketing, " +
+      "store, webhooks) clearly fits, or when you need auth, limits or error-handling basics.",
+    overview: ROUTER_OVERVIEW,
+    tags: null,
+    toolFiles: ["meta"],
+    toolsNote: null,
+    exampleQuery: "создать товар",
+    exampleOp: "CreateProduct",
+    executeToolsBullet:
+      "prefer the bundled `mcp-yandex-kit` MCP server: a curated tool when one exists " +
+      "(see the domain skills), otherwise the meta trio below;",
+  },
+  {
+    name: "yandex-kit-catalog",
+    description:
+      "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, " +
+      "stocks), categories, characteristics, collections, context collections and badges. " +
+      "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store.",
+    overview: `Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
+Категории товаров, Характеристики товаров, Коллекции, Контекстные коллекции, Бейджи.
+In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
+and per-warehouse stocks, and a product (\`/v1/products\`) groups variants, so most
+«товар» operations act on variants. A variant carries two **distinct** identifiers:
+\`product_id\` and \`product_card_id\` (карточка товара) — the card-scoped endpoints
+(\`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
+«Добавление/Удаление карточек») take \`product_card_id\`, never a product id; read it
+from the variant first. Mind the content types: \`UpdateVariant\`, \`UpdateCategory\` and
+\`UpdateCharacteristic\` use JSON Merge Patch (\`application/merge-patch+json\` — send
+only the fields to change; \`null\` clears only the fields the schema marks nullable,
+see the \`yandex-kit\` skill), while the other updates are plain \`application/json\`.
+
+${DOMAIN_TRAILER}`,
+    tags: ["Товары", "Категории товаров", "Характеристики товаров", "Коллекции", "Контекстные коллекции", "Бейджи"],
+    toolFiles: ["products", "variants", "categories", "collections"],
+    toolsNote:
+      "Характеристики товаров, Контекстные коллекции and Бейджи have no dedicated tools — " +
+      "reach them through `search_operations` + `kit_request`.",
+    exampleQuery: "создать товар",
+    exampleOp: "CreateProduct",
+    executeToolsBullet:
+      "prefer the matching `mcp-yandex-kit` MCP tool from «Related MCP tools» below " +
+      "(e.g. `create_product`, `update_variant`);",
+  },
+  {
+    name: "yandex-kit-orders",
+    description:
+      "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, " +
+      "gift cards and additional services (addons). Use when listing, confirming or cancelling " +
+      "KIT orders, or when looking up customers, their orders or gift cards.",
+    overview: `Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
+Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
+through the API you list and inspect them, confirm or cancel them, and read the attached
+additional services (addons), customer records and gift cards. All datetimes are UTC,
+and list endpoints paginate with \`page\`/\`per_page\` (max 100).
+
+${DOMAIN_TRAILER}`,
+    tags: ["Заказы", "Клиенты", "Подарочные карты", "Услуги"],
+    toolFiles: ["orders", "customers", "giftcards"],
+    toolsNote:
+      "Услуги (addons) beyond `get_order_addons` have no dedicated tools — manage them " +
+      "through `search_operations` + `kit_request`.",
+    exampleQuery: "подтвердить заказ",
+    exampleOp: "ConfirmOrder",
+    executeToolsBullet:
+      "prefer the matching `mcp-yandex-kit` MCP tool from «Related MCP tools» below " +
+      "(e.g. `list_orders`, `confirm_order`);",
+  },
+  {
+    name: "yandex-kit-marketing",
+    description:
+      "Manage marketing promotions in a Yandex KIT store over its REST API: discounts, promo codes " +
+      "and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding " +
+      "them to products, categories or collections.",
+    overview: `Covers the marketing domain of the Yandex KIT e-commerce API — tags: Скидки,
+Промокоды, Подарки. All three promotion kinds are created first and then bound to
+objects: discounts and promocodes to variants, categories or collections via the
+\`.../objects/add\` and \`.../objects/remove\` endpoints, gifts to variants via
+\`POST\`/\`DELETE /v1/gifts/{id}/variants\`. End-of-life differs per kind — **only
+discounts can be archived** (\`ArchiveDiscount\`/\`UnarchiveDiscount\`, status
+\`ACTIVE\`/\`INACTIVE\`/\`ARCHIVED\`; archived discounts stop applying but stay
+restorable). Promocodes and gifts have no archive endpoints and only two statuses,
+\`ACTIVE\`/\`INACTIVE\` — pause them by PATCHing \`status\` to \`INACTIVE\` via
+\`UpdatePromocode\`/\`UpdateGift\`. \`DeleteGift\` removes a gift **permanently**, with
+no restore — prefer deactivation.
+
+${DOMAIN_TRAILER}`,
+    tags: ["Скидки", "Промокоды", "Подарки"],
+    toolFiles: ["discounts", "promocodes"],
+    toolsNote: "Подарки (gifts) have no dedicated tools — manage them through `search_operations` + `kit_request`.",
+    exampleQuery: "создать скидку",
+    exampleOp: "CreateDiscount",
+    executeToolsBullet:
+      "prefer the matching `mcp-yandex-kit` MCP tool from «Related MCP tools» below " +
+      "(e.g. `create_discount`, `manage_promocode_objects`);",
+  },
+  {
+    name: "yandex-kit-store",
+    description:
+      "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, " +
+      "geo regions, file uploads, redirects and blog/news posts. Use when reading store metadata, " +
+      "managing warehouses or redirects, uploading files or publishing news in a Yandex KIT store.",
+    overview: `Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
+Склады, Пользователи, Гео, Файлы, Редиректы, Новости. This is where you read the store
+profile and the API user, manage warehouses (variant stocks reference them; \`UpdateWarehouse\`
+uses JSON Merge Patch), upload files (\`POST /v1/files\` is the API's only
+\`multipart/form-data\` endpoint), and maintain SEO redirects and blog/news posts.
+
+${DOMAIN_TRAILER}`,
+    tags: ["Магазин", "Склады", "Пользователи", "Гео", "Файлы", "Редиректы", "Новости"],
+    toolFiles: ["store", "warehouses", "files"],
+    toolsNote:
+      "Редиректы and Новости have no dedicated tools — manage them through `search_operations` + `kit_request`.",
+    exampleQuery: "создать склад",
+    exampleOp: "CreateWarehouse",
+    executeToolsBullet:
+      "prefer the matching `mcp-yandex-kit` MCP tool from «Related MCP tools» below " +
+      "(e.g. `get_store`, `create_warehouse`);",
+  },
+  {
+    name: "yandex-kit-webhooks",
+    description:
+      "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, " +
+      "payment and delivery events and handle the one-time signing secret. Use when creating, " +
+      "updating, validating or deleting KIT webhooks, or when verifying incoming webhook calls.",
+    overview: WEBHOOKS_OVERVIEW,
+    tags: ["Вебхуки"],
+    toolFiles: ["webhooks"],
+    toolsNote: null,
+    exampleQuery: "создать вебхук",
+    exampleOp: "CreateWebhook",
+    executeToolsBullet:
+      "prefer the matching `mcp-yandex-kit` MCP tool from «Related MCP tools» below " +
+      "(e.g. `create_webhook`, `validate_webhook`);",
+  },
+];
+
+// Drift guards: the domain skills must cover every registry tag exactly once,
+// and every referenced example operation/tool section must exist.
+{
+  const covered = SKILLS.flatMap((skill) => skill.tags ?? []);
+  const registryTags = [...new Set(allOps.map((op) => op.tag))];
+  const missing = registryTags.filter((tag) => !covered.includes(tag));
+  const unknown = covered.filter((tag) => !registryTags.includes(tag));
+  if (missing.length > 0 || unknown.length > 0 || covered.length !== registryTags.length) {
+    throw new Error(
+      `Skill tags out of sync with registry. Missing: [${missing.join(", ")}], ` +
+        `unknown or duplicated: [${unknown.join(", ")}]`,
+    );
+  }
+  for (const skill of SKILLS) {
+    if (!registry.ops[skill.exampleOp]) {
+      throw new Error(`Example operation ${skill.exampleOp} of ${skill.name} not in registry`);
+    }
+    for (const file of skill.toolFiles) {
+      if (!toolSections.has(file)) {
+        throw new Error(`Tool section "${file}" of ${skill.name} not found in docs/TOOLS.md`);
+      }
+    }
+  }
+  for (const id of MERGE_PATCH_OPS) {
+    if (registry.ops[id]?.requestContentType !== "application/merge-patch+json") {
+      throw new Error(`${id} is no longer a merge-patch operation — update gen-skills.ts`);
+    }
+  }
+  // Prose facts hard-coded above: which merge-patch fields are nullable and
+  // which promotion kinds can be archived. Fail loudly if the spec drifts.
+  const nullableProps = (schema: string) =>
+    Object.entries(specSchemas[schema]?.properties ?? {})
+      .filter(([, prop]) => prop.nullable === true)
+      .map(([name]) => name)
+      .sort()
+      .join(",");
+  if (nullableProps("UpdateCategoryRequest") !== "file_id,parent_id") {
+    throw new Error("UpdateCategoryRequest nullable fields changed — update the merge-patch prose in gen-skills.ts");
+  }
+  for (const schema of ["UpdateVariantRequest", "UpdateCharacteristicRequest", "UpdateWarehouseRequest"]) {
+    if (nullableProps(schema) !== "") {
+      throw new Error(`${schema} gained nullable fields — update the merge-patch prose in gen-skills.ts`);
+    }
+  }
+  const statusEnum = (schema: string) => (specSchemas[schema]?.enum ?? []).join(",");
+  if (!(specSchemas.DiscountStatus?.enum ?? []).includes("ARCHIVED")) {
+    throw new Error("DiscountStatus lost ARCHIVED — update the marketing lifecycle prose in gen-skills.ts");
+  }
+  for (const schema of ["PromocodeStatus", "GiftStatus"]) {
+    if (statusEnum(schema) !== "ACTIVE,INACTIVE") {
+      throw new Error(`${schema} enum changed — update the marketing lifecycle prose in gen-skills.ts`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SKILL.md rendering
+// ---------------------------------------------------------------------------
+
+function yamlQuote(text: string): string {
+  return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function escapeCell(text: string): string {
+  return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+}
+
+function frontmatter(skill: SkillDef): string {
+  return [
+    "---",
+    `name: ${skill.name}`,
+    `description: ${yamlQuote(skill.description)}`,
+    'compatibility: "Requires Node.js >= 20"',
+    "metadata:",
+    `  author: ${SKILL_AUTHOR}`,
+    `  version: "${SKILL_VERSION}"`,
+    "---",
+  ].join("\n");
+}
+
+function workflowSection(skill: SkillDef): string {
+  return `## Workflow
+
+Run the bundled scripts from this skill's directory — they are self-contained
+(Node.js >= 20, builtins + a vendored validator, no \`npm install\`, no network).
+
+1. **Search** for the operation you need:
+
+   \`\`\`bash
+   node scripts/search_docs.mjs "<query>" [--tag "<Тег>"] [--limit N]
+   \`\`\`
+
+   Matches operation ids, paths, tags and the Russian summaries/descriptions,
+   e.g. \`node scripts/search_docs.mjs "${skill.exampleQuery}"\`.
+
+2. **Inspect** the full contract of one operation — path/query parameters plus the fully
+   dereferenced request/response schemas:
+
+   \`\`\`bash
+   node scripts/search_docs.mjs --operation ${skill.exampleOp}
+   \`\`\`
+
+3. **Validate** a drafted request body offline before sending anything:
+
+   \`\`\`bash
+   node scripts/validate.mjs --operation ${skill.exampleOp} --body '<json>'
+   # or: node scripts/validate.mjs --operation ${skill.exampleOp} --body-file body.json
+   \`\`\`
+
+   Prints \`VALID\` (exit 0) or the list of schema violations (exit 1).
+
+4. **Execute** the operation:
+
+   - ${skill.executeToolsBullet}
+   - any operation without a dedicated tool: the \`kit_request\` MCP tool — it validates
+     the body against the same schema before sending;
+   - or plain HTTP:
+     \`curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...\`
+     (mind the 3 rps limit).`;
+}
+
+function endpointsSection(tags: string[]): string {
+  const lines: string[] = [];
+  let total = 0;
+  const tables: string[] = [];
+  for (const tag of tags) {
+    const tagOps = allOps.filter((op) => op.tag === tag); // registry order == spec order
+    if (tagOps.length === 0) throw new Error(`No operations for tag "${tag}"`);
+    total += tagOps.length;
+    const rows = [
+      `### ${tag}`,
+      "",
+      "| Method | Path | OperationId | Summary (RU) |",
+      "| --- | --- | --- | --- |",
+      ...tagOps.map(
+        (op) =>
+          `| ${op.method.toUpperCase()} | \`${op.path}\` | \`${op.id}\` | ${escapeCell(op.summaryRu)} |`,
+      ),
+    ];
+    tables.push(rows.join("\n"));
+  }
+  lines.push(`## Endpoints (${total} operations)`);
+  lines.push("");
+  lines.push(tables.join("\n\n"));
+  return lines.join("\n");
+}
+
+function relatedToolsSection(skill: SkillDef): string {
+  const lines: string[] = ["## Related MCP tools", ""];
+  if (skill.tags === null) {
+    lines.push(
+      `The bundled \`mcp-yandex-kit\` MCP server exposes **${toolCount} tools**. Curated tools`,
+      "cover the everyday catalog/orders/marketing/store/webhooks workflows (they are listed",
+      `in the domain skills); the meta trio below reaches **all ${registry.opsCount} operations**:`,
+      "",
+    );
+  } else {
+    lines.push(
+      `Curated \`mcp-yandex-kit\` tools for these tags (the server also exposes the meta trio —`,
+      "`search_operations`, `get_operation_schema`, `kit_request` — reaching all",
+      `${registry.opsCount} operations):`,
+      "",
+    );
+  }
+  for (const file of skill.toolFiles) {
+    for (const tool of toolSections.get(file)!) {
+      lines.push(`- \`${tool.name}\` — ${tool.description}`);
+    }
+  }
+  if (skill.toolsNote !== null) {
+    lines.push("", skill.toolsNote);
+  }
+  return lines.join("\n");
+}
+
+const SKILL_TITLES: Record<string, string> = {
+  "yandex-kit": "Yandex KIT API",
+  "yandex-kit-catalog": "Yandex KIT — Catalog",
+  "yandex-kit-orders": "Yandex KIT — Orders",
+  "yandex-kit-marketing": "Yandex KIT — Marketing",
+  "yandex-kit-store": "Yandex KIT — Store",
+  "yandex-kit-webhooks": "Yandex KIT — Webhooks",
+};
+
+function renderSkillMd(skill: SkillDef): string {
+  const parts = [
+    frontmatter(skill),
+    "",
+    `# ${SKILL_TITLES[skill.name]}`,
+    "",
+    skill.overview,
+    "",
+    workflowSection(skill),
+  ];
+  if (skill.tags === null) {
+    parts.push("", ROUTER_DOMAIN_SKILLS);
+  } else {
+    parts.push("", endpointsSection(skill.tags));
+  }
+  parts.push("", relatedToolsSection(skill), "");
+  return parts.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Emit
+// ---------------------------------------------------------------------------
+
+// gzipSync with default options is byte-stable for identical input (mtime=0 header).
+const specGz = gzipSync(specBytes);
+
+const searchDocsScript = readFileSync(SKILL_SRC_DIR + "search_docs.mjs", "utf8");
+
+const bundle = await build({
+  entryPoints: [SKILL_SRC_DIR + "validate.src.mjs"],
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  target: "node20",
+  minify: false,
+  write: false,
+  legalComments: "none",
+  logLevel: "silent",
+  absWorkingDir: CODEGEN_DIR,
+});
+const validateScript = bundle.outputFiles[0]!.text;
+
+for (const skill of SKILLS) {
+  const dir = OUT_DIR + skill.name + "/";
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir + "data", { recursive: true });
+  mkdirSync(dir + "scripts", { recursive: true });
+  writeFileSync(dir + "SKILL.md", renderSkillMd(skill));
+  writeFileSync(dir + "data/kit_v1.json.gz", specGz);
+  writeFileSync(dir + "scripts/search_docs.mjs", searchDocsScript);
+  writeFileSync(dir + "scripts/validate.mjs", validateScript);
+}
+
+console.log(
+  `gen-skills: ${SKILLS.length} skills (${SKILLS.map((s) => s.name).join(", ")}), ` +
+    `data ${specGz.length} bytes gz, validate.mjs ${validateScript.length} bytes`,
+);

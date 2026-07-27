@@ -29,4 +29,9 @@ jobs:
       - run: npm run build
       - run: npm test
       - name: Generated code drift
-        run: npm run gen && git diff --exit-code -- packages/core/src/generated docs/TOOLS.md
+        # git add -N registers untracked generated files so git diff also fails
+        # when generation emits files that were never committed.
+        run: |
+          npm run gen
+          git add -N -- packages/core/src/generated docs/TOOLS.md skills
+          git diff --exit-code -- packages/core/src/generated docs/TOOLS.md skills

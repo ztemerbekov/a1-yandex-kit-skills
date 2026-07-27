@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "yandex-kit": {
+      "command": "npx",
+      "args": ["-y", "mcp-yandex-kit"],
+      "env": {
+        "YANDEX_KIT_TOKEN": "${YANDEX_KIT_TOKEN:-}"
+      }
+    }
+  }
+}
