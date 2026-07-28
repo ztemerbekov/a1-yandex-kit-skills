@@ -94,7 +94,7 @@ claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- node "$PWD/pa
 Скрипты скиллов самодостаточны и работают голым Node, без `node_modules`:
 
 ```bash
-node skills/yandex-kit/scripts/search_docs.mjs "создать товар"
+node skills/a1-yandex-kit/scripts/search_docs.mjs "создать товар"
 ```
 
 ## Обновление спеки

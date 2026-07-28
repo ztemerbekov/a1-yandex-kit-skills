@@ -1,5 +1,5 @@
 ---
-name: yandex-kit-orders
+name: a1-yandex-kit-orders
 description: "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, gift cards and additional services (addons). Use when listing, confirming or cancelling KIT orders, or when looking up customers, their orders or gift cards."
 compatibility: "Requires Node.js >= 20"
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: "0.1.0"
 ---
 
-# Yandex KIT — Orders
+# A1 Yandex KIT — Orders
 
 Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
@@ -15,7 +15,7 @@ through the API you list and inspect them, confirm or cancel them, and read the 
 additional services (addons), customer records and gift cards. All datetimes are UTC,
 and list endpoints paginate with `page`/`per_page` (max 100).
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `yandex-kit` skill.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
 ## Workflow
 

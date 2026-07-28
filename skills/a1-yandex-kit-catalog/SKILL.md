@@ -1,5 +1,5 @@
 ---
-name: yandex-kit-catalog
+name: a1-yandex-kit-catalog
 description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), categories, characteristics, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: "0.1.0"
 ---
 
-# Yandex KIT — Catalog
+# A1 Yandex KIT — Catalog
 
 Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
 Категории товаров, Характеристики товаров, Коллекции, Контекстные коллекции, Бейджи.
@@ -20,9 +20,9 @@ and per-warehouse stocks, and a product (`/v1/products`) groups variants, so mos
 from the variant first. Mind the content types: `UpdateVariant`, `UpdateCategory` and
 `UpdateCharacteristic` use JSON Merge Patch (`application/merge-patch+json` — send
 only the fields to change; `null` clears only the fields the schema marks nullable,
-see the `yandex-kit` skill), while the other updates are plain `application/json`.
+see the `a1-yandex-kit` skill), while the other updates are plain `application/json`.
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `yandex-kit` skill.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
 ## Workflow
 

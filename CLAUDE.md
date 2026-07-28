@@ -40,7 +40,7 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `get_operation_schema`, `kit_request`) that covers all 133 operations (65 have curated tools).
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
   `gen-docs`, `gen-skills`, `fetch-spec`.
-- `skills/` — 6 agent skills (yandex-kit router + catalog/orders/marketing/store/webhooks).
+- `skills/` — 6 agent skills (a1-yandex-kit router + catalog/orders/marketing/store/webhooks).
 - `.claude-plugin/{plugin,marketplace}.json` + `.mcp.json` — Claude Code plugin
   (plugin `a1-yandex-kit`, marketplace `a1-yandex-kit-skills`).
 
