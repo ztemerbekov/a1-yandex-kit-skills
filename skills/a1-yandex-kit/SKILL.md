@@ -1,5 +1,5 @@
 ---
-name: yandex-kit
+name: a1-yandex-kit
 description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, base URL, rate limits, error contract, pagination and offline spec search/validation scripts. Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, marketing, store, webhooks) clearly fits, or when you need auth, limits or error-handling basics."
 compatibility: "Requires Node.js >= 20"
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: "0.1.0"
 ---
 
-# Yandex KIT API
+# A1 Yandex KIT Skills
 
 Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
@@ -83,12 +83,12 @@ Run the bundled scripts from this skill's directory — they are self-contained
 Prefer the focused skill when the task clearly belongs to one domain — each bundles the
 same scripts and data, plus the endpoint tables of its tags:
 
-- `yandex-kit-catalog` — products, variants (SKUs, prices, stocks), categories,
+- `a1-yandex-kit-catalog` — products, variants (SKUs, prices, stocks), categories,
   characteristics, collections, context collections, badges.
-- `yandex-kit-orders` — orders, customers, gift cards, additional services (addons).
-- `yandex-kit-marketing` — discounts, promo codes, gifts.
-- `yandex-kit-store` — store profile, warehouses, users, geo, files, redirects, blog/news.
-- `yandex-kit-webhooks` — webhooks: order events, HTTPS callbacks, signing secret.
+- `a1-yandex-kit-orders` — orders, customers, gift cards, additional services (addons).
+- `a1-yandex-kit-marketing` — discounts, promo codes, gifts.
+- `a1-yandex-kit-store` — store profile, warehouses, users, geo, files, redirects, blog/news.
+- `a1-yandex-kit-webhooks` — webhooks: order events, HTTPS callbacks, signing secret.
 
 ## Related MCP tools
 

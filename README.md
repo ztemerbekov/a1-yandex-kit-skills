@@ -1,4 +1,4 @@
-# Yandex KIT MCP + AI Toolkit
+# A1 Yandex KIT Skills
 
 [![npm](https://img.shields.io/npm/v/mcp-yandex-kit)](https://www.npmjs.com/package/mcp-yandex-kit)
 [![CI](https://github.com/ztemerbekov/a1-yandex-kit-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/ztemerbekov/a1-yandex-kit-skills/actions/workflows/ci.yml)
@@ -48,20 +48,20 @@ MCP-сервер и AI-тулкит для **API Яндекс KIT** — конс
 
 ### Агентские скиллы
 
-6 скиллов для Claude Code — самодостаточные: спека забандлена (`data/kit_v1.json.gz`), поиск по докам и офлайн-валидация тел запросов запускаются голым Node.js >= 20, без `npm install` и без сети:
+6 универсальных [Agent Skills](https://agentskills.io/) для Codex, Claude Code, Cursor и других совместимых агентов — самодостаточные: спека забандлена (`data/kit_v1.json.gz`), поиск по докам и офлайн-валидация тел запросов запускаются голым Node.js >= 20, без `npm install` и без сети:
 
-- `yandex-kit` — роутер: авторизация, лимиты, контракт ошибок, пагинация;
-- `yandex-kit-catalog` — товары, варианты, категории, характеристики, коллекции (включая контекстные), бейджи;
-- `yandex-kit-orders` — заказы, клиенты, подарочные карты, услуги;
-- `yandex-kit-marketing` — скидки, промокоды, подарки;
-- `yandex-kit-store` — профиль магазина, склады, пользователи, гео, файлы, редиректы, новости;
-- `yandex-kit-webhooks` — вебхуки: события заказов, одноразовый secret.
+- `a1-yandex-kit` — роутер: авторизация, лимиты, контракт ошибок, пагинация;
+- `a1-yandex-kit-catalog` — товары, варианты, категории, характеристики, коллекции (включая контекстные), бейджи;
+- `a1-yandex-kit-orders` — заказы, клиенты, подарочные карты, услуги;
+- `a1-yandex-kit-marketing` — скидки, промокоды, подарки;
+- `a1-yandex-kit-store` — профиль магазина, склады, пользователи, гео, файлы, редиректы, новости;
+- `a1-yandex-kit-webhooks` — вебхуки: события заказов, одноразовый secret.
 
 Установка плагина (скиллы + автоподключение MCP-сервера):
 
 ```bash
 claude plugin marketplace add ztemerbekov/a1-yandex-kit-skills
-claude plugin install yandex-kit@yandex-kit-ai-toolkit
+claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
 Токен плагин берёт из переменной окружения `YANDEX_KIT_TOKEN`. Встроенный MCP-сервер плагина стартует автоматически через `npx -y mcp-yandex-kit`.
@@ -197,7 +197,7 @@ YANDEX_KIT_TOKEN = "ваш_токен"
 - **3 запроса в секунду на магазин** — жёсткий лимит API. При превышении приходит `LIMIT_EXCEEDED` с **HTTP 400** (не 429) — клиент сам троттлит и ретраит с бэкоффом, определяя лимит по коду ошибки.
 - **Песочницы нет** — все вызовы идут в боевой магазин. Изучайте API read-only тулами и перепроверяйте каждую запись.
 - **API в статусе беты** — контракт может меняться; снапшот спеки лежит в `specs/`, CI следит за дрейфом сгенерированного кода.
-- **Вебхуки**: `secret` возвращается только один раз при создании, а алгоритм подписи входящих запросов Яндексом не документирован — детали в скилле `yandex-kit-webhooks`.
+- **Вебхуки**: `secret` возвращается только один раз при создании, а алгоритм подписи входящих запросов Яндексом не документирован — детали в скилле `a1-yandex-kit-webhooks`.
 
 ## Документация
 

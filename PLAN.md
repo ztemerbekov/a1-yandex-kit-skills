@@ -1,4 +1,4 @@
-# Yandex KIT AI Toolkit — план реализации
+# A1 Yandex KIT Skills — план реализации
 
 > Составлен 2026-07-27 по результатам исследования. Предназначен для автономной реализации
 > агентом (ultracode-сессия). Работать по фазам (§6), после каждой фазы прогонять верификацию (§8).
@@ -11,7 +11,7 @@
 «российский Shopify». Его API — server-to-server слой для синхронизации каталога, остатков, цен
 и управления заказами между бэкендом продавца и платформой.
 
-**Цель проекта** — репозиторий `yandex-kit-ai-toolkit` по образцу
+**Цель проекта** — репозиторий `a1-yandex-kit-skills` по образцу
 [Shopify/shopify-ai-toolkit](https://github.com/Shopify/shopify-ai-toolkit), дающий AI-агентам
 полный доступ к KIT API. Домены совпадают идеально (e-commerce платформа), поэтому структура
 Shopify переносится осмысленно, а не механически.
@@ -67,7 +67,7 @@ npm + MCP registry + Glama) — см. §5.
 ## 3. Целевая структура репозитория
 
 ```
-yandex-kit-ai-toolkit/
+a1-yandex-kit-skills/
 ├── specs/
 │   └── kit-swagger.openapi.json      # снапшот спеки — единственный source of truth (УЖЕ ЛЕЖИТ)
 ├── packages/
@@ -97,12 +97,12 @@ yandex-kit-ai-toolkit/
 │           ├── gen-skills.ts         # спека → skills/* (SKILL.md-таблицы, data/*.gz, скрипты)
 │           └── gen-docs.ts           # спека+тулы → docs/TOOLS.md
 ├── skills/                           # слой shopify-ai-toolkit (частично GENERATED)
-│   ├── yandex-kit/                   # роутер-скилл: auth, ошибки, лимиты; scripts/ + data/
-│   ├── yandex-kit-catalog/           # Товары, Категории, Характеристики, Коллекции, Контекстные коллекции, Бейджи
-│   ├── yandex-kit-orders/            # Заказы, Клиенты, Подарочные карты, Услуги
-│   ├── yandex-kit-marketing/         # Скидки, Промокоды, Подарки
-│   ├── yandex-kit-store/             # Магазин, Склады, Пользователи, Гео, Файлы, Редиректы, Новости
-│   └── yandex-kit-webhooks/          # Вебхуки + верификация secret
+│   ├── a1-yandex-kit/                # роутер-скилл: auth, ошибки, лимиты; scripts/ + data/
+│   ├── a1-yandex-kit-catalog/        # Товары, Категории, Характеристики, Коллекции, Контекстные коллекции, Бейджи
+│   ├── a1-yandex-kit-orders/         # Заказы, Клиенты, Подарочные карты, Услуги
+│   ├── a1-yandex-kit-marketing/      # Скидки, Промокоды, Подарки
+│   ├── a1-yandex-kit-store/          # Магазин, Склады, Пользователи, Гео, Файлы, Редиректы, Новости
+│   └── a1-yandex-kit-webhooks/       # Вебхуки + верификация secret
 │       # в каждом: SKILL.md + scripts/{search_docs.mjs, validate.mjs} + data/kit_v1.json.gz
 ├── .claude-plugin/
 │   ├── plugin.json                   # имя, версия, описание плагина
@@ -193,7 +193,7 @@ webhooks, warehouses, collections, files, gift_cards (§7); `gen-docs.ts` → do
 **Phase 4 — скиллы + плагин.** `gen-skills.ts` (6 скиллов: SKILL.md с frontmatter и
 таблицами эндпоинтов, `data/kit_v1.json.gz`, `search_docs.mjs`, esbuild-бандл `validate.mjs`),
 `.claude-plugin/{plugin,marketplace}.json`, непустой `.mcp.json`. Рукой дошлифовать прозу
-роутер-скилла `yandex-kit` (auth/errors/limits) и `yandex-kit-webhooks` (secret, недокументированная
+роутер-скилла `a1-yandex-kit` (auth/errors/limits) и `a1-yandex-kit-webhooks` (secret, недокументированная
 подпись). ✅ `claude plugin marketplace add ./ && claude plugin install …` локально — скиллы видны,
 MCP-сервер подключился; скрипты скиллов запускаются голым node без node_modules.
 
@@ -236,8 +236,8 @@ npx @modelcontextprotocol/inspector --cli node packages/mcp/dist/index.js --meth
 YANDEX_KIT_TOKEN=... npm run smoke -w packages/mcp       # опционально, read-only, боевой API
 claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=... -- node $PWD/packages/mcp/dist/index.js
 #   → в Claude Code: «покажи мой магазин и первые 3 товара»
-claude plugin marketplace add ./ && claude plugin install yandex-kit@<marketplace>  # Phase 4+
-node skills/yandex-kit/scripts/search_docs.mjs "создать товар"   # без node_modules!
+claude plugin marketplace add ./ && claude plugin install a1-yandex-kit@<marketplace>  # Phase 4+
+node skills/a1-yandex-kit/scripts/search_docs.mjs "создать товар"   # без node_modules!
 ```
 
 Помнить: боевой лимит 3 rps, песочницы нет → smoke только чтение, write-пути только моками.

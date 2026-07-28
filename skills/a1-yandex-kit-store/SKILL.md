@@ -1,5 +1,5 @@
 ---
-name: yandex-kit-store
+name: a1-yandex-kit-store
 description: "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, geo regions, file uploads, redirects and blog/news posts. Use when reading store metadata, managing warehouses or redirects, uploading files or publishing news in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: "0.1.0"
 ---
 
-# Yandex KIT — Store
+# A1 Yandex KIT — Store
 
 Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
 Склады, Пользователи, Гео, Файлы, Редиректы, Новости. This is where you read the store
@@ -15,7 +15,7 @@ profile and the API user, manage warehouses (variant stocks reference them; `Upd
 uses JSON Merge Patch), upload files (`POST /v1/files` is the API's only
 `multipart/form-data` endpoint), and maintain SEO redirects and blog/news posts.
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `yandex-kit` skill.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
 ## Workflow
 

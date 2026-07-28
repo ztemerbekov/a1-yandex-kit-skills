@@ -1,8 +1,8 @@
 {
-  "name": "yandex-kit-ai-toolkit",
+  "name": "a1-yandex-kit-skills",
   "version": "0.1.0",
   "private": true,
-  "description": "AI toolkit for the Yandex KIT e-commerce platform API: typed client, MCP server and agent skills generated from the official OpenAPI spec",
+  "description": "A1 Yandex KIT Skills: typed client, MCP server and agent skills generated from the official OpenAPI spec",
   "license": "MIT",
   "type": "module",
   "workspaces": [

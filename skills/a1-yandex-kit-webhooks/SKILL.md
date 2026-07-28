@@ -1,5 +1,5 @@
 ---
-name: yandex-kit-webhooks
+name: a1-yandex-kit-webhooks
 description: "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, payment and delivery events and handle the one-time signing secret. Use when creating, updating, validating or deleting KIT webhooks, or when verifying incoming webhook calls."
 compatibility: "Requires Node.js >= 20"
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: "0.1.0"
 ---
 
-# Yandex KIT — Webhooks
+# A1 Yandex KIT — Webhooks
 
 Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
 order lifecycle notifications and managing those subscriptions.
@@ -27,7 +27,7 @@ Key facts:
 - `ValidateWebhook` asks the API to POST a `WEBHOOK_VALIDATE` event to your URL — use it
   to test reachability after deploying the receiver.
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `yandex-kit` skill.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
 ## Workflow
 

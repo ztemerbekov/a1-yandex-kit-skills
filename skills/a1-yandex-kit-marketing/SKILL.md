@@ -1,5 +1,5 @@
 ---
-name: yandex-kit-marketing
+name: a1-yandex-kit-marketing
 description: "Manage marketing promotions in a Yandex KIT store over its REST API: discounts, promo codes and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding them to products, categories or collections."
 compatibility: "Requires Node.js >= 20"
 metadata:
@@ -7,7 +7,7 @@ metadata:
   version: "0.1.0"
 ---
 
-# Yandex KIT — Marketing
+# A1 Yandex KIT — Marketing
 
 Covers the marketing domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Подарки. All three promotion kinds are created first and then bound to
@@ -21,7 +21,7 @@ restorable). Promocodes and gifts have no archive endpoints and only two statuse
 `UpdatePromocode`/`UpdateGift`. `DeleteGift` removes a gift **permanently**, with
 no restore — prefer deactivation.
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `yandex-kit` skill.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
 ## Workflow
 

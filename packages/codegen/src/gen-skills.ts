@@ -106,7 +106,7 @@ interface SkillDef {
 const DOMAIN_TRAILER =
   "For authentication (`Authorization: Bearer <token>`), the base URL " +
   "(`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the " +
-  "`{code, message, trace_id}` error contract, see the `yandex-kit` skill.";
+  "`{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.";
 
 const ROUTER_OVERVIEW = `Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
@@ -143,12 +143,12 @@ const ROUTER_DOMAIN_SKILLS = `## Domain skills
 Prefer the focused skill when the task clearly belongs to one domain — each bundles the
 same scripts and data, plus the endpoint tables of its tags:
 
-- \`yandex-kit-catalog\` — products, variants (SKUs, prices, stocks), categories,
+- \`a1-yandex-kit-catalog\` — products, variants (SKUs, prices, stocks), categories,
   characteristics, collections, context collections, badges.
-- \`yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
-- \`yandex-kit-marketing\` — discounts, promo codes, gifts.
-- \`yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects, blog/news.
-- \`yandex-kit-webhooks\` — webhooks: order events, HTTPS callbacks, signing secret.`;
+- \`a1-yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
+- \`a1-yandex-kit-marketing\` — discounts, promo codes, gifts.
+- \`a1-yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects, blog/news.
+- \`a1-yandex-kit-webhooks\` — webhooks: order events, HTTPS callbacks, signing secret.`;
 
 const WEBHOOKS_OVERVIEW = `Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
 order lifecycle notifications and managing those subscriptions.
@@ -172,7 +172,7 @@ ${DOMAIN_TRAILER}`;
 
 const SKILLS: SkillDef[] = [
   {
-    name: "yandex-kit",
+    name: "a1-yandex-kit",
     description:
       "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, " +
       "base URL, rate limits, error contract, pagination and offline spec search/validation scripts. " +
@@ -189,7 +189,7 @@ const SKILLS: SkillDef[] = [
       "(see the domain skills), otherwise the meta trio below;",
   },
   {
-    name: "yandex-kit-catalog",
+    name: "a1-yandex-kit-catalog",
     description:
       "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, " +
       "stocks), categories, characteristics, collections, context collections and badges. " +
@@ -205,7 +205,7 @@ and per-warehouse stocks, and a product (\`/v1/products\`) groups variants, so m
 from the variant first. Mind the content types: \`UpdateVariant\`, \`UpdateCategory\` and
 \`UpdateCharacteristic\` use JSON Merge Patch (\`application/merge-patch+json\` — send
 only the fields to change; \`null\` clears only the fields the schema marks nullable,
-see the \`yandex-kit\` skill), while the other updates are plain \`application/json\`.
+see the \`a1-yandex-kit\` skill), while the other updates are plain \`application/json\`.
 
 ${DOMAIN_TRAILER}`,
     tags: ["Товары", "Категории товаров", "Характеристики товаров", "Коллекции", "Контекстные коллекции", "Бейджи"],
@@ -220,7 +220,7 @@ ${DOMAIN_TRAILER}`,
       "(e.g. `create_product`, `update_variant`);",
   },
   {
-    name: "yandex-kit-orders",
+    name: "a1-yandex-kit-orders",
     description:
       "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, " +
       "gift cards and additional services (addons). Use when listing, confirming or cancelling " +
@@ -244,7 +244,7 @@ ${DOMAIN_TRAILER}`,
       "(e.g. `list_orders`, `confirm_order`);",
   },
   {
-    name: "yandex-kit-marketing",
+    name: "a1-yandex-kit-marketing",
     description:
       "Manage marketing promotions in a Yandex KIT store over its REST API: discounts, promo codes " +
       "and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding " +
@@ -272,7 +272,7 @@ ${DOMAIN_TRAILER}`,
       "(e.g. `create_discount`, `manage_promocode_objects`);",
   },
   {
-    name: "yandex-kit-store",
+    name: "a1-yandex-kit-store",
     description:
       "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, " +
       "geo regions, file uploads, redirects and blog/news posts. Use when reading store metadata, " +
@@ -295,7 +295,7 @@ ${DOMAIN_TRAILER}`,
       "(e.g. `get_store`, `create_warehouse`);",
   },
   {
-    name: "yandex-kit-webhooks",
+    name: "a1-yandex-kit-webhooks",
     description:
       "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, " +
       "payment and delivery events and handle the one-time signing secret. Use when creating, " +
@@ -488,12 +488,12 @@ function relatedToolsSection(skill: SkillDef): string {
 }
 
 const SKILL_TITLES: Record<string, string> = {
-  "yandex-kit": "Yandex KIT API",
-  "yandex-kit-catalog": "Yandex KIT — Catalog",
-  "yandex-kit-orders": "Yandex KIT — Orders",
-  "yandex-kit-marketing": "Yandex KIT — Marketing",
-  "yandex-kit-store": "Yandex KIT — Store",
-  "yandex-kit-webhooks": "Yandex KIT — Webhooks",
+  "a1-yandex-kit": "A1 Yandex KIT Skills",
+  "a1-yandex-kit-catalog": "A1 Yandex KIT — Catalog",
+  "a1-yandex-kit-orders": "A1 Yandex KIT — Orders",
+  "a1-yandex-kit-marketing": "A1 Yandex KIT — Marketing",
+  "a1-yandex-kit-store": "A1 Yandex KIT — Store",
+  "a1-yandex-kit-webhooks": "A1 Yandex KIT — Webhooks",
 };
 
 function renderSkillMd(skill: SkillDef): string {
