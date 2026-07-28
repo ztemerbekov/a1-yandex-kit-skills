@@ -52,8 +52,8 @@ npm publish -w packages/mcp
 
 Что проверяет реестр:
 
-- **Namespace** — имя вида `io.github.ztemerbekov/*` подтверждается входом под
-  GitHub-аккаунтом `ztemerbekov` (владелец репозитория).
+- **Namespace** — имя вида `io.github.gistrec/*` подтверждается входом под
+  GitHub-аккаунтом `gistrec` (`mcp-publisher login github`).
 - **Владение npm-пакетом** — поле `mcpName` в `packages/mcp/package.json`
   опубликованной версии должно совпадать с `name` из `server.json`; версии в
   `server.json` (корень и `packages[].version`) — с версией в npm.
