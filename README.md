@@ -10,8 +10,6 @@ MCP-сервер и AI-тулкит для **API Яндекс KIT** — конс
 
 ## Быстрый старт
 
-> ⚠️ Пакет `mcp-yandex-kit` пока **не опубликован в npm** — до публикации работает только запуск из исходников (второй блок ниже). Команды с `npx -y mcp-yandex-kit` заработают сразу после релиза.
-
 1. [Получите токен](#получение-токена) в кабинете продавца KIT — он показывается **один раз**.
 2. Добавьте сервер — например, в Claude Code ([другие клиенты](#установка)):
 
@@ -20,15 +18,6 @@ MCP-сервер и AI-тулкит для **API Яндекс KIT** — конс
    ```
 
 3. Спросите ассистента: «Покажи мой магазин и первые три товара».
-
-**Из исходников** (единственный рабочий путь до публикации в npm):
-
-```bash
-git clone https://github.com/ztemerbekov/a1-yandex-kit-skills.git
-cd a1-yandex-kit-skills
-npm ci && npm run build
-claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- node "$PWD/packages/mcp/dist/index.js"
-```
 
 ## Что умеет
 
@@ -75,7 +64,7 @@ claude plugin marketplace add ztemerbekov/a1-yandex-kit-skills
 claude plugin install yandex-kit@yandex-kit-ai-toolkit
 ```
 
-Токен плагин берёт из переменной окружения `YANDEX_KIT_TOKEN`. До публикации `mcp-yandex-kit` в npm встроенный MCP-сервер плагина не запустится (он стартует через `npx`) — скиллы при этом работают полностью.
+Токен плагин берёт из переменной окружения `YANDEX_KIT_TOKEN`. Встроенный MCP-сервер плагина стартует автоматически через `npx -y mcp-yandex-kit`.
 
 ## Примеры запросов
 
@@ -177,8 +166,6 @@ YANDEX_KIT_TOKEN = "ваш_токен"
 ```
 
 </details>
-
-До публикации в npm замените `npx -y mcp-yandex-kit` на `node /путь/до/репо/packages/mcp/dist/index.js` (после `npm ci && npm run build` — см. [Быстрый старт](#быстрый-старт)).
 
 ## Получение токена
 
