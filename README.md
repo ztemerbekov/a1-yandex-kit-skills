@@ -1,4 +1,4 @@
-# Yandex KIT MCP + AI Toolkit
+# A1 Yandex KIT Skills
 
 [![npm](https://img.shields.io/npm/v/mcp-yandex-kit)](https://www.npmjs.com/package/mcp-yandex-kit)
 [![CI](https://github.com/ztemerbekov/a1-yandex-kit-skills/actions/workflows/ci.yml/badge.svg)](https://github.com/ztemerbekov/a1-yandex-kit-skills/actions/workflows/ci.yml)
@@ -61,7 +61,7 @@ MCP-сервер и AI-тулкит для **API Яндекс KIT** — конс
 
 ```bash
 claude plugin marketplace add ztemerbekov/a1-yandex-kit-skills
-claude plugin install yandex-kit@yandex-kit-ai-toolkit
+claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
 Токен плагин берёт из переменной окружения `YANDEX_KIT_TOKEN`. Встроенный MCP-сервер плагина стартует автоматически через `npx -y mcp-yandex-kit`.

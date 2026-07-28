@@ -1,4 +1,4 @@
-# yandex-kit-core
+# A1 Yandex KIT Core
 
 Типизированный клиент **API Яндекс KIT** — конструктора интернет-магазинов ([kit.yandex.ru](https://kit.yandex.ru)), построенный по официальной OpenAPI-спеке (133 операции). Основа MCP-сервера [`mcp-yandex-kit`](https://www.npmjs.com/package/mcp-yandex-kit), но пригоден и как самостоятельный клиент.
 

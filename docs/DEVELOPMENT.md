@@ -78,7 +78,7 @@ YANDEX_KIT_TOKEN=ваш_токен npm run smoke
 
 ```bash
 claude plugin marketplace add ./
-claude plugin install yandex-kit@yandex-kit-ai-toolkit
+claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
 После установки в Claude Code появляются 6 скиллов, а MCP-сервер подключается

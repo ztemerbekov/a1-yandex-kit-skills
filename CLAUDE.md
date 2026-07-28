@@ -1,4 +1,4 @@
-# CLAUDE.md — yandex-kit-ai-toolkit
+# CLAUDE.md — a1-yandex-kit-skills
 
 npm-workspaces monorepo: typed client, MCP server (stdio) and Claude agent skills for the
 Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
@@ -42,7 +42,7 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `gen-docs`, `gen-skills`, `fetch-spec`.
 - `skills/` — 6 agent skills (yandex-kit router + catalog/orders/marketing/store/webhooks).
 - `.claude-plugin/{plugin,marketplace}.json` + `.mcp.json` — Claude Code plugin
-  (plugin `yandex-kit`, marketplace `yandex-kit-ai-toolkit`).
+  (plugin `a1-yandex-kit`, marketplace `a1-yandex-kit-skills`).
 
 ## Generated files — never hand-edit
 

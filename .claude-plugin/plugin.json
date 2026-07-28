@@ -1,8 +1,8 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
-  "name": "yandex-kit",
+  "name": "a1-yandex-kit",
   "version": "0.1.0",
-  "description": "AI toolkit for the Yandex KIT e-commerce platform (store builder API): 6 skills for catalog, orders, marketing, store settings, and webhooks, plus a bundled MCP server with 61 tools covering all 133 API operations.",
+  "description": "A1 Yandex KIT Skills for the Yandex KIT e-commerce platform: 6 agent skills plus the A1 Yandex KIT MCP server with 61 tools covering all 133 API operations.",
   "author": {
     "name": "gistrec",
     "url": "https://github.com/gistrec"
@@ -11,6 +11,9 @@
   "keywords": [
     "yandex",
     "yandex-kit",
+    "yandex kit",
+    "yandexkit",
+    "a1-yandex-kit",
     "e-commerce",
     "mcp",
     "skills",

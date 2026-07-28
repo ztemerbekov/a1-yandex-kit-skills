@@ -1,7 +1,7 @@
 {
   "name": "yandex-kit-core",
   "version": "0.1.0",
-  "description": "Typed client for the Yandex KIT API, driven by the official OpenAPI spec",
+  "description": "A1 Yandex KIT Core: typed client for the Yandex KIT API, driven by the official OpenAPI spec",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
@@ -28,6 +28,10 @@
   "keywords": [
     "yandex",
     "kit",
+    "yandex-kit",
+    "yandex kit",
+    "yandexkit",
+    "a1-yandex-kit",
     "e-commerce",
     "api-client",
     "openapi"

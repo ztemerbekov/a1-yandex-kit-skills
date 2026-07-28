@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.gistrec/mcp-yandex-kit",
-  "title": "Yandex KIT MCP",
-  "description": "MCP server for the Yandex KIT e-commerce API: products, orders, discounts, webhooks and more.",
+  "title": "A1 Yandex KIT MCP",
+  "description": "A1 Yandex KIT MCP server for the Yandex KIT e-commerce API: products, orders, discounts, webhooks and more.",
   "websiteUrl": "https://github.com/ztemerbekov/a1-yandex-kit-skills#readme",
   "repository": {
     "url": "https://github.com/ztemerbekov/a1-yandex-kit-skills",

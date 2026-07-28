@@ -1,4 +1,4 @@
-# mcp-yandex-kit
+# A1 Yandex KIT MCP
 
 MCP-сервер для **API Яндекс KIT** — конструктора интернет-магазинов ([kit.yandex.ru](https://kit.yandex.ru)): управляйте каталогом, ценами, заказами, скидками и вебхуками из Claude, Cursor, Codex и других AI-клиентов на естественном языке.
 
