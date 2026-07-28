@@ -94,7 +94,10 @@ claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-ya
 <details>
 <summary><b>Claude Desktop</b></summary>
 
-`claude_desktop_config.json` — macOS `~/Library/Application Support/Claude/`, Windows `%APPDATA%\Claude\`
+Добавьте сервер в `claude_desktop_config.json`:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
 ```json
 {
