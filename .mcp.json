@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "yandex-kit": {
+    "a1-yandex-kit": {
       "command": "npx",
       "args": ["-y", "mcp-yandex-kit"],
       "env": {
