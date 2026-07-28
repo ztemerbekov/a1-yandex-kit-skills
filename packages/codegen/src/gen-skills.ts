@@ -15,7 +15,7 @@
  * Run: npm run gen (repo root) or tsx src/gen-skills.ts (after gen-registry + gen-docs).
  */
 import { build } from "esbuild";
-import { gzipSync } from "node:zlib";
+import { gzip } from "pako";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -519,8 +519,11 @@ function renderSkillMd(skill: SkillDef): string {
 // Emit
 // ---------------------------------------------------------------------------
 
-// gzipSync with default options is byte-stable for identical input (mtime=0 header).
-const specGz = gzipSync(specBytes);
+// pako, not node:zlib: node bundles zlib-ng whose compressed bytes differ across
+// platforms/versions (macOS vs the CI runners), breaking the drift check. pako is pure JS,
+// so identical input + locked pako version -> identical bytes everywhere. Decompression
+// stays interoperable with the skill scripts' node:zlib gunzipSync.
+const specGz = gzip(specBytes, { level: 9 });
 
 const searchDocsScript = readFileSync(SKILL_SRC_DIR + "search_docs.mjs", "utf8");
 
