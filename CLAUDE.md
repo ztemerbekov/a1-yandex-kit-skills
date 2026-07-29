@@ -95,3 +95,17 @@ SKILL.md `metadata.version` matches. `mcpName` in `packages/mcp/package.json` mu
 
 - **No sandbox** — every call hits a live production store. `smoke` is read-only by
   design; write paths are exercised only by mocked tests. Never put a real token in CI.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues are the issue tracker for this repo. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical triage labels are used. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This repository uses a multi-context domain-doc layout. See `docs/agents/domain.md`.
