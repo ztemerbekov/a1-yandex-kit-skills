@@ -187,6 +187,158 @@ test("detail and addon read failures remain visible as missing data in a partial
   assert.equal(mcp.finalAnswer, result.report);
 });
 
+test("mixed store combines catalog, promotion and webhook signals without a write", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [
+      {
+        id: "sku-broken",
+        sku: "BROKEN-1",
+        name: "Опубликованный SKU без цены",
+        status: "PUBLISHED",
+        product_id: "product-without-category",
+        pricing: {},
+        stocks: [{ warehouse_id: "w1", quantity: 2, reserved: 2 }],
+        media: [],
+      },
+    ],
+    products: [{ id: "product-without-category", category_ids: [] }],
+    discounts: [
+      {
+        id: "expired-discount",
+        title: "Летняя скидка",
+        status: "ACTIVE",
+        discount_dates: { start_date: "2026-07-01T00:00:00Z", end_date: "2026-07-28T00:00:00Z" },
+        binding_mode: "ALL_VARIANTS",
+      },
+    ],
+    promocodes: [
+      {
+        id: "spent-promo",
+        code: "LIMIT",
+        title: "Лимитированный",
+        status: "ACTIVE",
+        type: "PRODUCTS",
+        binding_mode: "SELECTED_VARIANTS",
+        max_usage: 5,
+        usage_count: 5,
+        promocode_dates: { start_date: "2026-07-01T00:00:00Z" },
+      },
+      {
+        id: "all-variants-promo",
+        code: "MAYBE-OVERLAP",
+        title: "Возможное пересечение",
+        status: "ACTIVE",
+        type: "PRODUCTS",
+        binding_mode: "ALL_VARIANTS",
+        usage_count: 0,
+        promocode_dates: { start_date: "2026-07-01T00:00:00Z" },
+      },
+    ],
+    bindings: { "GetPromocodeVariantIDs:spent-promo": [] },
+    webhooks: [
+      {
+        id: "inactive-webhook",
+        url: "https://example.test/hook",
+        status: "INACTIVE",
+        events: ["ORDER_STATUS_CHANGED"],
+      },
+    ],
+  });
+
+  const result = await runOperatorReadOnlyScenario({
+    request: "Как дела в магазине?",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  for (const id of ["sku-broken", "expired-discount", "spent-promo", "inactive-webhook"]) {
+    assert.match(result.report, new RegExp(id));
+  }
+  assert.match(result.report, /требует проверки/i);
+  assert.doesNotMatch(result.report, /пересечение.*ошибка/i);
+  assert.deepEqual(
+    new Set(mcp.calls.map((call) => call.name)),
+    new Set(["list_orders", "list_variants", "list_products", "list_discounts", "list_promocodes", "kit_request", "list_webhooks"]),
+  );
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("healthy operational data reports no objective store signals", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [
+      {
+        id: "healthy-sku",
+        sku: "HEALTHY-1",
+        name: "Исправный SKU",
+        status: "PUBLISHED",
+        product_id: "healthy-product",
+        pricing: { price: "100.00" },
+        stocks: [{ warehouse_id: "w1", quantity: 3, reserved: 0 }],
+        media: [{ type: "IMAGE", image_id: "image-1" }],
+      },
+    ],
+    products: [{ id: "healthy-product", category_ids: ["category-1"] }],
+    discounts: [],
+    promocodes: [
+      {
+        id: "selected-promo",
+        code: "SELECTED",
+        title: "Выбранный без ошибки",
+        status: "ACTIVE",
+        type: "PRODUCTS",
+        binding_mode: "SELECTED_VARIANTS",
+        usage_count: 0,
+        promocode_dates: { start_date: "2026-07-01T00:00:00Z" },
+      },
+    ],
+    bindings: { "GetPromocodeVariantIDs:selected-promo": ["healthy-sku"] },
+    webhooks: [
+      {
+        id: "healthy-webhook",
+        url: "https://example.test/hook",
+        status: "ACTIVE",
+        events: ["ORDER_STATUS_CHANGED", "ORDER_PAYMENT_STATUS_CHANGED", "ORDER_DELIVERY_STATUS_CHANGED"],
+      },
+    ],
+  });
+
+  const result = await runOperatorReadOnlyScenario({
+    request: "Проведи разбор",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.match(result.report, /Объективных рисков.*не найдено/i);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("truncated catalog read is visible instead of claiming complete coverage", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [],
+    products: [],
+    discounts: [],
+    promocodes: [],
+    webhooks: [],
+    truncated: { variants: true },
+  });
+
+  const result = await runOperatorReadOnlyScenario({
+    request: "Проведи разбор",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.match(result.report, /Покрытие каталога/);
+  assert.match(result.report, /Требует проверки/);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
 test("short 'Как дела?' needs KIT context and never invokes a tool without it", async () => {
   const withoutContext = new FakeOperatorMcp({ orders: [order()] });
   const clarification = await runOperatorReadOnlyScenario({

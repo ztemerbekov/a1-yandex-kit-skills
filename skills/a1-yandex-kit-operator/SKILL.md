@@ -9,11 +9,11 @@ metadata:
 
 # A1 Yandex KIT Operator
 
-Give a store owner a grounded, read-only operating report: find current orders that
-need attention, state the evidence and consequence, and name the available next action
-without inventing a business decision. This is an orchestration skill; use the
-`a1-yandex-kit-orders` skill for API contracts and the `a1-yandex-kit` skill for auth,
-pagination and error behaviour.
+Give a store owner a grounded, read-only operating report: find current order, storefront,
+promotion and integration risks; state the evidence and consequence; and name the
+available next action without inventing a business decision. This is an orchestration
+skill; use the domain skills for API contracts and `a1-yandex-kit` for auth, pagination
+and error behaviour.
 
 ## When to act
 
@@ -68,12 +68,35 @@ field. Say this explicitly in the coverage note when relevant.
 5. Produce the report from the facts actually read. For «Что срочного?» include only
    `WAIT_FOR_CONFIRMATION`, objectively inconsistent payment, cancellation/refund, and
    overdue delivery findings. For a full report sort findings as: existing order that
-   needs action → risk of lost sale → money → reputation.
+   needs action → risk of lost sale → money → reputation → storefront quality.
+6. Run a **quick critical storefront slice**, not a catalog audit:
+   - read all `PUBLISHED` SKUs with `list_variants`, and their parent products with
+     `list_products`;
+   - flag a published SKU with no positive `pricing.price`, zero available stock
+     (`quantity - reserved` across all warehouses), no `IMAGE` media, or a parent product
+     with no active `category_ids`;
+   - if a parent product could not be read, report that as missing data rather than a
+     missing-category defect;
+   - send structural checks, chosen categories, images, prices and stock corrections to
+     `a1-yandex-kit-catalog-doctor`. Do not turn this fast slice into a deep audit.
+7. Read all active discounts (`list_discounts`) and promocodes (`list_promocodes`). Flag
+   an active item whose `end_date` is past; flag a promocode where `usage_count` has
+   reached `max_usage`; and for `SELECTED_VARIANTS` or
+   `SELECTED_CATEGORIES_COLLECTIONS`, read its object IDs through read-only
+   `kit_request` calls (`GetDiscount…IDs` / `GetPromocode…IDs`). An empty selected set is
+   a confirmed problem. When an active all-variant discount and an active all-variant
+   promocode may overlap, label it **«Требует проверки»**: do not call it an error unless
+   the owner supplied the conflict rule.
+8. Read `list_webhooks`. Flag each `INACTIVE` webhook. Also check coverage of
+   `ORDER_STATUS_CHANGED`, `ORDER_PAYMENT_STATUS_CHANGED` and
+   `ORDER_DELIVERY_STATUS_CHANGED` across active webhooks. Missing coverage is
+   **«Требует проверки»**, not automatically an error: an integration may not be needed.
 
 ## Report format
 
 Start with either **«Текущий операционный статус»** or **«Срочный операционный срез»**.
-State coverage: orders read, pages read, time slice, and any unavailable detail.
+State coverage: orders read, pages read, time slice, and any unavailable detail. Add a
+compact summary count for orders, catalog, promotions and webhooks.
 
 For every finding provide one compact item:
 
@@ -91,8 +114,8 @@ cancelled beyond the observed API status.
 ## Scenario evaluation contract
 
 `packages/mcp/src/scenarios/operator-scenario.ts` provides the reusable fake MCP for
-this slice. It accepts prepared orders (including payment and delivery facts), supports
-pagination, records tool names and arguments, and retains the final report. Its tests
-check full review, urgent-only output, a requested period, the contextual «Как дела?»
-filter, and the absence of write calls. Compare calls and final state, not an exact
-word-for-word report.
+this slice. It accepts prepared orders, SKUs, products, promotions and webhooks; supports
+pagination and selected-promotion bindings; records tool names and arguments; and retains
+the final report. Its tests cover the full/urgent/period/context order scenarios plus a
+mixed store, a healthy store and the absence of write calls. Compare calls and final
+state, not an exact word-for-word report.
