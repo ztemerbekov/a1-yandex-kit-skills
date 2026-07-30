@@ -34,6 +34,7 @@ const MANUAL_EXACT_WRITE_SKILLS = [
   "a1-yandex-kit-operator",
   "a1-yandex-kit-catalog-doctor",
   "a1-yandex-kit-promo-launcher",
+  "a1-yandex-kit-launch-check",
 ] as const;
 
 // ---------------------------------------------------------------------------

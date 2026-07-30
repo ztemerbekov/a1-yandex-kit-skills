@@ -44,6 +44,7 @@ export interface OperatorVariant {
   pricing: { price?: KitVariant["pricing"]["price"] };
   stocks: KitVariant["stocks"];
   media: KitVariant["media"];
+  characteristics?: KitVariant["characteristics"];
 }
 
 export interface OperatorProduct {

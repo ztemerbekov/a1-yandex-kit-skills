@@ -67,3 +67,30 @@ Always include:
 Empty optional SEO fields are recommendations, not blockers of a first sale. Never turn
 an unknown fact into a clean result and never invent a price, category, stock or other
 business value.
+
+## Exact fixes after a check
+
+The default launch check remains read-only. A finding, recommendation or «покажи»
+request never authorizes a mutation. For an explicit fix command, read and apply
+[`references/exact-write-protocol.md`](references/exact-write-protocol.md) completely,
+then route the exact object to the existing mechanism:
+
+- operator/catalog-doctor semantics for an exact price, stock, media, category or
+  characteristic change;
+- promo-launcher lifecycle semantics for an exact discount, promocode or gift change.
+
+Before every write, read the exact object; call the mutation once; read the object and
+affected relation again. When changing one array element, send the complete preserved
+array and verify it afterward. Never invent a missing price, quantity, category,
+characteristic, image, promotion term or webhook requirement.
+
+«Исправь всё» means only: apply findings whose correct action and value are already
+unambiguous in the retained report or owner-provided source. Group every unknown
+decision into one concrete question and perform no write for those fields. Continue
+independent known items after a local failure and separate successful, failed and
+ambiguous IDs.
+
+After all attempted fixes, rerun the affected reads and the full launch check. Payment,
+delivery, storefront and checkout gaps remain under «Не проверено» until factual
+evidence exists. Do not create backups, snapshots, restore/rollback flows or a second
+confirmation for an exact command.

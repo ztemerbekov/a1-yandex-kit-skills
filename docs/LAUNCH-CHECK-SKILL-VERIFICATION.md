@@ -27,8 +27,25 @@
 | Все API-only сценарии read-only | `FakeP1Mcp.writeCalls` | автоматизировано |
 | Естественность приоритизации и отчёта | Прогон сценариев в model host с ручной рубрикой | manual acceptance pending |
 
+## Issue #19
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| Обычные check/show запросы остаются read-only | `ordinary launch-check requests stay read-only through the fix-capable skill` | автоматизировано |
+| Точный остаток использует catalog/operator read-write-read и пересчитывает готовность | `an exact stock fix preserves sibling arrays and recomputes launch readiness` | автоматизировано |
+| Точный promo-fix переиспользует lifecycle semantics и убирает фактический риск | `an exact promotion fix reuses lifecycle semantics and removes the factual risk` | автоматизировано |
+| Неизвестная цена группируется в конкретный вопрос без записи | `an unknown price becomes one concrete question and never authorizes a write` | автоматизировано |
+| «Исправь всё» применяет только известные действия и одним вопросом собирает неизвестные | `'Исправь всё' applies known fixes, groups unknown decisions, and reruns the check` | автоматизировано |
+| Соседние stocks/media/categories/characteristics сохраняются | Полный `stocks` patch и state assertions в exact stock scenario | автоматизировано |
+| Batch продолжает работу после локальной ошибки и timeout | `a batch continues after failure and timeout and keeps every outcome visible` | автоматизировано |
+| Timeout не повторяет mutation и остаётся неоднозначным | Один `update_variant` на объект и outcome assertions в partial batch | автоматизировано |
+| Backup/snapshot/restore/rollback и повторное подтверждение не создаются | Tool-journal assertions во всех mutation scenarios; контракт `SKILL.md` | автоматизировано |
+| После исправлений launch-check перечитывается; checkout gaps остаются видимыми | Exact stock/promo/mixed/batch scenarios проверяют новый `launch.status` и «Не проверено» | автоматизировано |
+| Ясность fix-отчёта и сгруппированного вопроса | Прогон exact/mixed/partial формулировок в model host | manual acceptance pending |
+
 Запуск:
 
 ```bash
 node --import tsx --test packages/mcp/src/scenarios/launch-check-skill-scenario.test.ts
+node --import tsx --test packages/mcp/src/scenarios/launch-check-fix-scenario.test.ts
 ```
