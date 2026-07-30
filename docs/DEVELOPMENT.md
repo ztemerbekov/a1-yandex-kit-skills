@@ -52,12 +52,14 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 
 ## MCP Inspector
 
-Токен проверяется при старте сервера, но `tools/list` в сеть не ходит — подойдёт заглушка:
+Токен проверяется при старте сервера, но `tools/list` в сеть не ходит — подойдёт заглушка.
+Inspector 2 не наследует окружение родительского процесса, поэтому токен передаётся
+через `-e`; опции идут после команды сервера:
 
 ```bash
 npm run build
-YANDEX_KIT_TOKEN=dummy npx @modelcontextprotocol/inspector --cli \
-  node packages/mcp/dist/index.js --method tools/list
+npx @modelcontextprotocol/inspector@2 --cli node packages/mcp/dist/index.js \
+  --method tools/list -e YANDEX_KIT_TOKEN=dummy
 ```
 
 ## Smoke-проверка (вживую, только чтение)

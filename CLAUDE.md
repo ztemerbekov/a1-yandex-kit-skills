@@ -23,7 +23,7 @@ npm run typecheck && npm run build && npm test
 npm run gen
 git add -N -- packages/core/src/generated docs/TOOLS.md skills   # register untracked generated files
 git diff --exit-code -- packages/core/src/generated docs/TOOLS.md skills
-YANDEX_KIT_TOKEN=dummy npx @modelcontextprotocol/inspector --cli node packages/mcp/dist/index.js --method tools/list
+npx @modelcontextprotocol/inspector@2 --cli node packages/mcp/dist/index.js --method tools/list -e YANDEX_KIT_TOKEN=dummy
 ```
 
 More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOLS.md](docs/TOOLS.md).
