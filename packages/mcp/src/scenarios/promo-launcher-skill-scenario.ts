@@ -660,7 +660,7 @@ function zonedDateToUtc(
   return candidate;
 }
 
-function parseLocalDate(
+export function parseLocalDate(
   text: string,
   now: Date,
   timeZone: string,

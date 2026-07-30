@@ -109,6 +109,36 @@ an `INACTIVE` gift. Read it with `GetGiftById`; for an exact «запусти» 
 `UpdateGift` to `ACTIVE` once and read it again. Finally read `GetGiftVariants` and
 report ID, minimum cart, factual status, default sort and the factual gift-item count.
 
+## Existing-promotion lifecycle
+
+For «покажи», «какие активны» and other inspection requests, read active and inactive
+discounts, promocodes and gifts, plus archived discounts. Show factual values, dates,
+limits, statuses and bindings without a write.
+
+An exact lifecycle command must name the promotion unambiguously. Before each change,
+read that exact object; call the required write once; then read the object and affected
+bindings again. Send only fields the owner named and preserve every other condition.
+For natural dates, require a known time zone and retain the existing start date when
+only the end date changes.
+
+- Stop a discount with `update_discount` status `INACTIVE`. Use `discount_action
+  archive` only for an explicit archive command and `discount_action unarchive` only
+  for explicit restoration from the archive.
+- Stop or restart a promocode with `update_promocode` status `INACTIVE` or `ACTIVE`.
+  Promocodes have no archive action.
+- Stop or restart a gift with `UpdateGift` status `INACTIVE` or `ACTIVE`. Permanently
+  call `DeleteGift` only for the exact phrase «удали навсегда»; ordinary «останови»
+  never deletes.
+- Add or remove discount/promocode variants, categories and collections only inside
+  the compatible binding family. Gifts accept variants only, through
+  `AddGiftVariants` and `RemoveGiftVariants`. Validate a newly added target first and
+  verify the factual relation afterward.
+
+Continue a batch after a local object failure. Separate successful, failed and
+ambiguous IDs. Re-check active peers after an activation or material change and report
+possible overlap as a risk; an exact owner command remains authorized unless the owner
+provided an incompatibility rule.
+
 ## Safety boundaries
 
 - Never infer «бессрочно», «без лимита», a time zone, a target or a business value.

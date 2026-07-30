@@ -361,8 +361,30 @@ export class FakeOperatorMcp {
       const found = this.#promocodes.find((candidate) => candidate.id === id);
       if (!found) throw new Error(`Promocode ${id} is not prepared in FakeOperatorMcp`);
       const patch = arguments_.promocode as KitPromocodeUpdate;
-      if (patch.max_usage !== undefined) found.max_usage = patch.max_usage ?? undefined;
+      if (patch.code !== undefined) found.code = patch.code;
+      if (patch.title !== undefined) found.title = patch.title;
+      if (patch.discount_value !== undefined) {
+        found.discount_value = structuredClone(patch.discount_value);
+      }
+      if (patch.promocode_dates !== undefined) {
+        found.promocode_dates = structuredClone(patch.promocode_dates);
+      }
       if (patch.status !== undefined) found.status = patch.status;
+      if (patch.binding_mode !== undefined) found.binding_mode = patch.binding_mode;
+      if (patch.minimum_order_amount !== undefined) {
+        found.minimum_order_amount = patch.minimum_order_amount;
+      }
+      if (Object.hasOwn(patch, "max_usage")) {
+        found.max_usage = patch.max_usage ?? undefined;
+      }
+      if (Object.hasOwn(patch, "max_discount_amount")) {
+        found.max_discount_amount = patch.max_discount_amount ?? undefined;
+      }
+      if (patch.one_time_use !== undefined) found.one_time_use = patch.one_time_use;
+      if (patch.first_order_only !== undefined) {
+        found.first_order_only = patch.first_order_only;
+      }
+      if (patch.show_in_pdp !== undefined) found.show_in_pdp = patch.show_in_pdp;
       return found;
     }
 
@@ -375,10 +397,28 @@ export class FakeOperatorMcp {
       const found = this.#discounts.find((candidate) => candidate.id === id);
       if (!found) throw new Error(`Discount ${id} is not prepared in FakeOperatorMcp`);
       const patch = arguments_.discount as KitDiscountUpdate;
-      if (patch.discount_value !== undefined) found.discount_value = patch.discount_value;
+      if (patch.title !== undefined) found.title = patch.title;
+      if (patch.discount_value !== undefined) {
+        found.discount_value = structuredClone(patch.discount_value);
+      }
+      if (patch.discount_dates !== undefined) {
+        found.discount_dates = structuredClone(patch.discount_dates);
+      }
       if (patch.status !== undefined) found.status = patch.status;
       if (patch.binding_mode !== undefined) found.binding_mode = patch.binding_mode;
       return found;
+    }
+
+    if (name === "discount_action") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#discounts.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Discount ${id} is not prepared in FakeOperatorMcp`);
+      found.status = arguments_.action === "archive" ? "ARCHIVED" : "INACTIVE";
+      return { ok: true };
     }
 
     if (name === "manage_promocode_objects") {

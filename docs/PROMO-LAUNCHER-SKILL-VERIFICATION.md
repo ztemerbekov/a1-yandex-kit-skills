@@ -56,8 +56,28 @@ reference model и не сравнивает ответ посимвольно.
 | Timeout CreateGift не повторяется и не запускает активацию | `a CreateGift timeout is attempted once and never followed by activation` | автоматизировано |
 | Естественность объяснения API-ограничения и итогового отчёта | Запуск active/draft/dated формулировок в model host | manual acceptance pending |
 
+## Issue #18
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| Read-only обзор показывает active/inactive/archived, условия, сроки, лимиты и привязки без записей | `read-only lifecycle review shows active and inactive conditions with factual bindings` | автоматизировано |
+| Продление скидки и промокода сохраняет начало и остальные поля | `an exact discount extension reads, writes once, rereads, and preserves other fields`; `an exact promocode extension changes only dates and preserves all optional terms` | автоматизировано |
+| Точное изменение отправляет только названные владельцем условия | `an exact multi-condition change sends only named promocode fields` | автоматизировано |
+| Варианты, категории и коллекции меняются только в совместимом binding mode | `exact binding changes use the compatible object family and verify factual IDs` | автоматизировано |
+| Состав подарка использует только gift variant operations | `gift variants use the gift operations and never mix other object families` | автоматизировано |
+| Остановка скидки использует INACTIVE, архив — только явный archive | `stop and archive commands use the mechanism of each promotion type` | автоматизировано |
+| Промокод и подарок останавливаются через INACTIVE без ложного archive | `stop and archive commands use the mechanism of each promotion type` | автоматизировано |
+| Повторный запуск/восстановление используют механизм конкретного типа и перечитывают результат | `restart and restore use the correct mechanism and reread every result` | автоматизировано |
+| Подарок удаляется только по точному «удали навсегда»; обычное удаление не пишет | `a gift is permanently deleted only by the exact phrase 'удали навсегда'` | автоматизировано |
+| Перед изменением чтение, одна write-попытка и повторное чтение | Tool-trace assertions во всех lifecycle mutation scenarios | автоматизировано |
+| Batch продолжается после локальной ошибки и разделяет outcome-классы | `a batch continues after local failures and separates successful and ambiguous objects` | автоматизировано |
+| Пересечение после изменения остаётся риском и не блокирует точную команду | `an overlap after restart is reported as a risk without blocking the exact command` | автоматизировано |
+| Ясность lifecycle-отчёта | Прогон read-only, single mutation и partial batch в model host | manual acceptance pending |
+
 Запуск:
 
 ```bash
-node --import tsx --test packages/mcp/src/scenarios/promo-launcher-skill-scenario.test.ts
+node --import tsx --test \
+  packages/mcp/src/scenarios/promo-launcher-skill-scenario.test.ts \
+  packages/mcp/src/scenarios/promo-launcher-lifecycle-scenario.test.ts
 ```
