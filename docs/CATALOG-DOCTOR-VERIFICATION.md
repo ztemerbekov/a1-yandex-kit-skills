@@ -1,6 +1,6 @@
 # Проверка `a1-yandex-kit-catalog-doctor`
 
-Матрица для issue #10. Сценарии проверяют журнал MCP, аргументы чтения, покрытие,
+Матрица для issues #10–#11. Сценарии проверяют журнал MCP, аргументы чтения, покрытие,
 классификацию и итоговый отчёт, а не посимвольное совпадение текста.
 
 | Пользовательский сценарий / критерий | Доказательство | Результат |
@@ -19,9 +19,23 @@
 | Явный аудит архива расширяет status-фильтры и показывает риск архивации единственного пути | `an explicit archive audit includes archived entities and reports archive risk` | автоматизировано |
 | Разделы «Блокеры», «Риски», «Рекомендации» | Все сценарии проверяют явные счётчики | автоматизировано |
 | Любой сценарий остаётся read-only | `FakeCatalogDoctorMcp.writeCalls` во всех сценариях | автоматизировано |
+| Группирующие значения, дубли комбинаций и неработающая группировка | `structural audit finds grouping, characteristic, media and collection defects from API facts` | автоматизировано |
+| Архивные характеристики и сломанные ссылки на характеристики | Тот же структурный сценарий; ID проверяются только по полям API | автоматизировано |
+| Характеристики не выводятся из названия товара | Структурная фикстура содержит «синий» в названии без значения; отчёт не создаёт значение | автоматизировано |
+| Требование владельца, риск неполноты и опциональная рекомендация разделены | `card completeness separates owner requirements, incompleteness risks and optional advice` | автоматизировано |
+| ID медиа, дубли, порядок и главное изображение | Структурный сценарий проверяет IMAGE/VIDEO, `(type, id)` и `display_sequence` | автоматизировано |
+| Пустая активная коллекция, скрытые карточки и сломанная связь | Структурный сценарий и `GetVariantsByCollectionId` | автоматизировано |
+| Бейджи, динамические фильтры, контекстные коллекции и похожие карточки читаются только по запросу | `owner-requested merchandising audit reads optional relations and reports only broken facts` | автоматизировано |
+| Отсутствие опционального мерчандайзинга не объявляется дефектом | `optional merchandising entities are not defects and are not read without owner request` | автоматизировано |
+| Структурное покрытие содержит характеристики, коллекции и запрошенные опциональные области | Проверки строки `Структурное покрытие` | автоматизировано |
+| Обрыв списка характеристик восстанавливает используемое определение detail-read и не создаёт ложный blocker | `an interrupted characteristic list uses detail reads instead of inventing a broken reference` | автоматизировано |
+| `OTHER` media не получает ложное требование `video_id` | `media OTHER does not require a video identifier` | автоматизировано |
+| Архивный variant в связи коллекции разрешается через `get_variant`, а не объявляется сломанным | `a collection relation to an archived variant is resolved instead of called broken` | автоматизировано |
 
 Запуск:
 
 ```bash
-node --import tsx --test packages/mcp/src/scenarios/catalog-doctor-scenario.test.ts
+node --import tsx --test \
+  packages/mcp/src/scenarios/catalog-doctor-scenario.test.ts \
+  packages/mcp/src/scenarios/catalog-doctor-structure.test.ts
 ```
