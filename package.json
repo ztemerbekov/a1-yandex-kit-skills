@@ -17,7 +17,8 @@
     "test": "npm run test -w packages/core && npm run test -w packages/mcp",
     "gen": "npm run gen -w packages/codegen",
     "spec:fetch": "npm run fetch -w packages/codegen",
-    "smoke": "npm run smoke -w packages/mcp"
+    "smoke": "npm run smoke -w packages/mcp",
+    "e2e": "npm run build && npm run e2e -w packages/mcp"
   },
   "devDependencies": {
     "@types/node": "^25.9.0",

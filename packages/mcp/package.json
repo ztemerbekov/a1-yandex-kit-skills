@@ -21,6 +21,7 @@
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "node --import tsx --test $(find src -name '*.test.ts')",
     "smoke": "node --import tsx src/smoke.ts",
+    "e2e": "node --import tsx src/e2e.ts",
     "prepack": "npm run build",
     "prepublishOnly": "npm run typecheck && npm test"
   },
