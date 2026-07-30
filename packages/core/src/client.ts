@@ -3,10 +3,13 @@
  *
  * Features (see PLAN.md §2/§6): Bearer auth, per-attempt timeout via
  * AbortController, token-bucket rate limiter (default 3 rps, gates every
- * attempt including retries), exponential backoff retries (network/abort,
- * 429, >=500, and HTTP 400 with code LIMIT_EXCEEDED — KIT returns rate-limit
- * errors as 400), per-operation content type from the generated registry
- * (json / merge-patch+json / multipart), and auto-pagination via listAll().
+ * attempt including retries), exponential backoff retries for GET requests
+ * (network/abort, 429, >=500, and HTTP 400 with code LIMIT_EXCEEDED — KIT
+ * returns rate-limit errors as 400; mutations are never retried: the API
+ * gives no idempotency contract, so a timed-out write may already have been
+ * executed server-side and a repeat could duplicate it), per-operation
+ * content type from the generated registry (json / merge-patch+json /
+ * multipart), and auto-pagination via listAll().
  */
 import { KitApiError, KitValidationError } from "./errors.js";
 import { getOp } from "./registry.js";
@@ -19,7 +22,11 @@ export interface KitClientOptions {
   rps?: number;
   /** Per-attempt timeout in milliseconds. Default: 30000. */
   timeoutMs?: number;
-  /** Maximum number of retries after the first attempt. Default: 3. */
+  /**
+   * Maximum number of retries after the first attempt. Default: 3.
+   * Applies to GET requests only: POST/PATCH/PUT/DELETE always make exactly
+   * one network attempt regardless of this setting.
+   */
   maxRetries?: number;
   /** Base delay for exponential backoff in milliseconds. Default: 500. */
   retryBaseMs?: number;
@@ -195,7 +202,15 @@ export class KitClient {
         body = JSON.stringify(req.body);
       }
     }
-    const init: RequestInit = { method: req.method.toUpperCase(), headers, body };
+    const method = req.method.toUpperCase();
+    const init: RequestInit = { method, headers, body };
+
+    // Only GET is safe to retry automatically: a mutation whose attempt timed
+    // out or failed mid-flight may still have been executed by the server, so
+    // repeating it could duplicate the write. Until the API documents an
+    // idempotency contract, mutations get exactly one network attempt and the
+    // original error (with its ambiguity) surfaces to the caller.
+    const retryBudget = method === "GET" ? this.maxRetries : 0;
 
     for (let attempt = 0; ; attempt++) {
       await this.bucket.acquire();
@@ -207,8 +222,8 @@ export class KitClient {
         res = result.res;
         text = result.text;
       } catch (err) {
-        // Network failure or per-attempt timeout (abort): retryable.
-        if (attempt < this.maxRetries) {
+        // Network failure or per-attempt timeout (abort): retryable for GET.
+        if (attempt < retryBudget) {
           await sleep(this.backoffDelayMs(attempt));
           continue;
         }
@@ -239,7 +254,7 @@ export class KitClient {
         res.status === 429 ||
         res.status >= 500 ||
         (res.status === 400 && parsed?.code === RETRYABLE_400_CODE);
-      if (retryable && attempt < this.maxRetries) {
+      if (retryable && attempt < retryBudget) {
         const delay = parseRetryAfterMs(res) ?? this.backoffDelayMs(attempt);
         await sleep(delay);
         continue;

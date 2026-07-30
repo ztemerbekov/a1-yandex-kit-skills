@@ -4,7 +4,7 @@
 
 Что внутри:
 
-- **`KitClient`** — Bearer-авторизация, таймаут на попытку, лимитер 3 rps (token bucket), ретраи с бэкоффом на сетевых ошибках, 5xx, 429 и `LIMIT_EXCEEDED` (который KIT возвращает с **HTTP 400**), автопагинация `listAll`, корректные content-type (`merge-patch+json`, `multipart/form-data`) там, где их требует API.
+- **`KitClient`** — Bearer-авторизация, таймаут на попытку, лимитер 3 rps (token bucket), ретраи с бэкоффом на сетевых ошибках, 5xx, 429 и `LIMIT_EXCEEDED` (который KIT возвращает с **HTTP 400**) — только для GET-чтений: write-запросы выполняются ровно одной сетевой попыткой, чтобы не задублировать изменение, автопагинация `listAll`, корректные content-type (`merge-patch+json`, `multipart/form-data`) там, где их требует API.
 - **`KitApiError`** — типизированные ошибки API: `status`, `code`, `message`, `trace_id`.
 - **ajv-валидация** — `validateRequestBody` / `resolveOperationSchema` проверяют тела запросов по схемам спеки **до** отправки в сеть.
 - **Сгенерированный реестр операций** — метод, путь, параметры и content-type каждой из 133 операций.
