@@ -1,3 +1,4 @@
+/** Shared verified-mutation protocol for manually maintained skill scenarios. */
 export type MutationOutcomeKind = "completed" | "failed" | "ambiguous";
 
 export interface MutationOutcome {

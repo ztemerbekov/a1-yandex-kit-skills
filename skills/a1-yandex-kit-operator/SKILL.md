@@ -194,4 +194,4 @@ changes, duplicate targets, batch cancellation, exact promocode
 limit/status/binding and discount-value changes, webhook activation, ambiguous commands,
 timeouts/5xx and a mismatching verification read. Compare calls and final state, not an
 exact word-for-word report. Run the manual real-skill acceptance cases in
-`docs/OPERATOR-VERIFICATION.md` before claiming end-to-end host conformance.
+`docs/OPERATOR-SKILL-VERIFICATION.md` before claiming end-to-end host conformance.

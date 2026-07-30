@@ -6,7 +6,7 @@ import {
   isKitObjectId,
   type MutationOutcome,
   type MutationOutcomeKind,
-} from "./mutation-scenario.js";
+} from "./skill-mutation-protocol.js";
 
 export interface OperatorOrder {
   id: string;

@@ -1,4 +1,4 @@
-# Проверка `a1-yandex-kit-catalog-doctor`
+# Проверка скилла `a1-yandex-kit-catalog-doctor`
 
 Матрица для issues #10–#12. Автоматические сценарии исполняют детерминированную
 reference-model реализацию с fake MCP и проверяют журнал инструментов, аргументы,

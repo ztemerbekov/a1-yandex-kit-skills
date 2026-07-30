@@ -7,7 +7,7 @@ import {
   mutationResultIsAmbiguous,
   type MutationOutcome,
   type MutationOutcomeKind,
-} from "./mutation-scenario.js";
+} from "./skill-mutation-protocol.js";
 
 export const CATALOG_FIX_BATCH_LIMIT = 100;
 

@@ -420,4 +420,5 @@ Its tests prove exact price read/write/re-read, a grouped missing-stock-source q
 with zero writes, preservation of sibling stocks and media, permanent deletion with an
 exact verb, complete batch outcomes, detail-read array preservation, and ambiguous
 timeout/5xx results without a second mutation. Run the manual real-skill acceptance cases
-in `docs/CATALOG-DOCTOR-VERIFICATION.md` before claiming end-to-end host conformance.
+in `docs/CATALOG-DOCTOR-SKILL-VERIFICATION.md` before claiming end-to-end host
+conformance.
