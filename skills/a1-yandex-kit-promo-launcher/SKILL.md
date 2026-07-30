@@ -2,7 +2,7 @@
 name: a1-yandex-kit-promo-launcher
 description: "Use for natural-language creation and lifecycle management of Yandex KIT automatic discounts, promocodes and gifts: «Запусти скидку», «Создай промокод», «Добавь подарок», «Продли акцию», «Останови промо». Model-invoked; exact write commands are authorization, while incomplete business conditions require one grouped question and no write."
 metadata:
-  author: gistrec
+  author: ztemerbekov
   version: "0.1.0"
 ---
 

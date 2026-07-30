@@ -27,6 +27,7 @@ test("the catalog doctor progressively discloses every audit scope", () => {
     .join("\n");
 
   assert.ok(skill.split("\n").length < 100);
+  assert.match(skill, /^  author: ztemerbekov$/m);
   assert.match(skill, /Choose one route before the first MCP call/iu);
   assert.match(
     skill,
