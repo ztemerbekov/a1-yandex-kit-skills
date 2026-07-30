@@ -99,8 +99,9 @@ SKILL.md `metadata.version` matches. `mcpName` in `packages/mcp/package.json` mu
 - **No sandbox** — every call hits a live production store. `smoke` is read-only by
   design; write paths are exercised by mocked tests and by `npm run e2e`, which is
   gated behind `YANDEX_KIT_E2E_WRITE=1` and must only ever get a TEST store token:
-  created products cannot be deleted (the API has no such operation). Never put a
-  real token in CI.
+  created products cannot be deleted (the API has no such operation). CI (PRs and
+  pushes to main) runs e2e with the `YANDEX_KIT_TOKEN` secret — that secret must
+  hold the TEST store token, never a production one.
 
 ## Agent skills
 
