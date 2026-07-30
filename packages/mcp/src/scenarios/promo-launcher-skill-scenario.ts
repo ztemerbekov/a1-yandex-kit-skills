@@ -24,6 +24,18 @@ export interface PromoCollection {
   status: "ACTIVE" | "INACTIVE";
 }
 
+export interface PromoStore {
+  id: string;
+  slug: string;
+  b2c_url?: string;
+}
+
+export interface PromoWarehouse {
+  id: string;
+  title: string;
+  status: "ACTIVE" | "ARCHIVED";
+}
+
 export interface PromoGift {
   id: string;
   title: string;
@@ -32,12 +44,24 @@ export interface PromoGift {
   default_sort: "POPULARITY" | "CHEAPEST" | "EXPENSIVE" | "NEWEST" | "OLDEST";
 }
 
+type P1PageEntity =
+  | "orders"
+  | "products"
+  | "variants"
+  | "categories"
+  | "warehouses"
+  | "discounts"
+  | "promocodes"
+  | "gifts";
+
 interface P1McpFixture {
+  store?: PromoStore;
   orders?: OperatorOrder[];
   variants?: OperatorVariant[];
   products?: OperatorProduct[];
   categories?: PromoCategory[];
   collections?: PromoCollection[];
+  warehouses?: PromoWarehouse[];
   discounts?: OperatorDiscount[];
   promocodes?: OperatorPromocode[];
   gifts?: PromoGift[];
@@ -46,6 +70,7 @@ interface P1McpFixture {
   readErrors?: Record<string, Error>;
   writeErrors?: Record<string, Error>;
   writeNoops?: string[];
+  pageSize?: number | Partial<Record<P1PageEntity, number>>;
 }
 
 const READ_ONLY_P1_TOOLS = new Set([
@@ -81,8 +106,13 @@ const READ_ONLY_P1_TOOLS = new Set([
  */
 export class FakeP1Mcp {
   readonly #base: FakeOperatorMcp;
+  readonly #store: PromoStore | undefined;
+  readonly #orders: OperatorOrder[];
+  readonly #variants: OperatorVariant[];
+  readonly #products: OperatorProduct[];
   readonly #categories: PromoCategory[];
   readonly #collections: PromoCollection[];
+  readonly #warehouses: PromoWarehouse[];
   readonly #discounts: OperatorDiscount[];
   readonly #promocodes: OperatorPromocode[];
   readonly #gifts: PromoGift[];
@@ -90,16 +120,19 @@ export class FakeP1Mcp {
   readonly #readErrors: Record<string, Error>;
   readonly #writeErrors: Record<string, Error>;
   readonly #writeNoops: Set<string>;
+  readonly #pageSize: Record<P1PageEntity, number>;
   #discountSequence: number;
   #promocodeSequence: number;
   #giftSequence: number;
 
   constructor({
+    store,
     orders = [],
     variants = [],
     products = [],
     categories = [],
     collections = [],
+    warehouses = [],
     discounts = [],
     promocodes = [],
     gifts = [],
@@ -108,9 +141,15 @@ export class FakeP1Mcp {
     readErrors = {},
     writeErrors = {},
     writeNoops = [],
+    pageSize = 100,
   }: P1McpFixture = {}) {
+    this.#store = store;
+    this.#orders = orders;
+    this.#variants = variants;
+    this.#products = products;
     this.#categories = categories;
     this.#collections = collections;
+    this.#warehouses = warehouses;
     this.#discounts = discounts;
     this.#promocodes = promocodes;
     this.#gifts = gifts;
@@ -118,6 +157,20 @@ export class FakeP1Mcp {
     this.#readErrors = readErrors;
     this.#writeErrors = writeErrors;
     this.#writeNoops = new Set(writeNoops);
+    const sizeFor = (
+      entity: P1PageEntity,
+    ): number =>
+      typeof pageSize === "number" ? pageSize : (pageSize[entity] ?? 100);
+    this.#pageSize = {
+      orders: sizeFor("orders"),
+      products: sizeFor("products"),
+      variants: sizeFor("variants"),
+      categories: sizeFor("categories"),
+      warehouses: sizeFor("warehouses"),
+      discounts: sizeFor("discounts"),
+      promocodes: sizeFor("promocodes"),
+      gifts: sizeFor("gifts"),
+    };
     this.#discountSequence = discounts.length + 1;
     this.#promocodeSequence = promocodes.length + 1;
     this.#giftSequence = gifts.length + 1;
@@ -160,7 +213,115 @@ export class FakeP1Mcp {
     return (id ? this.#writeErrors[`${name}:${id}`] : undefined) ?? this.#writeErrors[name];
   }
 
+  #page<T>(
+    items: T[],
+    entity: P1PageEntity,
+    arguments_: Record<string, unknown>,
+  ): { items: T[]; total_count: number } {
+    const page = typeof arguments_.page === "number" ? arguments_.page : 1;
+    const size = this.#pageSize[entity];
+    const start = (page - 1) * size;
+    return {
+      items: items.slice(start, start + size),
+      total_count: items.length,
+    };
+  }
+
+  #preparedReadError(name: string, arguments_: Record<string, unknown>): Error | undefined {
+    const page = typeof arguments_.page === "number" ? arguments_.page : undefined;
+    return (page ? this.#readErrors[`${name}:${page}`] : undefined) ?? this.#readErrors[name];
+  }
+
   async call(name: string, arguments_: Record<string, unknown>): Promise<unknown> {
+    if (name === "get_store") {
+      this.#record(name, arguments_);
+      if (this.#readErrors[name]) throw this.#readErrors[name];
+      if (!this.#store) throw new Error("Store is not prepared in FakeP1Mcp");
+      return structuredClone(this.#store);
+    }
+
+    if (name === "list_orders") {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const page = this.#page(this.#orders, "orders", arguments_);
+      return { orders: page.items, total_count: page.total_count };
+    }
+
+    if (name === "list_variants" && arguments_.all !== true) {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const statuses = Array.isArray(arguments_.status)
+        ? new Set(arguments_.status.map(String))
+        : undefined;
+      const filtered = this.#variants.filter(
+        (variant) => !statuses || statuses.has(variant.status),
+      );
+      const page = this.#page(filtered, "variants", arguments_);
+      return { variants: page.items, total_count: page.total_count };
+    }
+
+    if (name === "list_products" && arguments_.all !== true) {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const page = this.#page(this.#products, "products", arguments_);
+      return { products: page.items, total_count: page.total_count };
+    }
+
+    if (name === "list_categories") {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const statuses = Array.isArray(arguments_.status)
+        ? new Set(arguments_.status.map(String))
+        : undefined;
+      const filtered = this.#categories.filter(
+        (category) => !statuses || statuses.has(category.status),
+      );
+      const page = this.#page(filtered, "categories", arguments_);
+      return { categories: page.items, total_count: page.total_count };
+    }
+
+    if (name === "list_warehouses") {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const statuses = Array.isArray(arguments_.status)
+        ? new Set(arguments_.status.map(String))
+        : undefined;
+      const filtered = this.#warehouses.filter(
+        (warehouse) => !statuses || statuses.has(warehouse.status),
+      );
+      const page = this.#page(filtered, "warehouses", arguments_);
+      return { warehouses: page.items, total_count: page.total_count };
+    }
+
+    if (name === "list_discounts" && arguments_.all !== true) {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const statuses = Array.isArray(arguments_.status)
+        ? new Set(arguments_.status.map(String))
+        : new Set([String(arguments_.status ?? "ACTIVE")]);
+      const filtered = this.#discounts.filter((discount) => statuses.has(discount.status));
+      const page = this.#page(filtered, "discounts", arguments_);
+      return { discounts: page.items, total_count: page.total_count };
+    }
+
+    if (name === "list_promocodes" && arguments_.all !== true) {
+      this.#record(name, arguments_);
+      const error = this.#preparedReadError(name, arguments_);
+      if (error) throw error;
+      const status = typeof arguments_.status === "string" ? arguments_.status : undefined;
+      const filtered = this.#promocodes.filter(
+        (promocode) => !status || promocode.status === status,
+      );
+      const page = this.#page(filtered, "promocodes", arguments_);
+      return { promocodes: page.items, total_count: page.total_count };
+    }
+
     if (name === "get_operation_schema") {
       this.#record(name, arguments_);
       if (this.#readErrors[name]) throw this.#readErrors[name];
@@ -188,7 +349,10 @@ export class FakeP1Mcp {
           (arguments_.query as Record<string, unknown> | undefined)?.status ?? "",
         );
         const gifts = this.#gifts.filter((gift) => !status || gift.status === status);
-        return { gifts: structuredClone(gifts), total_count: gifts.length };
+        const page = this.#page(gifts, "gifts", {
+          ...((arguments_.query as Record<string, unknown> | undefined) ?? {}),
+        });
+        return { gifts: structuredClone(page.items), total_count: page.total_count };
       }
       if (operationId === "GetGiftById") {
         const found = this.#gifts.find((candidate) => candidate.id === id);
