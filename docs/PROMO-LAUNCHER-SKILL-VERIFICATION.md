@@ -29,6 +29,20 @@ reference model и не сравнивает ответ посимвольно.
 | Категории/коллекции не смешиваются с вариантами в одном запросе | Отдельные ветви `bindingObjects` и контракт в `SKILL.md`; аргументы category tracer | полуавтоматизировано |
 | Естественность сгруппированного вопроса и итогового отчёта | Прогон трёх формулировок в реальном model host с проверкой по журналу fake MCP | manual acceptance pending |
 
+## Issue #15
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| Ограниченный `ORDER` промокод с точными условиями создаётся, активируется один раз и перечитывается | `an exact limited ORDER promocode is created, activated once, and re-read` | автоматизировано |
+| `PRODUCTS` промокод проверяет категорию, привязывает её и остаётся неактивным по команде | `a PRODUCTS promocode validates and binds a category without an activation write` | автоматизировано |
+| Товарные связи не отправляются для `ORDER` | Проверка отсутствия `manage_promocode_objects` в ORDER tracer | автоматизировано |
+| Отсутствующий usage limit не превращается в «без лимита» | `a promocode without a usage limit or explicit unlimited choice performs no read or write` | автоматизировано |
+| Конфликт существующего кода требует выбора и не пишет | `a conflicting existing code asks whether to update or choose a new code` | автоматизировано |
+| Эквивалентный повтор не создаёт дубль | `an equivalent promocode command returns the existing code without a duplicate` | автоматизировано |
+| Документированные API-дефолты передаются и перечисляются | Проверки `minimum_order_amount`, `first_order_only`, `one_time_use`, `show_in_pdp` в ORDER/PRODUCTS tracers | автоматизировано |
+| Timeout создания не ретраится | `a promocode create timeout is never retried` | автоматизировано |
+| Ясность вопроса о конфликте и итогового отчёта | Запуск ORDER и PRODUCTS формулировок в model host, сверка с fake MCP | manual acceptance pending |
+
 Запуск:
 
 ```bash

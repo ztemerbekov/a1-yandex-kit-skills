@@ -69,10 +69,16 @@ export interface OperatorPromocode {
   id: KitPromocode["id"];
   code: KitPromocode["code"];
   title: KitPromocode["title"];
+  discount_value?: KitPromocode["discount_value"];
+  minimum_order_amount?: KitPromocode["minimum_order_amount"];
   status: KitPromocode["status"];
   type: KitPromocode["type"];
   binding_mode?: KitPromocode["binding_mode"];
   max_usage?: KitPromocode["max_usage"];
+  max_discount_amount?: KitPromocode["max_discount_amount"];
+  one_time_use?: KitPromocode["one_time_use"];
+  first_order_only?: KitPromocode["first_order_only"];
+  show_in_pdp?: KitPromocode["show_in_pdp"];
   usage_count: KitPromocode["usage_count"];
   promocode_dates: KitPromocode["promocode_dates"];
 }

@@ -63,6 +63,33 @@ relevant `GetDiscountVariantIDs`, `GetDiscountCategoryIDs` or
 `GetDiscountCollectionIDs` relation. Report the factual ID, status, value, UTC dates,
 binding mode, bound-object count, overlap risks and any partial or ambiguous result.
 
+## Promocode launch
+
+Treat `ORDER` and `PRODUCTS` as different mechanisms. Before creating either, require:
+
+- exact code, title, positive `PERCENT`/`VALUE`, start, end or explicit «бессрочно»,
+  and the time zone for natural dates;
+- exact type `ORDER` or `PRODUCTS`;
+- an integer usage limit or explicit «без лимита»;
+- desired active/inactive state;
+- for `PRODUCTS`, an exact scope using the same target checks as discounts.
+
+Optional `minimum_order_amount`, `max_discount_amount`, `first_order_only`,
+`one_time_use` and `show_in_pdp` come only from the owner. Where omitted, preserve and
+report the documented API defaults (`0.00` and `false`); `show_in_pdp` applies only to
+`PRODUCTS`. Never send product bindings for an `ORDER` promocode.
+
+Read both active and inactive promocodes before creation. Compare a matching code
+against all material conditions and factual bindings. Return an equivalent existing
+promocode without a write. If the same code has different conditions, ask exactly
+whether to change the existing promocode or use a new code; do not write until answered.
+
+Create the entity once, attach the validated product scope when applicable, then read
+the exact promocode. KIT creates a promocode inactive; when the owner said «запусти»,
+perform one `update_promocode` to `ACTIVE` and read it again. Report ID, code, factual
+status, type, value, UTC dates, usage and discount limits, all documented boolean
+defaults and factual coverage.
+
 ## Safety boundaries
 
 - Never infer «бессрочно», «без лимита», a time zone, a target or a business value.

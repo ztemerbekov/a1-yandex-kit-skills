@@ -91,6 +91,7 @@ export class FakeP1Mcp {
   readonly #writeErrors: Record<string, Error>;
   readonly #writeNoops: Set<string>;
   #discountSequence: number;
+  #promocodeSequence: number;
 
   constructor({
     orders = [],
@@ -117,6 +118,7 @@ export class FakeP1Mcp {
     this.#writeErrors = writeErrors;
     this.#writeNoops = new Set(writeNoops);
     this.#discountSequence = discounts.length + 1;
+    this.#promocodeSequence = promocodes.length + 1;
     this.#base = new FakeOperatorMcp({
       orders,
       variants,
@@ -193,6 +195,64 @@ export class FakeP1Mcp {
       return structuredClone(created);
     }
 
+    if (name === "create_promocode") {
+      this.#record(name, arguments_);
+      const error = this.#preparedWriteError(name);
+      if (error) throw error;
+      if (this.#writeNoops.has(name)) return { ok: true };
+      const request = arguments_.promocode as components["schemas"]["CreatePromocodeRequest"];
+      const created: OperatorPromocode = {
+        id: `promocode-${this.#promocodeSequence++}`,
+        code: request.code,
+        title: request.title,
+        discount_value: structuredClone(request.discount_value),
+        minimum_order_amount: request.minimum_order_amount ?? "0.00",
+        max_usage: request.max_usage,
+        max_discount_amount: request.max_discount_amount,
+        one_time_use: request.one_time_use ?? false,
+        first_order_only: request.first_order_only ?? false,
+        show_in_pdp: request.show_in_pdp ?? false,
+        promocode_dates: structuredClone(request.promocode_dates),
+        type: request.type,
+        binding_mode: request.binding_mode,
+        status: "INACTIVE",
+        usage_count: 0,
+      };
+      this.#promocodes.push(created);
+      return structuredClone(created);
+    }
+
+    if (name === "manage_promocode_objects") {
+      this.#record(name, arguments_);
+      const id = String(arguments_.id);
+      const error = this.#preparedWriteError(name, id);
+      if (error) throw error;
+      if (this.#writeNoops.has(`${name}:${id}`) || this.#writeNoops.has(name)) return { ok: true };
+      const promocode = this.#promocodes.find((candidate) => candidate.id === id);
+      if (!promocode) throw new Error(`Promocode ${id} is not prepared in FakeP1Mcp`);
+      const objects = arguments_.objects as components["schemas"]["PromocodeObjects"];
+      const entries: Array<[string, string[] | undefined]> = [
+        ["GetPromocodeVariantIDs", objects.product_variant_ids],
+        ["GetPromocodeCategoryIDs", objects.category_ids],
+        ["GetPromocodeCollectionIDs", objects.collection_ids],
+      ];
+      for (const [operationId, requestedIds] of entries) {
+        if (!requestedIds) continue;
+        const key = `${operationId}:${id}`;
+        const current = this.#bindings[key] ?? [];
+        this.#bindings[key] =
+          arguments_.action === "remove"
+            ? current.filter((candidate) => !requestedIds.includes(candidate))
+            : [...new Set([...current, ...requestedIds])];
+      }
+      if ((objects.category_ids?.length ?? 0) + (objects.collection_ids?.length ?? 0) > 0) {
+        promocode.binding_mode = "SELECTED_CATEGORIES_COLLECTIONS";
+      } else if ((objects.product_variant_ids?.length ?? 0) > 0) {
+        promocode.binding_mode = "SELECTED_VARIANTS";
+      }
+      return { ok: true };
+    }
+
     if (name === "manage_discount_objects") {
       this.#record(name, arguments_);
       const id = String(arguments_.id);
@@ -244,6 +304,23 @@ interface DiscountPlan {
   dates: components["schemas"]["DiscountDates"];
   status: "ACTIVE" | "INACTIVE";
   scope: PromotionScope;
+}
+
+interface PromocodePlan {
+  code: string;
+  title: string;
+  value: components["schemas"]["DiscountValue"];
+  dates: components["schemas"]["PromocodeDates"];
+  type: "ORDER" | "PRODUCTS";
+  status: "ACTIVE" | "INACTIVE";
+  scope?: PromotionScope;
+  minimumOrderAmount?: string;
+  maxUsage?: number;
+  unlimitedUsage: boolean;
+  maxDiscountAmount?: string;
+  oneTimeUse?: boolean;
+  firstOrderOnly?: boolean;
+  showInPdp?: boolean;
 }
 
 export interface PromoLauncherResult {
@@ -466,6 +543,113 @@ function parseDiscountPlan({
   };
 }
 
+function labelledMoney(request: string, label: RegExp): string | undefined {
+  const match = request.match(
+    new RegExp(`${label.source}\\s+(\\d+(?:[.,]\\d+)?)\\s*(?:руб(?:лей|ля|ль)?|₽)`, "iu"),
+  );
+  if (!match) return undefined;
+  return Number(match[1]!.replace(",", ".")).toFixed(2);
+}
+
+function parsePromocodePlan({
+  request,
+  now,
+  conversationTimeZone,
+}: {
+  request: string;
+  now: Date;
+  conversationTimeZone?: string;
+}): { plan?: PromocodePlan; question?: string; error?: string } {
+  const missing: string[] = [];
+  const code = request.match(/промокод\s+([0-9a-z_-]+)/iu)?.[1]?.toUpperCase();
+  if (!code) missing.push("точный код промокода");
+  const title = request.match(/[«"]([^»"]+)[»"]/)?.[1]?.trim();
+  if (!title) missing.push("название промокода");
+  const rawValue = request.match(/(\d+(?:[.,]\d+)?)\s*(%|руб(?:лей|ля|ль)?|₽)/iu);
+  if (!rawValue) missing.push("размер и тип скидки");
+
+  const type = /на заказ/iu.test(request)
+    ? "ORDER"
+    : /на товар|на весь каталог|на (?:вариант|sku|категори|коллекци)/iu.test(request)
+      ? "PRODUCTS"
+      : undefined;
+  if (!type) missing.push("тип — на заказ или на товары");
+  const scope = type === "PRODUCTS" ? exactScope(request) : undefined;
+  if (type === "PRODUCTS" && !scope) missing.push("область действия товарного промокода");
+
+  const status = /неактивн|черновик/iu.test(request)
+    ? "INACTIVE"
+    : /запусти|активн/iu.test(request)
+      ? "ACTIVE"
+      : undefined;
+  if (!status) missing.push("статус — запустить или создать неактивным");
+
+  const unlimitedUsage = /без лимита/iu.test(request);
+  const maxUsageMatch = request.match(/(?:^|[,;]\s*|\s)лимит(?: использований)?\s+(\d+)/iu);
+  const maxUsage = maxUsageMatch ? Number(maxUsageMatch[1]) : undefined;
+  if (!unlimitedUsage && maxUsage === undefined) {
+    missing.push("лимит использований либо явное «без лимита»");
+  }
+
+  const timeZone = /по москв/iu.test(request) ? "Europe/Moscow" : conversationTimeZone;
+  const usesLocalDate = /завтра|воскресень|[а-яё]+\s+\d{4}\s+\d{1,2}:\d{2}/iu.test(request);
+  if (usesLocalDate && !timeZone) missing.push("часовой пояс для дат");
+  const perpetual = /бессрочн/iu.test(request);
+  let startDate: Date | undefined;
+  let endDate: Date | undefined;
+  if (timeZone) {
+    startDate = parseLocalDate(request, now, timeZone, "start");
+    if (!perpetual) endDate = parseLocalDate(request, now, timeZone, "end");
+  }
+  if (!startDate) missing.push("дату начала");
+  if (!perpetual && !endDate) missing.push("дату окончания либо явное «бессрочно»");
+
+  if (missing.length > 0) return { question: groupedQuestion([...new Set(missing)]) };
+  const numericValue = Number(rawValue![1]!.replace(",", "."));
+  const valueType = rawValue![2] === "%" ? "PERCENT" : "VALUE";
+  if (numericValue <= 0 || (valueType === "PERCENT" && numericValue > 100)) {
+    return { error: `Недопустимое значение промокода: ${rawValue![0]}` };
+  }
+  if (maxUsage !== undefined && (!Number.isInteger(maxUsage) || maxUsage <= 0)) {
+    return { error: "Лимит использований должен быть положительным целым числом" };
+  }
+  if (endDate && startDate!.getTime() >= endDate.getTime()) {
+    return { error: "Дата начала промокода должна быть раньше даты окончания" };
+  }
+
+  return {
+    plan: {
+      code: code!,
+      title: title!,
+      value: { value: numericValue.toFixed(2), type: valueType },
+      dates: {
+        start_date: startDate!.toISOString(),
+        ...(endDate ? { end_date: endDate.toISOString() } : {}),
+      },
+      type: type!,
+      status: status!,
+      scope,
+      minimumOrderAmount: labelledMoney(
+        request,
+        /минимальн[а-яёa-z]*\s+сумм[а-яёa-z]*(?:\s+заказа)?/iu,
+      ),
+      maxUsage,
+      unlimitedUsage,
+      maxDiscountAmount: labelledMoney(
+        request,
+        /максимальн[а-яёa-z]*\s+скидк[а-яёa-z]*/iu,
+      ),
+      oneTimeUse: /одно использование|один раз/iu.test(request) ? true : undefined,
+      firstOrderOnly: /только первый заказ|для первого заказа/iu.test(request)
+        ? true
+        : undefined,
+      showInPdp: /показыва[а-яёa-z]*\s+на странице товара/iu.test(request)
+        ? true
+        : undefined,
+    },
+  };
+}
+
 async function validateScope(mcp: FakeP1Mcp, scope: PromotionScope): Promise<string[]> {
   const errors: string[] = [];
   for (const id of scope.ids) {
@@ -547,6 +731,15 @@ function bindingObjects(scope: PromotionScope): components["schemas"]["DiscountO
   return {};
 }
 
+function promocodeBindingObjects(
+  scope: PromotionScope,
+): components["schemas"]["PromocodeObjects"] {
+  if (scope.kind === "variants") return { product_variant_ids: scope.ids };
+  if (scope.kind === "categories") return { category_ids: scope.ids };
+  if (scope.kind === "collections") return { collection_ids: scope.ids };
+  return {};
+}
+
 async function findEquivalentDiscount(
   mcp: FakeP1Mcp,
   plan: DiscountPlan,
@@ -580,6 +773,269 @@ function finish(mcp: FakeP1Mcp, result: PromoLauncherResult): PromoLauncherResul
   return result;
 }
 
+function sameOptionalMoney(left: string | undefined, right: string | undefined): boolean {
+  return Number(left ?? "0") === Number(right ?? "0");
+}
+
+async function promocodeIsEquivalent(
+  mcp: FakeP1Mcp,
+  existing: OperatorPromocode,
+  plan: PromocodePlan,
+): Promise<boolean> {
+  if (
+    existing.code.toUpperCase() !== plan.code ||
+    existing.title !== plan.title ||
+    existing.type !== plan.type ||
+    existing.status !== plan.status ||
+    !sameValue(existing.discount_value, plan.value) ||
+    !sameDates(existing.promocode_dates, plan.dates) ||
+    !sameOptionalMoney(existing.minimum_order_amount, plan.minimumOrderAmount) ||
+    existing.max_usage !== plan.maxUsage ||
+    !sameOptionalMoney(existing.max_discount_amount, plan.maxDiscountAmount) ||
+    (existing.one_time_use ?? false) !== (plan.oneTimeUse ?? false) ||
+    (existing.first_order_only ?? false) !== (plan.firstOrderOnly ?? false) ||
+    (existing.show_in_pdp ?? false) !== (plan.showInPdp ?? false)
+  ) {
+    return false;
+  }
+  if (plan.type === "ORDER") return existing.binding_mode === undefined;
+  if (plan.scope?.kind === "all") return existing.binding_mode === "ALL_VARIANTS";
+  if (!plan.scope) return false;
+  const ids = await readScopeIds(mcp, existing.id, plan.scope, "Promocode");
+  return (
+    ids.length === plan.scope.ids.length &&
+    plan.scope.ids.every((id) => ids.includes(id))
+  );
+}
+
+function promocodeCreateRequest(
+  plan: PromocodePlan,
+): components["schemas"]["CreatePromocodeRequest"] {
+  return {
+    code: plan.code,
+    title: plan.title,
+    discount_value: plan.value,
+    promocode_dates: plan.dates,
+    type: plan.type,
+    ...(plan.type === "PRODUCTS" && plan.scope
+      ? {
+          binding_mode:
+            plan.scope.kind === "all"
+              ? ("ALL_VARIANTS" as const)
+              : plan.scope.kind === "variants"
+                ? ("SELECTED_VARIANTS" as const)
+                : ("SELECTED_CATEGORIES_COLLECTIONS" as const),
+        }
+      : {}),
+    minimum_order_amount: plan.minimumOrderAmount ?? "0.00",
+    ...(plan.maxUsage !== undefined ? { max_usage: plan.maxUsage } : {}),
+    ...(plan.maxDiscountAmount
+      ? { max_discount_amount: plan.maxDiscountAmount }
+      : {}),
+    one_time_use: plan.oneTimeUse ?? false,
+    first_order_only: plan.firstOrderOnly ?? false,
+    show_in_pdp: plan.type === "PRODUCTS" ? (plan.showInPdp ?? false) : false,
+  };
+}
+
+async function runPromocodeScenario({
+  request,
+  now,
+  timeZone,
+  mcp,
+}: {
+  request: string;
+  now: Date;
+  timeZone?: string;
+  mcp: FakeP1Mcp;
+}): Promise<PromoLauncherResult> {
+  const parsed = parsePromocodePlan({
+    request,
+    now,
+    conversationTimeZone: timeZone,
+  });
+  if (parsed.question) return finish(mcp, { kind: "needs_input", report: parsed.question });
+  if (parsed.error) return finish(mcp, { kind: "failed", report: parsed.error });
+  const plan = parsed.plan!;
+
+  if (plan.scope) {
+    const targetErrors = await validateScope(mcp, plan.scope);
+    if (targetErrors.length > 0) {
+      return finish(mcp, {
+        kind: "failed",
+        report: `Промокод не создан:\n${targetErrors.map((error) => `- ${error}`).join("\n")}`,
+      });
+    }
+  }
+
+  let results: Array<{ items: OperatorPromocode[]; truncated?: boolean }>;
+  try {
+    results = [];
+    for (const status of ["ACTIVE", "INACTIVE"] as const) {
+      results.push(
+        (await mcp.call("list_promocodes", { status, all: true })) as {
+          items: OperatorPromocode[];
+          truncated?: boolean;
+        },
+      );
+    }
+  } catch (error) {
+    return finish(mcp, {
+      kind: "failed",
+      report:
+        "Промокод не создан: проверка существующего кода не выполнена — " +
+        (error instanceof Error ? error.message : String(error)),
+    });
+  }
+  if (results.some((result) => result.truncated)) {
+    return finish(mcp, {
+      kind: "failed",
+      report: "Промокод не создан: список кодов прочитан не полностью",
+    });
+  }
+  const sameCode = results
+    .flatMap((result) => result.items)
+    .filter((promocode) => promocode.code.toUpperCase() === plan.code);
+  for (const existing of sameCode) {
+    if (await promocodeIsEquivalent(mcp, existing, plan)) {
+      return finish(mcp, {
+        kind: "completed",
+        promotionId: existing.id,
+        report: `Эквивалентный промокод ${plan.code} уже существует: ${existing.id}; дубль не создан.`,
+      });
+    }
+  }
+  if (sameCode.length > 0) {
+    return finish(mcp, {
+      kind: "needs_input",
+      report:
+        `Код ${plan.code} уже занят промокодом ${sameCode.map((item) => item.id).join(", ")} ` +
+        "с другими условиями. Изменить существующий или использовать новый код?",
+    });
+  }
+
+  let created: OperatorPromocode;
+  try {
+    created = (await mcp.call("create_promocode", {
+      promocode: promocodeCreateRequest(plan),
+    })) as OperatorPromocode;
+  } catch (error) {
+    return finish(mcp, {
+      kind: mutationResultIsAmbiguous(error) ? "ambiguous" : "failed",
+      report:
+        `Создание промокода вызвано один раз и завершилось ошибкой «${
+          error instanceof Error ? error.message : String(error)
+        }»; ` +
+        (mutationResultIsAmbiguous(error)
+          ? "результат неизвестен, нужна проверка"
+          : "повтор не выполнялся"),
+    });
+  }
+
+  let bindingError: unknown;
+  if (plan.type === "PRODUCTS" && plan.scope && plan.scope.kind !== "all") {
+    try {
+      await mcp.call("manage_promocode_objects", {
+        id: created.id,
+        action: "add",
+        objects: promocodeBindingObjects(plan.scope),
+      });
+    } catch (error) {
+      bindingError = error;
+    }
+  }
+
+  let actual: OperatorPromocode;
+  try {
+    actual = (await mcp.call("get_promocode", { id: created.id })) as OperatorPromocode;
+  } catch (error) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: created.id,
+      report: `Промокод ${created.id} создан, но первое проверочное чтение не удалось: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+  }
+
+  let statusError: unknown;
+  if (plan.status === "ACTIVE" && actual.status !== "ACTIVE") {
+    try {
+      await mcp.call("update_promocode", {
+        id: actual.id,
+        promocode: { status: "ACTIVE" },
+      });
+    } catch (error) {
+      statusError = error;
+    }
+    try {
+      actual = (await mcp.call("get_promocode", { id: created.id })) as OperatorPromocode;
+    } catch (error) {
+      return finish(mcp, {
+        kind: "ambiguous",
+        promotionId: created.id,
+        report: `Активация промокода вызвана один раз, но повторное чтение не удалось: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+  }
+
+  let actualIds: string[] = [];
+  if (plan.type === "PRODUCTS" && plan.scope && plan.scope.kind !== "all") {
+    try {
+      actualIds = await readScopeIds(mcp, actual.id, plan.scope, "Promocode");
+    } catch (error) {
+      return finish(mcp, {
+        kind: "ambiguous",
+        promotionId: actual.id,
+        report: `Промокод ${actual.id} создан, но фактические привязки не прочитаны: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+  }
+  const bindingComplete =
+    plan.type === "ORDER" ||
+    plan.scope?.kind === "all" ||
+    (plan.scope !== undefined &&
+      actualIds.length === plan.scope.ids.length &&
+      plan.scope.ids.every((id) => actualIds.includes(id)));
+  const statusComplete = actual.status === plan.status;
+  const ambiguous =
+    (bindingError !== undefined && mutationResultIsAmbiguous(bindingError)) ||
+    (statusError !== undefined && mutationResultIsAmbiguous(statusError));
+  const kind = ambiguous
+    ? "ambiguous"
+    : bindingError || statusError || !bindingComplete || !statusComplete
+      ? "failed"
+      : "completed";
+  const report =
+    `Промокод ${actual.code} (${actual.id}): статус ${actual.status}; тип ${actual.type}; ` +
+    `значение ${actual.discount_value?.value} ${actual.discount_value?.type}; ` +
+    `даты ${actual.promocode_dates.start_date} — ${
+      actual.promocode_dates.end_date ?? "бессрочно"
+    }; лимит ${actual.max_usage ?? "без лимита"}; минимум заказа ${
+      actual.minimum_order_amount ?? "0.00"
+    }; максимум скидки ${actual.max_discount_amount ?? "без лимита"}; ` +
+    `first_order_only=${actual.first_order_only ?? false}, ` +
+    `one_time_use=${actual.one_time_use ?? false}, show_in_pdp=${actual.show_in_pdp ?? false}; ` +
+    `покрытие ${
+      plan.type === "ORDER"
+        ? "весь заказ"
+        : plan.scope?.kind === "all"
+          ? "весь каталог"
+          : `${actualIds.length} объектов`
+    }.` +
+    (bindingError
+      ? ` Ошибка привязки: ${bindingError instanceof Error ? bindingError.message : String(bindingError)}.`
+      : "") +
+    (statusError
+      ? ` Ошибка активации: ${statusError instanceof Error ? statusError.message : String(statusError)}.`
+      : "");
+  return finish(mcp, { kind, promotionId: actual.id, report });
+}
+
 export async function runPromoLauncherScenario({
   request,
   now,
@@ -591,6 +1047,9 @@ export async function runPromoLauncherScenario({
   timeZone?: string;
   mcp: FakeP1Mcp;
 }): Promise<PromoLauncherResult> {
+  if (/промокод/iu.test(request)) {
+    return runPromocodeScenario({ request, now, timeZone, mcp });
+  }
   const parsed = parseDiscountPlan({
     request,
     now,
