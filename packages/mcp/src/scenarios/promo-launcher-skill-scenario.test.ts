@@ -7,9 +7,12 @@ import {
   runPromoLauncherScenario,
   type PromoCategory,
 } from "./promo-launcher-skill-scenario.js";
+import type { OperatorVariant } from "./operator-skill-scenario.js";
 
 const NOW = new Date("2026-07-29T12:00:00Z");
 const CATEGORY_ID = "00000000-0000-4000-8000-000000000001";
+const VARIANT_ID_1 = "00000000-0000-4000-8000-000000000011";
+const VARIANT_ID_2 = "00000000-0000-4000-8000-000000000012";
 const PROMO_LAUNCHER_SKILL_URL = new URL(
   "../../../../skills/a1-yandex-kit-promo-launcher/SKILL.md",
   import.meta.url,
@@ -20,6 +23,20 @@ function category(overrides: Partial<PromoCategory> = {}): PromoCategory {
     id: CATEGORY_ID,
     title: "Летняя коллекция",
     status: "ACTIVE",
+    ...overrides,
+  };
+}
+
+function variant(id: string, overrides: Partial<OperatorVariant> = {}): OperatorVariant {
+  return {
+    id,
+    sku: `SKU-${id.slice(-2)}`,
+    name: `Товар ${id.slice(-2)}`,
+    status: "PUBLISHED",
+    product_id: "00000000-0000-4000-8000-000000000099",
+    pricing: { price: "1000.00" },
+    stocks: [{ warehouse_id: "warehouse-1", quantity: 10, reserved: 0 }],
+    media: [{ type: "IMAGE", image_id: "image-1", display_sequence: 1 }],
     ...overrides,
   };
 }
@@ -461,4 +478,171 @@ test("a promocode create timeout is never retried", async () => {
   assert.match(result.report, /результат неизвестен/u);
   assert.equal(mcp.calls.filter((call) => call.name === "create_promocode").length, 1);
   assert.equal(mcp.calls.filter((call) => call.name === "update_promocode").length, 0);
+});
+
+test("an exact active gift validates variants and schema, creates once, activates, and re-reads", async () => {
+  const mcp = new FakeP1Mcp({
+    variants: [variant(VARIANT_ID_1), variant(VARIANT_ID_2)],
+  });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Создай и запусти подарок «Кружка» при корзине от 3000 рублей, ` +
+      `варианты ${VARIANT_ID_1}, ${VARIANT_ID_2}, сортировка CHEAPEST`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    [
+      "get_variant",
+      "get_variant",
+      "get_operation_schema",
+      "kit_request",
+      "kit_request",
+      "kit_request",
+      "kit_request",
+      "kit_request",
+    ],
+  );
+  assert.deepEqual(mcp.calls[2]?.arguments, { operation_id: "CreateGift" });
+  assert.deepEqual(mcp.calls[3]?.arguments, {
+    operation_id: "CreateGift",
+    body: {
+      title: "Кружка",
+      min_cart_total: "3000.00",
+      default_sort: "CHEAPEST",
+      variant_ids: [VARIANT_ID_1, VARIANT_ID_2],
+    },
+  });
+  assert.deepEqual(mcp.calls[5]?.arguments, {
+    operation_id: "UpdateGift",
+    path_params: { id: "gift-1" },
+    body: { status: "ACTIVE" },
+  });
+  assert.equal(mcp.writeCalls.length, 2);
+  assert.equal(result.kind, "completed");
+  assert.match(result.report, /gift-1/);
+  assert.match(result.report, /ACTIVE/);
+  assert.match(result.report, /CHEAPEST/);
+  assert.match(result.report, /товаров-подарков: 2/u);
+});
+
+test("an inactive gift draft keeps the documented POPULARITY default and skips activation", async () => {
+  const mcp = new FakeP1Mcp({ variants: [variant(VARIANT_ID_1)] });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Создай неактивный подарок «Черновик» при корзине от 1500 рублей, ` +
+      `варианты ${VARIANT_ID_1}`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    [
+      "get_variant",
+      "get_operation_schema",
+      "kit_request",
+      "kit_request",
+      "kit_request",
+    ],
+  );
+  assert.equal(
+    mcp.calls.some(
+      (call) =>
+        call.name === "kit_request" && call.arguments.operation_id === "UpdateGift",
+    ),
+    false,
+  );
+  assert.equal(result.kind, "completed");
+  assert.match(result.report, /INACTIVE/);
+  assert.match(result.report, /POPULARITY/);
+});
+
+test("a gift with more than 50 variants is rejected before target reads", async () => {
+  const ids = Array.from(
+    { length: 51 },
+    (_, index) =>
+      `00000000-0000-4000-8000-${(index + 1).toString(16).padStart(12, "0")}`,
+  );
+  const mcp = new FakeP1Mcp();
+  const result = await runPromoLauncherScenario({
+    request:
+      "Создай неактивный подарок «Слишком много» при корзине от 1500 рублей, " +
+      `варианты ${ids.join(", ")}`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "failed");
+  assert.match(result.report, /от 1 до 50.*получено 51/u);
+  assert.equal(mcp.calls.length, 0);
+});
+
+test("a missing gift variant prevents CreateGift", async () => {
+  const mcp = new FakeP1Mcp({ variants: [variant(VARIANT_ID_1)] });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Запусти подарок «Кружка» при корзине от 3000 рублей, ` +
+      `варианты ${VARIANT_ID_1}, ${VARIANT_ID_2}`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "failed");
+  assert.match(result.report, new RegExp(VARIANT_ID_2));
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    ["get_variant", "get_variant"],
+  );
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a dated gift explains the API limitation and creates no false schedule", async () => {
+  const mcp = new FakeP1Mcp({ variants: [variant(VARIANT_ID_1)] });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Запусти подарок «Август» при корзине от 3000 рублей, ` +
+      `варианты ${VARIANT_ID_1}, до 31 августа 2026`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "failed");
+  assert.match(result.report, /KIT API не поддерживает даты действия подарка/u);
+  assert.equal(mcp.calls.length, 0);
+});
+
+test("a CreateGift timeout is attempted once and never followed by activation", async () => {
+  const timeout = new Error("network timeout");
+  timeout.name = "TimeoutError";
+  const mcp = new FakeP1Mcp({
+    variants: [variant(VARIANT_ID_1)],
+    writeErrors: { "kit_request:CreateGift": timeout },
+  });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Запусти подарок «Кружка» при корзине от 3000 рублей, ` +
+      `варианты ${VARIANT_ID_1}`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "ambiguous");
+  assert.match(result.report, /результат неизвестен/u);
+  assert.equal(
+    mcp.calls.filter(
+      (call) =>
+        call.name === "kit_request" && call.arguments.operation_id === "CreateGift",
+    ).length,
+    1,
+  );
+  assert.equal(
+    mcp.calls.some(
+      (call) =>
+        call.name === "kit_request" && call.arguments.operation_id === "UpdateGift",
+    ),
+    false,
+  );
 });

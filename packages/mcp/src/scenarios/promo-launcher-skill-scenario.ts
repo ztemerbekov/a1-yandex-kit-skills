@@ -92,6 +92,7 @@ export class FakeP1Mcp {
   readonly #writeNoops: Set<string>;
   #discountSequence: number;
   #promocodeSequence: number;
+  #giftSequence: number;
 
   constructor({
     orders = [],
@@ -119,6 +120,7 @@ export class FakeP1Mcp {
     this.#writeNoops = new Set(writeNoops);
     this.#discountSequence = discounts.length + 1;
     this.#promocodeSequence = promocodes.length + 1;
+    this.#giftSequence = gifts.length + 1;
     this.#base = new FakeOperatorMcp({
       orders,
       variants,
@@ -159,6 +161,98 @@ export class FakeP1Mcp {
   }
 
   async call(name: string, arguments_: Record<string, unknown>): Promise<unknown> {
+    if (name === "get_operation_schema") {
+      this.#record(name, arguments_);
+      if (this.#readErrors[name]) throw this.#readErrors[name];
+      return {
+        operationId: arguments_.operation_id,
+        requestSchema: { type: "object" },
+      };
+    }
+
+    if (name === "kit_request" && String(arguments_.operation_id).includes("Gift")) {
+      this.#record(name, arguments_);
+      const operationId = String(arguments_.operation_id);
+      const readError =
+        this.#readErrors[`kit_request:${operationId}`] ?? this.#readErrors[operationId];
+      if (readError && operationId.startsWith("Get")) throw readError;
+      const writeError =
+        this.#writeErrors[`kit_request:${operationId}`] ?? this.#writeErrors[operationId];
+      if (writeError && !operationId.startsWith("Get")) throw writeError;
+      const id = String(
+        (arguments_.path_params as Record<string, unknown> | undefined)?.id ?? "",
+      );
+
+      if (operationId === "GetGifts") {
+        const status = String(
+          (arguments_.query as Record<string, unknown> | undefined)?.status ?? "",
+        );
+        const gifts = this.#gifts.filter((gift) => !status || gift.status === status);
+        return { gifts: structuredClone(gifts), total_count: gifts.length };
+      }
+      if (operationId === "GetGiftById") {
+        const found = this.#gifts.find((candidate) => candidate.id === id);
+        if (!found) throw new Error(`Gift ${id} is not prepared in FakeP1Mcp`);
+        return structuredClone(found);
+      }
+      if (operationId === "GetGiftVariants") {
+        const variantIds = this.#bindings[`GetGiftVariants:${id}`] ?? [];
+        return { variant_ids: [...variantIds], total_count: variantIds.length };
+      }
+      if (operationId === "CreateGift") {
+        if (
+          this.#writeNoops.has("kit_request:CreateGift") ||
+          this.#writeNoops.has("CreateGift")
+        ) {
+          return { ok: true };
+        }
+        const body = arguments_.body as components["schemas"]["CreateGiftRequest"];
+        const created: PromoGift = {
+          id: `gift-${this.#giftSequence++}`,
+          title: body.title,
+          min_cart_total: body.min_cart_total,
+          status: "INACTIVE",
+          default_sort: body.default_sort ?? "POPULARITY",
+        };
+        this.#gifts.push(created);
+        this.#bindings[`GetGiftVariants:${created.id}`] = [...body.variant_ids];
+        return structuredClone(created);
+      }
+      if (operationId === "UpdateGift") {
+        if (
+          this.#writeNoops.has(`kit_request:UpdateGift:${id}`) ||
+          this.#writeNoops.has("kit_request:UpdateGift")
+        ) {
+          return { ok: true };
+        }
+        const found = this.#gifts.find((candidate) => candidate.id === id);
+        if (!found) throw new Error(`Gift ${id} is not prepared in FakeP1Mcp`);
+        Object.assign(
+          found,
+          structuredClone(arguments_.body as components["schemas"]["UpdateGiftRequest"]),
+        );
+        return structuredClone(found);
+      }
+      if (operationId === "AddGiftVariants" || operationId === "RemoveGiftVariants") {
+        const requested = (arguments_.body as components["schemas"]["GiftVariantsRequest"])
+          .variant_ids;
+        const key = `GetGiftVariants:${id}`;
+        const current = this.#bindings[key] ?? [];
+        this.#bindings[key] =
+          operationId === "RemoveGiftVariants"
+            ? current.filter((candidate) => !requested.includes(candidate))
+            : [...new Set([...current, ...requested])];
+        return { ok: true };
+      }
+      if (operationId === "DeleteGift") {
+        const index = this.#gifts.findIndex((candidate) => candidate.id === id);
+        if (index < 0) throw new Error(`Gift ${id} is not prepared in FakeP1Mcp`);
+        this.#gifts.splice(index, 1);
+        delete this.#bindings[`GetGiftVariants:${id}`];
+        return { ok: true };
+      }
+    }
+
     if (name === "get_category") {
       this.#record(name, arguments_);
       if (this.#readErrors[name]) throw this.#readErrors[name];
@@ -321,6 +415,14 @@ interface PromocodePlan {
   oneTimeUse?: boolean;
   firstOrderOnly?: boolean;
   showInPdp?: boolean;
+}
+
+interface GiftPlan {
+  title: string;
+  minCartTotal: string;
+  variantIds: string[];
+  status: "ACTIVE" | "INACTIVE";
+  defaultSort: PromoGift["default_sort"];
 }
 
 export interface PromoLauncherResult {
@@ -646,6 +748,58 @@ function parsePromocodePlan({
       showInPdp: /показыва[а-яёa-z]*\s+на странице товара/iu.test(request)
         ? true
         : undefined,
+    },
+  };
+}
+
+function parseGiftPlan(request: string): { plan?: GiftPlan; question?: string; error?: string } {
+  if (
+    /(?:^|\s)(?:с|до)\s+(?:\d{1,2}\s+[а-яё]+|завтра|воскресень)/iu.test(request)
+  ) {
+    return {
+      error:
+        "KIT API не поддерживает даты действия подарка. Уберите расписание и укажите, " +
+        "создать подарок неактивным или запустить сейчас; запись не выполнялась.",
+    };
+  }
+  const missing: string[] = [];
+  const title = request.match(/[«"]([^»"]+)[»"]/)?.[1]?.trim();
+  if (!title) missing.push("название подарка");
+  const minCartMatch = request.match(
+    /корзин[а-яёa-z]*\s+от\s+(\d+(?:[.,]\d+)?)\s*(?:руб(?:лей|ля|ль)?|₽)/iu,
+  );
+  if (!minCartMatch) missing.push("положительную минимальную сумму корзины");
+  const variantIds = [
+    ...request.matchAll(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/giu,
+    ),
+  ].map((match) => match[0]!);
+  if (variantIds.length === 0) missing.push("от 1 до 50 точных variant IDs");
+  const status = /неактивн|черновик/iu.test(request)
+    ? "INACTIVE"
+    : /запусти|активн/iu.test(request)
+      ? "ACTIVE"
+      : undefined;
+  if (!status) missing.push("статус — запустить или создать неактивным");
+  if (missing.length > 0) return { question: groupedQuestion(missing) };
+  if (variantIds.length > 50) {
+    return { error: `Подарок поддерживает от 1 до 50 вариантов; получено ${variantIds.length}` };
+  }
+  const minCartTotal = Number(minCartMatch![1]!.replace(",", "."));
+  if (minCartTotal <= 0) {
+    return { error: "Минимальная сумма корзины должна быть положительной" };
+  }
+  const sortMatch = request.match(
+    /сортировка\s+(POPULARITY|CHEAPEST|EXPENSIVE|NEWEST|OLDEST)/iu,
+  );
+  return {
+    plan: {
+      title: title!,
+      minCartTotal: minCartTotal.toFixed(2),
+      variantIds: [...new Set(variantIds)],
+      status: status!,
+      defaultSort: (sortMatch?.[1]?.toUpperCase() as GiftPlan["defaultSort"] | undefined) ??
+        "POPULARITY",
     },
   };
 }
@@ -1036,6 +1190,146 @@ async function runPromocodeScenario({
   return finish(mcp, { kind, promotionId: actual.id, report });
 }
 
+async function runGiftScenario({
+  request,
+  mcp,
+}: {
+  request: string;
+  mcp: FakeP1Mcp;
+}): Promise<PromoLauncherResult> {
+  const parsed = parseGiftPlan(request);
+  if (parsed.question) return finish(mcp, { kind: "needs_input", report: parsed.question });
+  if (parsed.error) return finish(mcp, { kind: "failed", report: parsed.error });
+  const plan = parsed.plan!;
+
+  const targetErrors = await validateScope(mcp, {
+    kind: "variants",
+    ids: plan.variantIds,
+  });
+  if (targetErrors.length > 0) {
+    return finish(mcp, {
+      kind: "failed",
+      report: `Подарок не создан:\n${targetErrors.map((error) => `- ${error}`).join("\n")}`,
+    });
+  }
+
+  try {
+    await mcp.call("get_operation_schema", { operation_id: "CreateGift" });
+  } catch (error) {
+    return finish(mcp, {
+      kind: "failed",
+      report:
+        "Подарок не создан: не удалось получить схему CreateGift для проверки тела — " +
+        (error instanceof Error ? error.message : String(error)),
+    });
+  }
+
+  let created: PromoGift;
+  try {
+    created = (await mcp.call("kit_request", {
+      operation_id: "CreateGift",
+      body: {
+        title: plan.title,
+        min_cart_total: plan.minCartTotal,
+        default_sort: plan.defaultSort,
+        variant_ids: plan.variantIds,
+      },
+    })) as PromoGift;
+  } catch (error) {
+    return finish(mcp, {
+      kind: mutationResultIsAmbiguous(error) ? "ambiguous" : "failed",
+      report:
+        `CreateGift вызван один раз и завершился ошибкой «${
+          error instanceof Error ? error.message : String(error)
+        }»; ` +
+        (mutationResultIsAmbiguous(error)
+          ? "результат неизвестен, нужна проверка"
+          : "повтор не выполнялся"),
+    });
+  }
+
+  let actual: PromoGift;
+  try {
+    actual = (await mcp.call("kit_request", {
+      operation_id: "GetGiftById",
+      path_params: { id: created.id },
+    })) as PromoGift;
+  } catch (error) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: created.id,
+      report: `Подарок ${created.id} создан, но не перечитан: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+  }
+
+  let activationError: unknown;
+  if (plan.status === "ACTIVE" && actual.status !== "ACTIVE") {
+    try {
+      await mcp.call("kit_request", {
+        operation_id: "UpdateGift",
+        path_params: { id: actual.id },
+        body: { status: "ACTIVE" },
+      });
+    } catch (error) {
+      activationError = error;
+    }
+    try {
+      actual = (await mcp.call("kit_request", {
+        operation_id: "GetGiftById",
+        path_params: { id: actual.id },
+      })) as PromoGift;
+    } catch (error) {
+      return finish(mcp, {
+        kind: "ambiguous",
+        promotionId: created.id,
+        report: `Активация подарка вызвана один раз, но повторное чтение не удалось: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+  }
+
+  let variantIds: string[];
+  try {
+    const response = (await mcp.call("kit_request", {
+      operation_id: "GetGiftVariants",
+      path_params: { id: actual.id },
+      query: { page: 1, per_page: 100 },
+    })) as { variant_ids: string[] };
+    variantIds = response.variant_ids;
+  } catch (error) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: actual.id,
+      report: `Подарок ${actual.id} перечитан, но состав товаров не проверен: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+  }
+  const variantsComplete =
+    variantIds.length === plan.variantIds.length &&
+    plan.variantIds.every((id) => variantIds.includes(id));
+  const statusComplete = actual.status === plan.status;
+  const kind =
+    activationError && mutationResultIsAmbiguous(activationError)
+      ? "ambiguous"
+      : activationError || !variantsComplete || !statusComplete
+        ? "failed"
+        : "completed";
+  const report =
+    `Подарок ${actual.title} (${actual.id}): минимальная корзина ${actual.min_cart_total}; ` +
+    `статус ${actual.status}; сортировка ${actual.default_sort}; ` +
+    `товаров-подарков: ${variantIds.length}. Даты действия KIT API не поддерживает.` +
+    (activationError
+      ? ` Активация завершилась ошибкой: ${
+          activationError instanceof Error ? activationError.message : String(activationError)
+        }; повторной записи не было.`
+      : "");
+  return finish(mcp, { kind, promotionId: actual.id, report });
+}
+
 export async function runPromoLauncherScenario({
   request,
   now,
@@ -1047,6 +1341,9 @@ export async function runPromoLauncherScenario({
   timeZone?: string;
   mcp: FakeP1Mcp;
 }): Promise<PromoLauncherResult> {
+  if (/подар(?:ок|ка)/iu.test(request)) {
+    return runGiftScenario({ request, mcp });
+  }
   if (/промокод/iu.test(request)) {
     return runPromocodeScenario({ request, now, timeZone, mcp });
   }

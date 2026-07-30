@@ -43,6 +43,19 @@ reference model и не сравнивает ответ посимвольно.
 | Timeout создания не ретраится | `a promocode create timeout is never retried` | автоматизировано |
 | Ясность вопроса о конфликте и итогового отчёта | Запуск ORDER и PRODUCTS формулировок в model host, сверка с fake MCP | manual acceptance pending |
 
+## Issue #16
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| Активный подарок проверяет варианты и OpenAPI schema, создаётся один раз, активируется и перечитывается | `an exact active gift validates variants and schema, creates once, activates, and re-reads` | автоматизировано |
+| Неактивный черновик не вызывает активацию и сообщает default sort | `an inactive gift draft keeps the documented POPULARITY default and skips activation` | автоматизировано |
+| Ограничение 1–50 вариантов применяется до чтений и записей | `a gift with more than 50 variants is rejected before target reads` | автоматизировано |
+| Отсутствующий вариант не передаётся в CreateGift | `a missing gift variant prevents CreateGift` | автоматизировано |
+| Даты подарка не обещаются и не превращаются в ложное расписание | `a dated gift explains the API limitation and creates no false schedule` | автоматизировано |
+| Meta-write предварён чтением схемы CreateGift | Аргументы и порядок `get_operation_schema` → `kit_request` в active gift tracer | автоматизировано |
+| Timeout CreateGift не повторяется и не запускает активацию | `a CreateGift timeout is attempted once and never followed by activation` | автоматизировано |
+| Естественность объяснения API-ограничения и итогового отчёта | Запуск active/draft/dated формулировок в model host | manual acceptance pending |
+
 Запуск:
 
 ```bash

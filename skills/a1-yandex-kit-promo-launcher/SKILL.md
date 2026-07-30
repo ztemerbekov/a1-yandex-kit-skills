@@ -90,6 +90,25 @@ perform one `update_promocode` to `ACTIVE` and read it again. Report ID, code, f
 status, type, value, UTC dates, usage and discount limits, all documented boolean
 defaults and factual coverage.
 
+## Gift launch
+
+A gift requires an exact title, a positive `min_cart_total`, between 1 and 50 exact
+variant IDs, and an active/inactive decision. Read every variant before writing and
+reject missing or archived variants. `default_sort` may be `POPULARITY`, `CHEAPEST`,
+`EXPENSIVE`, `NEWEST` or `OLDEST`; when omitted, use and report the documented
+`POPULARITY` default.
+
+KIT gifts have no action dates. If the owner asks for a dated gift, explain that API
+limit and do not pretend to schedule it; ask whether to create it inactive or launch it
+now without dates.
+
+Gifts have no dedicated curator tool. Before a gift mutation, use
+`get_operation_schema` for the exact operation, validate the body, then call
+`kit_request` once. `CreateGift` includes the validated variant IDs and always creates
+an `INACTIVE` gift. Read it with `GetGiftById`; for an exact «запусти» command, call
+`UpdateGift` to `ACTIVE` once and read it again. Finally read `GetGiftVariants` and
+report ID, minimum cart, factual status, default sort and the factual gift-item count.
+
 ## Safety boundaries
 
 - Never infer «бессрочно», «без лимита», a time zone, a target or a business value.
