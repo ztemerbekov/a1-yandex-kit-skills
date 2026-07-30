@@ -408,7 +408,7 @@ asking one question per object.
 
 ## Scenario evaluation contract
 
-`packages/mcp/src/scenarios/catalog-doctor-scenario.ts` contains a deterministic
+`packages/mcp/src/scenarios/catalog-doctor-skill-scenario.ts` contains a deterministic
 reference model, fake MCP and tracer; it does not execute this Markdown skill through an
 LLM host. Its tests cover multi-page and interrupted audits, unread reference fallbacks,
 grouping and media defects, collection relations, completeness levels, a healthy catalog

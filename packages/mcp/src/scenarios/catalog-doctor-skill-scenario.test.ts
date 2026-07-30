@@ -8,7 +8,7 @@ import {
   type CatalogProduct,
   type CatalogVariant,
   type CatalogWarehouse,
-} from "./catalog-doctor-scenario.js";
+} from "./catalog-doctor-skill-scenario.js";
 
 function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
   return {

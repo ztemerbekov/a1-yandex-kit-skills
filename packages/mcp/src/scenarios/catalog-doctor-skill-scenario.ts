@@ -1,5 +1,7 @@
 import type { components } from "yandex-kit-core";
 
+// Deterministic reference model for the a1-yandex-kit-catalog-doctor skill.
+
 type KitProduct = components["schemas"]["Product"];
 type KitVariant = components["schemas"]["Variant"];
 type KitCategory = components["schemas"]["Category"];

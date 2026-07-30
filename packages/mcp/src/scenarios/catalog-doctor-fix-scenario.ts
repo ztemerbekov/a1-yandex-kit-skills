@@ -1,4 +1,4 @@
-import type { CatalogVariant } from "./catalog-doctor-scenario.js";
+import type { CatalogVariant } from "./catalog-doctor-skill-scenario.js";
 import {
   executeVerifiedMutation,
   isKitObjectId,

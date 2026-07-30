@@ -7,7 +7,7 @@ import {
   FakeCatalogDoctorFixMcp,
   runCatalogDoctorFixScenario,
 } from "./catalog-doctor-fix-scenario.js";
-import type { CatalogVariant } from "./catalog-doctor-scenario.js";
+import type { CatalogVariant } from "./catalog-doctor-skill-scenario.js";
 
 function variant(overrides: Partial<CatalogVariant> = {}): CatalogVariant {
   return {
