@@ -184,7 +184,7 @@ applicable.
 
 ## Scenario evaluation contract
 
-`packages/mcp/src/scenarios/operator-scenario.ts` is a deterministic reference model and
+`packages/mcp/src/scenarios/operator-skill-scenario.ts` is a deterministic reference model and
 reusable fake MCP for regression tests; it does not execute this Markdown skill through
 an LLM host. It accepts prepared orders, SKUs, products, promotions and webhooks;
 supports pagination, selected-promotion bindings and prepared write failures; records

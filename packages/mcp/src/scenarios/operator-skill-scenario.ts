@@ -1,4 +1,6 @@
 import type { components } from "yandex-kit-core";
+
+// Deterministic reference model for the a1-yandex-kit-operator skill.
 import {
   executeVerifiedMutation,
   isKitObjectId,

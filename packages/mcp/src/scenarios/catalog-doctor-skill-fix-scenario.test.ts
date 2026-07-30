@@ -6,7 +6,7 @@ import {
   CATALOG_FIX_BATCH_LIMIT,
   FakeCatalogDoctorFixMcp,
   runCatalogDoctorFixScenario,
-} from "./catalog-doctor-fix-scenario.js";
+} from "./catalog-doctor-skill-fix-scenario.js";
 import type { CatalogVariant } from "./catalog-doctor-skill-scenario.js";
 
 function variant(overrides: Partial<CatalogVariant> = {}): CatalogVariant {

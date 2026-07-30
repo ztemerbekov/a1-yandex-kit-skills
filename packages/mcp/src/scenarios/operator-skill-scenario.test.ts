@@ -6,7 +6,7 @@ import {
   FakeOperatorMcp,
   runOperatorReadOnlyScenario,
   type OperatorOrder,
-} from "./operator-scenario.js";
+} from "./operator-skill-scenario.js";
 
 const NOW = new Date("2026-07-29T15:00:00Z");
 

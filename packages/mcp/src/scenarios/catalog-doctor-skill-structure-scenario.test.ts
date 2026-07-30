@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+// Structural-audit scenarios for the Catalog Doctor skill reference model.
+
 import {
   FakeCatalogDoctorMcp,
   runCatalogDoctorScenario,

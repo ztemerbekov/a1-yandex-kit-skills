@@ -72,6 +72,6 @@ reference-model реализацию с fake MCP и проверяют журн�
 ```bash
 node --import tsx --test \
   packages/mcp/src/scenarios/catalog-doctor-skill-scenario.test.ts \
-  packages/mcp/src/scenarios/catalog-doctor-structure.test.ts \
-  packages/mcp/src/scenarios/catalog-doctor-fix.test.ts
+  packages/mcp/src/scenarios/catalog-doctor-skill-structure-scenario.test.ts \
+  packages/mcp/src/scenarios/catalog-doctor-skill-fix-scenario.test.ts
 ```

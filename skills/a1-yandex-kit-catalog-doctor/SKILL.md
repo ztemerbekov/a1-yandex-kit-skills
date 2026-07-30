@@ -415,7 +415,7 @@ grouping and media defects, collection relations, completeness levels, a healthy
 and owner-requested merchandising relations. Validate observable tool calls, arguments,
 coverage, classification and the absence of writes rather than exact prose.
 
-`packages/mcp/src/scenarios/catalog-doctor-fix-scenario.ts` covers exact-write behavior.
+`packages/mcp/src/scenarios/catalog-doctor-skill-fix-scenario.ts` covers exact-write behavior.
 Its tests prove exact price read/write/re-read, a grouped missing-stock-source question
 with zero writes, preservation of sibling stocks and media, permanent deletion with an
 exact verb, complete batch outcomes, detail-read array preservation, and ambiguous

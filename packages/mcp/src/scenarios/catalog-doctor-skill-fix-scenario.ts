@@ -1,4 +1,6 @@
 import type { CatalogVariant } from "./catalog-doctor-skill-scenario.js";
+
+// Deterministic exact-write reference model for the Catalog Doctor skill.
 import {
   executeVerifiedMutation,
   isKitObjectId,
