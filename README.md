@@ -14,7 +14,7 @@ MCP-сервер и AI-тулкит для **API Яндекс KIT** — конс
 2. Добавьте сервер — например, в Claude Code ([другие клиенты](#установка)):
 
    ```bash
-   claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-yandex-kit
+   claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-yandex-kit@latest
    ```
 
 3. Спросите ассистента: «Покажи мой магазин и первые три товара».
@@ -64,7 +64,7 @@ claude plugin marketplace add ztemerbekov/a1-yandex-kit-skills
 claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
-Токен плагин берёт из переменной окружения `YANDEX_KIT_TOKEN`. Встроенный MCP-сервер плагина стартует автоматически через `npx -y mcp-yandex-kit`.
+Токен плагин берёт из переменной окружения `YANDEX_KIT_TOKEN`. Встроенный MCP-сервер плагина стартует автоматически через `npx -y mcp-yandex-kit@latest`.
 
 ## Примеры запросов
 
@@ -86,7 +86,7 @@ claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 <summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-yandex-kit
+claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-yandex-kit@latest
 ```
 
 </details>
@@ -104,7 +104,7 @@ claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-ya
   "mcpServers": {
     "yandex-kit": {
       "command": "npx",
-      "args": ["-y", "mcp-yandex-kit"],
+      "args": ["-y", "mcp-yandex-kit@latest"],
       "env": { "YANDEX_KIT_TOKEN": "ваш_токен" }
     }
   }
@@ -123,7 +123,7 @@ claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-ya
   "mcpServers": {
     "yandex-kit": {
       "command": "npx",
-      "args": ["-y", "mcp-yandex-kit"],
+      "args": ["-y", "mcp-yandex-kit@latest"],
       "env": { "YANDEX_KIT_TOKEN": "ваш_токен" }
     }
   }
@@ -135,14 +135,14 @@ claude mcp add yandex-kit -e YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-ya
 <details>
 <summary><b>OpenAI Codex</b></summary>
 
-Командой: `codex mcp add yandex-kit --env YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-yandex-kit`
+Командой: `codex mcp add yandex-kit --env YANDEX_KIT_TOKEN=ваш_токен -- npx -y mcp-yandex-kit@latest`
 
 Или в `~/.codex/config.toml`:
 
 ```toml
 [mcp_servers.yandex-kit]
 command = "npx"
-args = ["-y", "mcp-yandex-kit"]
+args = ["-y", "mcp-yandex-kit@latest"]
 
 [mcp_servers.yandex-kit.env]
 YANDEX_KIT_TOKEN = "ваш_токен"
@@ -161,7 +161,7 @@ YANDEX_KIT_TOKEN = "ваш_токен"
     "yandex-kit": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "mcp-yandex-kit"],
+      "args": ["-y", "mcp-yandex-kit@latest"],
       "env": { "YANDEX_KIT_TOKEN": "ваш_токен" }
     }
   }
@@ -169,6 +169,24 @@ YANDEX_KIT_TOKEN = "ваш_токен"
 ```
 
 </details>
+
+## Обновление
+
+Сервер обновляется при перезапуске MCP-клиента — специальной команды не нужно:
+
+- **Подключение через `npx` с `@latest`** (все примеры выше): npx при каждом старте
+  сверяется с npm-реестром, свежая версия подтягивается сама. Достаточно
+  перезапустить клиент (для Claude Code — новую сессию).
+- **Если в конфиге `mcp-yandex-kit` без тега**: npx кэширует первую установленную
+  версию и больше не обновляет её. Либо добавьте `@latest` в конфиг, либо
+  очистите кэш: `rm -rf ~/.npm/_npx` (Windows: `%LocalAppData%\npm-cache\_npx`).
+- **Нужна стабильность вместо свежести** — закрепите версию явно:
+  `mcp-yandex-kit@0.1.0`; обновление тогда — смена пина.
+- **Плагин Claude Code**: `claude plugin update a1-yandex-kit` обновляет скиллы;
+  встроенный сервер идёт через `npx -y mcp-yandex-kit@latest` и обновляется сам.
+- **Локальный клон**: `git pull && npm ci && npm run build`.
+
+Что нового в версиях — в [GitHub Releases](https://github.com/ztemerbekov/a1-yandex-kit-skills/releases).
 
 ## Получение токена
 

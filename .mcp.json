@@ -2,7 +2,7 @@
   "mcpServers": {
     "a1-yandex-kit": {
       "command": "npx",
-      "args": ["-y", "mcp-yandex-kit"],
+      "args": ["-y", "mcp-yandex-kit@latest"],
       "env": {
         "YANDEX_KIT_TOKEN": "${YANDEX_KIT_TOKEN:-}"
       }
