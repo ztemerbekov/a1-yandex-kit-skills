@@ -51,9 +51,10 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 `npm run gen && git diff --exit-code` должен проходить, иначе сборка красная.
 
 Исключение: верхнеуровневые сценарные навыки поддерживаются вручную, отдельно от
-генерации API-справочника. Сейчас это `skills/a1-yandex-kit-operator/`; не изменяйте
-его командой `npm run gen`. Его semiautomated сценарии и fake MCP находятся в
-`packages/mcp/src/scenarios/` и запускаются через обычный `npm test`.
+генерации API-справочника. Сейчас это `skills/a1-yandex-kit-operator/` и
+`skills/a1-yandex-kit-catalog-doctor/`; `npm run gen` не удаляет и не перезаписывает
+их. Их semiautomated сценарии и fake MCP находятся в `packages/mcp/src/scenarios/`
+и запускаются через обычный `npm test`.
 
 ## MCP Inspector
 
@@ -113,9 +114,9 @@ claude plugin marketplace add ./
 claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
-После установки в Claude Code появляются шесть сгенерированных доменных навыков и
-`a1-yandex-kit-operator`, а MCP-сервер подключается автоматически через `.mcp.json`
-(нужен `YANDEX_KIT_TOKEN` в окружении).
+После установки в Claude Code появляются шесть сгенерированных доменных навыков,
+`a1-yandex-kit-operator` и `a1-yandex-kit-catalog-doctor`, а MCP-сервер подключается
+автоматически через `.mcp.json` (нужен `YANDEX_KIT_TOKEN` в окружении).
 
 Можно подключить только MCP-сервер, без плагина:
 

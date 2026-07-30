@@ -43,17 +43,22 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `get_operation_schema`, `kit_request`) that covers all 133 operations (65 have curated tools).
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
   `gen-docs`, `gen-skills`, `fetch-spec`.
-- `skills/` — 6 agent skills (a1-yandex-kit router + catalog/orders/marketing/store/webhooks).
+- `skills/` — 6 generated API skills plus the manually maintained operator and catalog-doctor scenarios.
 - `.claude-plugin/{plugin,marketplace}.json` + `.mcp.json` — Claude Code plugin
   (plugin `a1-yandex-kit`, marketplace `a1-yandex-kit-skills`).
 
 ## Generated files — never hand-edit
 
-`skills/**`, `docs/TOOLS.md` and `packages/core/src/generated/**` are outputs of
+The six API-reference skill directories, `docs/TOOLS.md` and
+`packages/core/src/generated/**` are outputs of
 `packages/codegen`. To change them, edit the generator (`gen-skills.ts`, `gen-docs.ts`,
 `gen-registry.ts`, `gen-types.ts`) and run `npm run gen`. Generation is deterministic and
 CI fails on drift (`git add -N` + `git diff --exit-code`), so hand edits both break CI and
 get silently overwritten by the next `gen`.
+
+`skills/a1-yandex-kit-operator/` and `skills/a1-yandex-kit-catalog-doctor/` are manual
+top-level scenario skills. `gen-skills.ts` only replaces the six directories it owns and
+must preserve these two.
 
 ## Adding a curated tool
 
