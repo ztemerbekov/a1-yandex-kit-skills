@@ -53,8 +53,11 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 Исключение: верхнеуровневые сценарные навыки поддерживаются вручную, отдельно от
 генерации API-справочника. Сейчас это `skills/a1-yandex-kit-operator/` и
 `skills/a1-yandex-kit-catalog-doctor/`; `npm run gen` не удаляет и не перезаписывает
-их. Их semiautomated сценарии и fake MCP находятся в `packages/mcp/src/scenarios/`
-и запускаются через обычный `npm test`.
+их, кроме общего `references/exact-write-protocol.md`. Его единственный исходник —
+`packages/codegen/src/skill-src/references/exact-write-protocol.md`, а `npm run gen`
+копирует его в оба скилла для автономной установки. Их semiautomated сценарии и
+fake MCP находятся в `packages/mcp/src/scenarios/` и запускаются через обычный
+`npm test`.
 
 ### Имена артефактов сценарных скиллов
 

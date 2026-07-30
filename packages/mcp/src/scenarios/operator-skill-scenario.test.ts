@@ -9,6 +9,10 @@ import {
 } from "./operator-skill-scenario.js";
 
 const NOW = new Date("2026-07-29T15:00:00Z");
+const OPERATOR_SKILL_URL = new URL(
+  "../../../../skills/a1-yandex-kit-operator/SKILL.md",
+  import.meta.url,
+);
 
 function order(overrides: Partial<OperatorOrder> = {}): OperatorOrder {
   return {
@@ -37,7 +41,7 @@ function order(overrides: Partial<OperatorOrder> = {}): OperatorOrder {
 }
 
 test("the operator skill is installable and declares the supported Russian requests", async () => {
-  const skill = await readFile(new URL("../../../../skills/a1-yandex-kit-operator/SKILL.md", import.meta.url), "utf8");
+  const skill = await readFile(OPERATOR_SKILL_URL, "utf8");
 
   assert.match(skill, /^---\nname: a1-yandex-kit-operator\n/m);
   for (const request of [
@@ -51,6 +55,36 @@ test("the operator skill is installable and declares the supported Russian reque
     assert.match(skill, new RegExp(request.replace(/[?]/g, "\\?")));
   }
   assert.match(skill, /непросмотренн(ые|ых) заказы/i);
+  assert.match(
+    skill,
+    /\[`references\/exact-write-protocol\.md`\]\(references\/exact-write-protocol\.md\)/u,
+  );
+  assert.doesNotMatch(skill, /Scenario evaluation contract/u);
+});
+
+test("the operator completes every independent review scope before producing the report", async () => {
+  const skill = await readFile(OPERATOR_SKILL_URL, "utf8");
+  const reviewStart = skill.indexOf("## Review workflow");
+  const reviewEnd = skill.indexOf("## Exact write workflow");
+  const review = skill.slice(reviewStart, reviewEnd);
+
+  const orderedMarkers = [
+    "list_orders",
+    "get_order_addons",
+    "quick critical storefront slice",
+    "list_discounts",
+    "list_webhooks",
+    "Produce the report",
+  ];
+  const positions = orderedMarkers.map((marker) => review.indexOf(marker));
+
+  assert.ok(reviewStart >= 0 && reviewEnd > reviewStart);
+  assert.ok(positions.every((position) => position >= 0));
+  assert.deepEqual(positions, [...positions].sort((left, right) => left - right));
+  assert.match(
+    review,
+    /every applicable source in steps 2–7 has either been\s+fully read or has its exact coverage and failure retained/iu,
+  );
 });
 
 test("full review follows every page, expands risky orders, and records a read-only report", async () => {

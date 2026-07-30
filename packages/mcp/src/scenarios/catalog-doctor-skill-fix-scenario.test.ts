@@ -352,15 +352,22 @@ test("a mutation 5xx is never treated as a confirmed no-op or retried", async ()
 });
 
 test("the catalog doctor documents authoritative sources, array preservation and no invented values", () => {
-  const skill = readFileSync(
-    new URL(
-      "../../../../skills/a1-yandex-kit-catalog-doctor/SKILL.md",
-      import.meta.url,
-    ),
+  const skillRoot = new URL(
+    "../../../../skills/a1-yandex-kit-catalog-doctor/",
+    import.meta.url,
+  );
+  const skill = readFileSync(new URL("SKILL.md", skillRoot), "utf8");
+  const exactWriteProtocol = readFileSync(
+    new URL("references/exact-write-protocol.md", skillRoot),
     "utf8",
   );
+  const catalogFixOperations = readFileSync(
+    new URL("references/catalog-fix-operations.md", skillRoot),
+    "utf8",
+  );
+  const contractText = `${exactWriteProtocol}\n${catalogFixOperations}`;
 
-  for (const contract of [
+  for (const expected of [
     "owner-named authoritative source",
     "Never invent a",
     "Variant.stocks",
@@ -368,15 +375,68 @@ test("the catalog doctor documents authoritative sources, array preservation and
     "Variant.characteristics",
     "Product.category_ids",
     "Product.settings",
-    "Do not ask for an extra confirmation",
+    "without another confirmation",
     "result unknown",
   ]) {
     const pattern =
-      contract === "result unknown"
+      expected === "result unknown"
         ? /результат неизвестен, нужна проверка/iu
-        : contract === "Do not ask for an extra confirmation"
-          ? /Do not ask for an\s+extra\s+confirmation/iu
-        : new RegExp(contract.replace(".", "\\."), "iu");
-    assert.match(skill, pattern, contract);
+        : expected === "without another confirmation"
+          ? /without another\s+confirmation/iu
+        : new RegExp(expected.replace(".", "\\."), "iu");
+    assert.match(contractText, pattern, expected);
   }
+
+  for (const reference of [
+    "audit-protocol.md",
+    "core-catalog-audit.md",
+    "structural-audit.md",
+    "merchandising-audit.md",
+    "exact-write-protocol.md",
+    "catalog-fix-operations.md",
+  ]) {
+    assert.match(
+      skill,
+      new RegExp(
+        `\\[\\s*(?:\\d+\\. )?\`?references/${reference.replace(".", "\\.")}\`?\\s*\\]` +
+          `\\(references/${reference.replace(".", "\\.")}\\)`,
+        "u",
+      ),
+      reference,
+    );
+    assert.doesNotThrow(() =>
+      readFileSync(new URL(`references/${reference}`, skillRoot), "utf8"),
+    );
+  }
+
+  assert.doesNotMatch(skill, /Scenario evaluation contract/u);
+});
+
+test("the shared exact-write protocol is generated identically into both skills", () => {
+  const source = readFileSync(
+    new URL(
+      "../../../../packages/codegen/src/skill-src/references/exact-write-protocol.md",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const generatedHeader =
+    "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n";
+  const catalogCopy = readFileSync(
+    new URL(
+      "../../../../skills/a1-yandex-kit-catalog-doctor/references/exact-write-protocol.md",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const operatorCopy = readFileSync(
+    new URL(
+      "../../../../skills/a1-yandex-kit-operator/references/exact-write-protocol.md",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.equal(catalogCopy, generatedHeader + source);
+  assert.equal(operatorCopy, catalogCopy);
 });

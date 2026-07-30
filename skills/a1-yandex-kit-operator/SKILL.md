@@ -35,15 +35,8 @@ KIT order was used earlier). Otherwise ask one short question: «О чём ре�
 
 Requests such as «проверь», «покажи», «разбери», «найди», «как дела» and «что срочного»
 are always read-only. An explicit imperative such as «подтверди», «отмени», «поставь»,
-«установи», «измени» or «активируй» authorises exactly the stated write when the target,
-operation and every required business value are unambiguous. Do not add another
-confirmation, diff, backup, snapshot or rollback.
-
-If the target, operation or value is missing, ask one concrete question about that gap
-and call no write tool. For example, «Обработай заказы» requires «Подтвердить или
-отменить?», while «Исправь цену SKU-42» requires the exact new price. Never derive a
-price, stock quantity, category, image, promotion rule, webhook URL/event or any other
-business value from a guess.
+«установи», «измени» or «активируй» routes to the exact-write workflow. The shared
+authorization gate decides whether that write can begin.
 
 Do not promise to find «непросмотренные заказы»: the KIT API exposes no read/unread
 field. Say this explicitly in the coverage note when relevant.
@@ -72,11 +65,7 @@ field. Say this explicitly in the coverage note when relevant.
 4. For each flagged order, call `get_order` and `get_order_addons` once to obtain its
    current line items, client, delivery, payment and attached-service facts. If either
    read fails, preserve the error as missing data instead of filling it in.
-5. Produce the report from the facts actually read. For «Что срочного?» include only
-   `WAIT_FOR_CONFIRMATION`, objectively inconsistent payment, cancellation/refund, and
-   overdue delivery findings. For a full report sort findings as: existing order that
-   needs action → risk of lost sale → money → reputation → storefront quality.
-6. Run a **quick critical storefront slice**, not a catalog audit:
+5. Run a **quick critical storefront slice**, not a catalog audit:
    - read all `PUBLISHED` SKUs with `list_variants`, and their parent products with
      `list_products`;
    - flag a published SKU with no positive `pricing.price`, zero available stock
@@ -86,7 +75,7 @@ field. Say this explicitly in the coverage note when relevant.
      missing-category defect;
    - send structural checks, chosen categories, images, prices and stock corrections to
      `a1-yandex-kit-catalog-doctor`. Do not turn this fast slice into a deep audit.
-7. Read all active discounts (`list_discounts`) and promocodes (`list_promocodes`). Flag
+6. Read all active discounts (`list_discounts`) and promocodes (`list_promocodes`). Flag
    an active item whose `end_date` is past; flag a promocode where `usage_count` has
    reached `max_usage`; and for `SELECTED_VARIANTS` or
    `SELECTED_CATEGORIES_COLLECTIONS`, read its object IDs through read-only
@@ -94,33 +83,32 @@ field. Say this explicitly in the coverage note when relevant.
    a confirmed problem. When an active all-variant discount and an active all-variant
    promocode may overlap, label it **«Требует проверки»**: do not call it an error unless
    the owner supplied the conflict rule.
-8. Read `list_webhooks`. Flag each `INACTIVE` webhook. Also check coverage of
+7. Read `list_webhooks`. Flag each `INACTIVE` webhook. Also check coverage of
    `ORDER_STATUS_CHANGED`, `ORDER_PAYMENT_STATUS_CHANGED` and
    `ORDER_DELIVERY_STATUS_CHANGED` across active webhooks. Missing coverage is
    **«Требует проверки»**, not automatically an error: an integration may not be needed.
+8. Produce the report only after every applicable source in steps 2–7 has either been
+   fully read or has its exact coverage and failure retained; every flagged order has
+   detail/addons or recorded read errors; every independent section has been attempted;
+   and the final report contains every confirmed finding and missing-data note without a
+   clean claim from incomplete coverage. For «Что срочного?» include only
+   `WAIT_FOR_CONFIRMATION`, objectively inconsistent payment, cancellation/refund, and
+   overdue delivery findings. For a full report sort findings as: existing order that
+   needs action → risk of lost sale → money → reputation → storefront quality.
 
 ## Exact write workflow
 
-For every object, including every member of a batch:
+For every explicit write request, read and apply
+[`references/exact-write-protocol.md`](references/exact-write-protocol.md) completely
+before resolving a target or calling a tool. Apply it independently to every target,
+including every batch item. The operation-specific rules below may narrow the shared
+protocol but never weaken it.
 
-1. Resolve one exact object. If a displayed order number, SKU or promotion code matches
-   zero or multiple objects, ask for an exact ID and do not write. When the owner
-   supplies an ID that itself matches one object, prefer that ID over any coincidentally
-   equal displayed number, SKU, title or code. A truncated or failed list read cannot
-   prove an alternate key unique: do not write from a displayed number/SKU/title/code
-   until the full lookup succeeds. An explicit ID may still proceed through its detail
-   read.
-2. Read the exact current object with `get_order`, `get_variant`, `get_discount`,
-   `get_promocode` or `get_webhook`. Check the relevant precondition against that read.
-3. Call exactly one write tool. Client retry safety guarantees that POST/PATCH/PUT/DELETE
-   are not automatically retried; never issue a second mutation after timeout, abort or
-   network failure.
-4. Re-read the same object and compare the requested field or state. A successful tool
-   response without a matching re-read is not a verified success.
-5. Classify the result as completed, failed or ambiguous. HTTP 408,
-   timeout/network/5xx failure, or a failed verification after a possible write, is
-   ambiguous: say «результат неизвестен, нужна проверка». Do not label it failed and do
-   not retry blindly.
+For Operator, business values come directly from the owner's command. If a target,
+operation or value is missing, ask one concrete question about that gap. For example,
+«Обработай заказы» requires «Подтвердить или отменить?», while
+«Исправь цену SKU-42» requires the exact new price. A price, stock quantity, category,
+image, promotion rule, webhook URL/event or other business value is never inferred.
 
 Use these operation-specific rules:
 
@@ -144,9 +132,6 @@ Use these operation-specific rules:
 - Webhooks: read the exact webhook before `validate_webhook`, `update_webhook` or another
   explicit action. «Проверь и активируй вебхук <id>» may call
   `validate_webhook { id, activate: true }`; do not invent a URL or event set.
-
-For a batch, continue after an individual failure, keep calls within the MCP/API rate
-limit, retain each object's outcome and never let one ambiguous result trigger a retry.
 
 Do not promise unsupported actions: creating or arbitrarily editing orders, manually
 setting arbitrary order/payment/delivery/refund statuses, issuing refunds, or contacting
@@ -181,17 +166,3 @@ For a write request, use three explicit sections even when a count is zero:
 
 List every target with the requested action, observed result and error/reason where
 applicable.
-
-## Scenario evaluation contract
-
-`packages/mcp/src/scenarios/operator-skill-scenario.ts` is a deterministic reference model and
-reusable fake MCP for regression tests; it does not execute this Markdown skill through
-an LLM host. It accepts prepared orders, SKUs, products, promotions and webhooks;
-supports pagination, selected-promotion bindings and prepared write failures; records
-tool names and arguments; mutates prepared state; and retains the final report. Its tests
-cover read-only reviews, partial reads, exact confirmation/cancellation/price/stock
-changes, duplicate targets, batch cancellation, exact promocode
-limit/status/binding and discount-value changes, webhook activation, ambiguous commands,
-timeouts/5xx and a mismatching verification read. Compare calls and final state, not an
-exact word-for-word report. Run the manual real-skill acceptance cases in
-`docs/OPERATOR-SKILL-VERIFICATION.md` before claiming end-to-end host conformance.

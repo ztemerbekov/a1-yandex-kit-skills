@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import {
@@ -9,6 +10,57 @@ import {
   type CatalogVariant,
   type CatalogWarehouse,
 } from "./catalog-doctor-skill-scenario.js";
+
+test("the catalog doctor progressively discloses every audit scope", () => {
+  const skillRoot = new URL(
+    "../../../../skills/a1-yandex-kit-catalog-doctor/",
+    import.meta.url,
+  );
+  const skill = readFileSync(new URL("SKILL.md", skillRoot), "utf8");
+  const auditText = [
+    "references/audit-protocol.md",
+    "references/core-catalog-audit.md",
+    "references/structural-audit.md",
+    "references/merchandising-audit.md",
+  ]
+    .map((reference) => readFileSync(new URL(reference, skillRoot), "utf8"))
+    .join("\n");
+
+  assert.ok(skill.split("\n").length < 100);
+  assert.match(skill, /Choose one route before the first MCP call/iu);
+  assert.match(
+    skill,
+    /The audit is complete only when\s+every required collection has been fully paginated/iu,
+  );
+
+  for (const contract of [
+    'status: ["PUBLISHED", "HIDDEN"]',
+    "total_count",
+    "get_product",
+    "get_category",
+    "get_warehouse",
+    "pricing.price",
+    "pricing.final_price",
+    "manual_discount_price",
+    "quantity - reserved",
+    "reserved > quantity",
+    "product_card_id",
+    "grouping_characteristic_ids",
+    "splitting_characteristic_ids",
+    "GetCharacteristics",
+    "GetVariantsByCollectionId",
+    "OTHER",
+    "dynamic_filter",
+    "GetBadges",
+    "GetContextCollections",
+    "GetSimilarProductCardIDs",
+    "Блокер",
+    "Риск",
+    "Рекомендация",
+  ]) {
+    assert.ok(auditText.includes(contract), contract);
+  }
+});
 
 function product(overrides: Partial<CatalogProduct> = {}): CatalogProduct {
   return {
