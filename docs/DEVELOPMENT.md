@@ -137,8 +137,9 @@ claude plugin marketplace add ./
 claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
-После установки в Claude Code появляются шесть сгенерированных доменных навыков,
-`a1-yandex-kit-operator` и `a1-yandex-kit-catalog-doctor`, а MCP-сервер подключается
+После установки в Claude Code появляются шесть сгенерированных доменных навыков и
+четыре сценарных: `a1-yandex-kit-operator`, `a1-yandex-kit-catalog-doctor`,
+`a1-yandex-kit-promo-launcher` и `a1-yandex-kit-launch-check`. MCP-сервер подключается
 автоматически через `.mcp.json` (нужен `YANDEX_KIT_TOKEN` в окружении).
 
 Можно подключить только MCP-сервер, без плагина:
