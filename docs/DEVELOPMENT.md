@@ -14,7 +14,7 @@ npm ci
 ```bash
 npm run build          # сборка packages/core и packages/mcp в dist/
 npm run typecheck      # проверка типов всех воркспейсов: исходники + тесты (без эмита)
-npm test               # юнит-тесты core + mcp (node --test, мок-клиент, без сети) — 236 тестов
+npm test               # юнит-тесты core + mcp (node --test, мок-клиент, без сети) — 290 тестов
 npm run gen            # перегенерация: registry.json, types.ts, docs/TOOLS.md, skills/*
 npm run spec:fetch     # обновить снапшот specs/kit-swagger.openapi.json с официального URL
 npm run smoke          # живые read-only вызовы к боевому API (нужен YANDEX_KIT_TOKEN)
@@ -51,11 +51,12 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 `npm run gen && git diff --exit-code` должен проходить, иначе сборка красная.
 
 Исключение: верхнеуровневые сценарные навыки поддерживаются вручную, отдельно от
-генерации API-справочника. Сейчас это `skills/a1-yandex-kit-operator/` и
-`skills/a1-yandex-kit-catalog-doctor/`; `npm run gen` не удаляет и не перезаписывает
+генерации API-справочника. Сейчас это `skills/a1-yandex-kit-operator/`,
+`skills/a1-yandex-kit-catalog-doctor/`, `skills/a1-yandex-kit-promo-launcher/` и
+`skills/a1-yandex-kit-launch-check/`; `npm run gen` не удаляет и не перезаписывает
 их, кроме общего `references/exact-write-protocol.md`. Его единственный исходник —
 `packages/codegen/src/skill-src/references/exact-write-protocol.md`, а `npm run gen`
-копирует его в оба скилла для автономной установки. Их semiautomated сценарии и
+копирует его во все четыре скилла для автономной установки. Их semiautomated сценарии и
 fake MCP находятся в `packages/mcp/src/scenarios/` и запускаются через обычный
 `npm test`.
 
