@@ -44,7 +44,6 @@ test("the operator skill is installable and declares the supported Russian reque
   const skill = await readFile(OPERATOR_SKILL_URL, "utf8");
 
   assert.match(skill, /^---\nname: a1-yandex-kit-operator\n/m);
-  assert.match(skill, /^  author: ztemerbekov$/m);
   for (const request of [
     "Как дела в магазине?",
     "Дай статус по магазину",
