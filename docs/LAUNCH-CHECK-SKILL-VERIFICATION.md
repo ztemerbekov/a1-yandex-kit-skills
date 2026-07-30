@@ -43,9 +43,27 @@
 | После исправлений launch-check перечитывается; checkout gaps остаются видимыми | Exact stock/promo/mixed/batch scenarios проверяют новый `launch.status` и «Не проверено» | автоматизировано |
 | Ясность fix-отчёта и сгруппированного вопроса | Прогон exact/mixed/partial формулировок в model host | manual acceptance pending |
 
+## Issue #20
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| При доступном web/HTTP фактически запрашивается b2c URL | `an inaccessible public storefront is a proven blocker and NOT_READY`; available storefront scenarios | автоматизировано |
+| Недоступная витрина — доказанный блокер и `NOT_READY` | `an inaccessible public storefront is a proven blocker and NOT_READY` | автоматизировано |
+| Отсутствующий web-инструмент оставляет витрину непроверенной и ограничивает статус | `an absent web capability leaves the storefront unverified and caps readiness` | автоматизировано |
+| Доступная витрина без checkout остаётся `CONDITIONALLY_READY` | `an available storefront without checkout evidence remains conditionally ready` | автоматизировано |
+| Ограничение API по настройкам оплаты/доставки остаётся видимым | Assertions в available/no-checkout и order evidence reports | автоматизировано |
+| Скилл не создаёт, не подтверждает и не оплачивает тестовый заказ | Write-journal assertions во всех web/checkout scenarios | автоматизировано |
+| ID тестового заказа читается и даёт проверяемые order/payment/delivery statuses | `a paid test order is read by ID and can provide sufficient checkout evidence` | автоматизировано |
+| Ручное подтверждение маркируется как owner-provided, не API | `explicit manual checkout proof is owner-provided evidence, not an API claim` | автоматизировано |
+| `READY` требует полное API-покрытие, доступную витрину и достаточное evidence | Paid-order и manual-proof scenarios получают `READY`; остальные статусы ниже | автоматизировано |
+| Отчёт разделяет automatic, web, checkout и remaining unknowns | Section assertions во всех web scenarios | автоматизировано |
+| Web-adapter поддерживает available/unavailable/absent без host-specific API | `FakeLaunchWebAdapter` и три ветви scenario evals | автоматизировано |
+| Ясность итогового launch verdict | Прогон unavailable/conditional/READY формулировок в model host | manual acceptance pending |
+
 Запуск:
 
 ```bash
 node --import tsx --test packages/mcp/src/scenarios/launch-check-skill-scenario.test.ts
 node --import tsx --test packages/mcp/src/scenarios/launch-check-fix-scenario.test.ts
+node --import tsx --test packages/mcp/src/scenarios/launch-check-web-scenario.test.ts
 ```

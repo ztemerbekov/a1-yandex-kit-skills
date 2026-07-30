@@ -40,7 +40,57 @@ export interface LaunchCheckResult {
   unchecked: string[];
   recommendations: string[];
   coverage: LaunchCoverage;
+  web: LaunchWebEvidence;
+  checkout: LaunchCheckoutEvidence;
   report: string;
+}
+
+export interface LaunchWebResponse {
+  status: number;
+  finalUrl?: string;
+}
+
+export interface LaunchWebAdapter {
+  get(url: string): Promise<LaunchWebResponse>;
+}
+
+export class FakeLaunchWebAdapter implements LaunchWebAdapter {
+  readonly calls: string[] = [];
+  readonly #response: LaunchWebResponse | undefined;
+  readonly #error: Error | undefined;
+
+  constructor({
+    response,
+    error,
+  }: {
+    response?: LaunchWebResponse;
+    error?: Error;
+  }) {
+    this.#response = response;
+    this.#error = error;
+  }
+
+  async get(url: string): Promise<LaunchWebResponse> {
+    this.calls.push(url);
+    if (this.#error) throw this.#error;
+    if (!this.#response) throw new Error("Web response is not prepared");
+    return structuredClone(this.#response);
+  }
+}
+
+export type LaunchCheckoutInput =
+  | { kind: "order"; orderId: string }
+  | { kind: "manual"; ownerConfirmed: boolean; details: string };
+
+export interface LaunchWebEvidence {
+  state: "NOT_CHECKED" | "AVAILABLE" | "UNAVAILABLE";
+  details: string;
+}
+
+export interface LaunchCheckoutEvidence {
+  source: "NONE" | "ORDER" | "MANUAL";
+  sufficient: boolean;
+  details: string;
 }
 
 interface PageResult<T> {
@@ -188,11 +238,15 @@ export async function runLaunchCheckScenario({
   request: _request,
   now,
   externalOrderProcessing,
+  web,
+  checkoutEvidence,
   mcp,
 }: {
   request: string;
   now: Date;
   externalOrderProcessing?: boolean;
+  web?: LaunchWebAdapter;
+  checkoutEvidence?: LaunchCheckoutInput;
   mcp: FakeP1Mcp;
 }): Promise<LaunchCheckResult> {
   const blockers: string[] = [];
@@ -200,6 +254,15 @@ export async function runLaunchCheckScenario({
   const unchecked: string[] = [];
   const recommendations: string[] = [];
   const pages: Record<string, number> = {};
+  let webEvidence: LaunchWebEvidence = {
+    state: "NOT_CHECKED",
+    details: "Витрина не проверена: публичный URL ещё не прочитан",
+  };
+  let checkout: LaunchCheckoutEvidence = {
+    source: "NONE",
+    sufficient: false,
+    details: "Checkout-свидетельство не предоставлено",
+  };
 
   let store: PromoStore | undefined;
   try {
@@ -330,10 +393,40 @@ export async function runLaunchCheckScenario({
 
   if (store && !store.b2c_url) {
     blockers.push(`Магазин ${store.id}: публичный b2c URL отсутствует`);
+    webEvidence = {
+      state: "NOT_CHECKED",
+      details: `Витрина не проверена: у магазина ${store.id} отсутствует b2c URL`,
+    };
   } else if (store?.b2c_url) {
-    unchecked.push(
-      `Публичная витрина ${store.b2c_url} указана в API, но её доступность ещё не проверена`,
-    );
+    if (!web) {
+      webEvidence = {
+        state: "NOT_CHECKED",
+        details: `Витрина не проверена: web/HTTP-инструмент недоступен; API сообщил ${store.b2c_url}`,
+      };
+      unchecked.push(webEvidence.details);
+    } else {
+      try {
+        const response = await web.get(store.b2c_url);
+        const available = response.status >= 200 && response.status < 400;
+        webEvidence = {
+          state: available ? "AVAILABLE" : "UNAVAILABLE",
+          details: available
+            ? `Публичная витрина доступна: ${store.b2c_url} → HTTP ${response.status}${
+                response.finalUrl ? `, final URL ${response.finalUrl}` : ""
+              }`
+            : `Публичная витрина недоступна: ${store.b2c_url} → HTTP ${response.status}`,
+        };
+        if (!available) blockers.push(webEvidence.details);
+      } catch (error) {
+        webEvidence = {
+          state: "UNAVAILABLE",
+          details: `Публичная витрина недоступна: ${store.b2c_url} → ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        };
+        blockers.push(webEvidence.details);
+      }
+    }
   }
 
   const productById = new Map(products.items.map((product) => [product.id, product]));
@@ -468,19 +561,88 @@ export async function runLaunchCheckScenario({
     );
   }
 
-  if (orders.items.length === 0 && orders.complete) {
-    unchecked.push("Подтверждённых заказов нет: это отсутствие доказательства checkout, не ошибка");
+  if (checkoutEvidence?.kind === "order") {
+    try {
+      const order = (await mcp.call("get_order", {
+        id: checkoutEvidence.orderId,
+      })) as OperatorOrder;
+      const orderPassed = ![
+        "NEW",
+        "WAIT_FOR_CONFIRMATION",
+        "CANCELLED",
+      ].includes(order.status);
+      const paymentStatus = order.payment?.status ?? "не указан";
+      const paymentPassed = paymentStatus === "PAYMENT_PAID";
+      const deliveryStatuses = order.delivery_chunks.map(
+        (chunk) => chunk.delivery_info.raw_status,
+      );
+      const deliveryPassed =
+        deliveryStatuses.length > 0 &&
+        deliveryStatuses.every((status) => status.length > 0);
+      checkout = {
+        source: "ORDER",
+        sufficient: orderPassed && paymentPassed && deliveryPassed,
+        details:
+          `Заказ ${order.id} прочитан как checkout-свидетельство: ` +
+          `order=${order.status}, payment=${paymentStatus}, ` +
+          `delivery=${deliveryStatuses.join(", ") || "нет данных"}; ` +
+          (orderPassed && paymentPassed && deliveryPassed
+            ? "свидетельство достаточно"
+            : "свидетельство недостаточно"),
+      };
+      if (!checkout.sufficient) risks.push(checkout.details);
+    } catch (error) {
+      checkout = {
+        source: "ORDER",
+        sufficient: false,
+        details: `Тестовый заказ ${checkoutEvidence.orderId} не прочитан: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+      risks.push(checkout.details);
+    }
+  } else if (checkoutEvidence?.kind === "manual") {
+    checkout = {
+      source: "MANUAL",
+      sufficient: checkoutEvidence.ownerConfirmed,
+      details: checkoutEvidence.ownerConfirmed
+        ? `Ручное checkout-свидетельство предоставлено владельцем: ${checkoutEvidence.details}; это не является API-проверкой`
+        : `Владелец не подтвердил завершённый ручной checkout: ${checkoutEvidence.details}`,
+    };
+    if (!checkout.sufficient) unchecked.push(checkout.details);
+  } else if (orders.items.length === 0 && orders.complete) {
+    checkout = {
+      source: "NONE",
+      sufficient: false,
+      details:
+        "Checkout-свидетельство не предоставлено; подтверждённых заказов нет — это отсутствие доказательства, не ошибка",
+    };
+    unchecked.push(checkout.details);
   } else {
-    unchecked.push(
-      `История содержит ${orders.items.length} заказов, но полный checkout ещё не подтверждён`,
-    );
+    checkout = {
+      source: "NONE",
+      sufficient: false,
+      details:
+        `Checkout-свидетельство не предоставлено; история содержит ${orders.items.length} заказов, ` +
+        "но ни один не указан как тестовое доказательство",
+    };
+    unchecked.push(checkout.details);
   }
   unchecked.push("KIT API не предоставляет настройки оплаты и доставки");
-  unchecked.push("Оплата, доставка и полный checkout требуют ручного или заказного доказательства");
+  if (!checkout.sufficient) {
+    unchecked.push(
+      "Оплата, доставка и полный checkout требуют ручного или заказного доказательства",
+    );
+  }
 
-  recommendations.push(
-    "Проверить публичную витрину отдельным web/HTTP-запросом, затем выполнить реальный тестовый checkout",
-  );
+  if (webEvidence.state === "NOT_CHECKED") {
+    recommendations.push("Проверить публичную витрину отдельным web/HTTP-запросом");
+  }
+  if (!checkout.sufficient) {
+    recommendations.push(
+      "Выполнить реальный тестовый checkout и передать ID заказа либо явный результат ручной проверки",
+    );
+  }
   if (risks.some((risk) => /каталог|SKU|склад|категор/iu.test(risk))) {
     recommendations.push("Передать глубокие каталожные дефекты в a1-yandex-kit-catalog-doctor");
   }
@@ -504,11 +666,26 @@ export async function runLaunchCheckScenario({
     },
     pages,
   };
-  const status: LaunchStatus = blockers.length > 0 ? "NOT_READY" : "CONDITIONALLY_READY";
-  const humanStatus = status === "NOT_READY" ? "не готов" : "условно готов";
+  const status: LaunchStatus =
+    blockers.length > 0
+      ? "NOT_READY"
+      : coverage.complete &&
+          webEvidence.state === "AVAILABLE" &&
+          checkout.sufficient
+        ? "READY"
+        : "CONDITIONALLY_READY";
+  const humanStatus =
+    status === "NOT_READY"
+      ? "не готов"
+      : status === "READY"
+        ? "готов"
+        : "условно готов";
   const report = [
     `Статус: ${humanStatus} (${status})`,
+    `Автоматические проверки\n- ${coverage.complete ? "полное API-покрытие" : "неполное API-покрытие"}`,
     coverageReport(coverage),
+    `Web-проверка\n- ${webEvidence.details}`,
+    `Checkout-свидетельство\n- ${checkout.details}`,
     formatSection("Блокеры", blockers),
     formatSection("Риски", risks),
     formatSection("Не проверено", unchecked),
@@ -523,6 +700,8 @@ export async function runLaunchCheckScenario({
     unchecked,
     recommendations,
     coverage,
+    web: webEvidence,
+    checkout,
     report,
   };
 }

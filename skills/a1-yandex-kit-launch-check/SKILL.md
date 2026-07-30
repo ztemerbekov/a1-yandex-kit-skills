@@ -28,8 +28,9 @@ Return exactly one machine status with its Russian label:
 - `NOT_READY` / «не готов» only for a proven critical blocker;
 - `CONDITIONALLY_READY` / «условно готов» when the automatic slice has no blocker but
   a critical link is incomplete or unverified;
-- never return `READY` from the API-only workflow in this version: public storefront,
-  payment, delivery and checkout evidence are handled by the next workflow.
+- never return `READY` from the API-only workflow;
+- `READY` / «готов» only when API coverage is complete, the public storefront is
+  factually reachable and sufficient checkout evidence is present.
 
 ## API-readiness workflow
 
@@ -67,6 +68,28 @@ Always include:
 Empty optional SEO fields are recommendations, not blockers of a first sale. Never turn
 an unknown fact into a clean result and never invent a price, category, stock or other
 business value.
+
+## Public storefront and checkout evidence
+
+When the host exposes a browser or HTTP capability, use it through a small web-adapter
+boundary and request the factual `b2c_url`. Follow the adapter's redirect result and
+record the HTTP outcome. A 2xx/3xx response proves that public entry point is reachable;
+a failed request or 4xx/5xx is a blocker. If no web tool exists, say «витрина не
+проверена» and cap the result at `CONDITIONALLY_READY`. Do not claim that the URL's API
+presence proves availability, and do not invent undiscoverable product-page URLs.
+
+Checkout evidence has two supported sources:
+
+1. For an owner-provided test order ID, call `get_order` and report the factual order,
+   payment and delivery statuses. Treat it as sufficient only when the order has moved
+   past initial confirmation, payment is paid and a delivery status is present.
+2. For an explicit owner statement that a manual checkout completed, retain the exact
+   statement as «предоставлено владельцем» and say that it is not an API verification.
+
+Never create, confirm or pay a test order. KIT API still does not expose payment and
+delivery settings; keep that limitation visible even when checkout evidence is
+sufficient. Show separate sections for automatic API checks, the web check, checkout
+evidence and remaining unknowns.
 
 ## Exact fixes after a check
 
