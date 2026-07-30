@@ -59,6 +59,45 @@ test("an exact price command performs read, one write and re-read without anothe
   assert.doesNotMatch(report, /подтверд/iu);
 });
 
+test("a target lookup error is reported and never reaches a catalog write", async () => {
+  const mcp = new FakeCatalogDoctorFixMcp({
+    variants: [variant()],
+    readErrors: {
+      "list_variants:1": new Error("variant lookup unavailable"),
+    },
+  });
+
+  const { report } = await runCatalogDoctorFixScenario({
+    request: "Поставь цену 4 990 для SKU-42",
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.match(report, /Не исправлено \(1\)/iu);
+  assert.match(report, /variant lookup unavailable/iu);
+});
+
+test("an explicit UUID bypasses list lookup and reuses its detail read", async () => {
+  const id = "00000000-0000-4000-8000-000000000042";
+  const mcp = new FakeCatalogDoctorFixMcp({
+    variants: [variant({ id, sku: "PRIMARY" })],
+    readErrors: {
+      list_variants: new Error("variant lookup unavailable"),
+    },
+  });
+
+  const { report } = await runCatalogDoctorFixScenario({
+    request: `Поставь цену 4 990 для ${id}`,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    ["get_variant", "update_variant", "get_variant"],
+  );
+  assert.match(report, /Исправлено \(1\)/iu);
+});
+
 test("an unspecified stock repair asks one grouped source question and performs no write", async () => {
   const mcp = new FakeCatalogDoctorFixMcp({
     variants: [variant()],

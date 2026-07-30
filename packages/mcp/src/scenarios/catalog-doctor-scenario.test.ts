@@ -297,3 +297,66 @@ test("an unread product page is resolved with get_product instead of a false bro
   assert.doesNotMatch(result.report, /связь с product_id product-2 не подтверждена/i);
   assert.equal(mcp.writeCalls.length, 0);
 });
+
+test("unread category and warehouse references never become confirmed blockers", async () => {
+  const mcp = new FakeCatalogDoctorMcp({
+    products: [product({ category_ids: ["category-unread"] })],
+    variants: [
+      variant({
+        stocks: [
+          {
+            warehouse_id: "warehouse-unread",
+            quantity: 5,
+            reserved: 0,
+          },
+        ],
+      }),
+    ],
+    categories: [],
+    warehouses: [],
+    readErrors: {
+      "get_category:category-unread": new Error("category network timeout"),
+      "get_warehouse:warehouse-unread": new Error("warehouse network timeout"),
+    },
+  });
+
+  const result = await runCatalogDoctorScenario({
+    request: "Проверь каталог",
+    mcp,
+  });
+
+  assert.match(result.report, /Покрытие неполное/iu);
+  assert.match(result.report, /category network timeout/iu);
+  assert.match(result.report, /warehouse network timeout/iu);
+  assert.match(result.report, /Риски \(2\)/iu);
+  assert.match(result.report, /не подтверждена.*category-unread/iu);
+  assert.match(result.report, /не подтверждена.*warehouse-unread/iu);
+  assert.doesNotMatch(result.report, /Блокеры \([1-9]/iu);
+  assert.doesNotMatch(result.report, /отсутствующий склад warehouse-unread/iu);
+  assert.doesNotMatch(result.report, /сломанные ссылки на категории: category-unread/iu);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("an unread product reference never becomes a confirmed blocker", async () => {
+  const mcp = new FakeCatalogDoctorMcp({
+    products: [],
+    variants: [variant({ product_id: "product-unread" })],
+    categories: [category()],
+    warehouses: [warehouse()],
+    readErrors: {
+      "get_product:product-unread": new Error("product network timeout"),
+    },
+  });
+
+  const result = await runCatalogDoctorScenario({
+    request: "Проверь каталог",
+    mcp,
+  });
+
+  assert.match(result.report, /Покрытие неполное/iu);
+  assert.match(result.report, /Риски \(1\)/iu);
+  assert.match(result.report, /product_id product-unread не подтверждена.*product network timeout/iu);
+  assert.doesNotMatch(result.report, /Блокеры \([1-9]/iu);
+  assert.doesNotMatch(result.report, /сломанная связь: product_id product-unread/iu);
+  assert.equal(mcp.writeCalls.length, 0);
+});

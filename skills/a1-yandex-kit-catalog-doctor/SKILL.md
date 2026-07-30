@@ -39,14 +39,16 @@ turn audit findings or recommendations into mutations.
 3. Read every active category page with
    `status: ["ACTIVE"], page: <N>, per_page: 100`. For every returned
    `Product.category_ids` value absent from that set, call `get_category`: retain a failed
-   lookup as a broken/stale reference and an `ARCHIVED` result as a point-in-time archive
+   lookup as missing evidence and a risk unless it is a confirmed 404; only a confirmed
+   404 is a broken/stale reference. Treat an `ARCHIVED` result as a point-in-time archive
    transition. The API omits archived bindings from `Product.category_ids`; when that
    array is empty, report no active category but do not claim that no archived binding
    exists.
 4. Read every active warehouse page with
    `status: ["ACTIVE"], page: <N>, per_page: 100`. For every warehouse ID
    used by a checked variant but absent from that set, call `get_warehouse`: include an
-   archived used warehouse and retain a failed lookup as a broken reference.
+   archived used warehouse; only a confirmed 404 proves a broken reference.
+   Timeout/network or another unreadable detail is incomplete coverage and a risk.
 5. Treat «целиком» / “complete catalog” as the complete active-catalog scope above.
    Include archived variants/categories/warehouses beyond referenced entities only when
    the owner explicitly says «включая архив» or otherwise asks for an archive audit.
@@ -102,8 +104,9 @@ For every checked `PUBLISHED` or `HIDDEN` variant:
   replacement price.
 - Sum `quantity - reserved` across stocks and flag a zero or negative available balance.
 - Flag each stock where `reserved > quantity`.
-- Flag a stock that references a missing or `ARCHIVED` warehouse. Do not invent a
-  warehouse or quantity.
+- Flag a stock that references a confirmed-missing or `ARCHIVED` warehouse. An
+  unreadable warehouse lookup is a risk plus incomplete coverage, not a confirmed
+  blocker. Do not invent a warehouse or quantity.
 - Flag no usable `IMAGE` (`type: IMAGE` with an `image_id`).
 - Compare checked variants by normalized exact `slug` and exact `name`; report duplicate
   groups with every ID/SKU.
@@ -112,9 +115,10 @@ For every checked `PUBLISHED` or `HIDDEN` variant:
 
 For every product used by those variants:
 
-- Flag no active category and category IDs that cannot be read. State that the read-only
-  API cannot distinguish “no category bindings” from “only archived bindings”, because
-  both produce an empty `Product.category_ids`.
+- Flag no active category and confirmed-missing category IDs. An unreadable category
+  lookup is a risk plus incomplete coverage, not a confirmed blocker. State that the
+  read-only API cannot distinguish “no category bindings” from “only archived
+  bindings”, because both produce an empty `Product.category_ids`.
 - Compare active categories by normalized exact `slug` and exact `title`; report
   duplicate groups with every ID.
 - Treat a product with one active category as an archive risk: archiving that category
@@ -404,14 +408,16 @@ asking one question per object.
 
 ## Scenario evaluation contract
 
-`packages/mcp/src/scenarios/catalog-doctor-scenario.ts` contains the deterministic fake
-MCP and tracer. Its tests cover multi-page and interrupted audits, grouping and media
-defects, collection relations, completeness levels, a healthy catalog and owner-requested
-merchandising relations. Validate observable tool calls, arguments, coverage,
-classification and the absence of writes rather than exact prose.
+`packages/mcp/src/scenarios/catalog-doctor-scenario.ts` contains a deterministic
+reference model, fake MCP and tracer; it does not execute this Markdown skill through an
+LLM host. Its tests cover multi-page and interrupted audits, unread reference fallbacks,
+grouping and media defects, collection relations, completeness levels, a healthy catalog
+and owner-requested merchandising relations. Validate observable tool calls, arguments,
+coverage, classification and the absence of writes rather than exact prose.
 
 `packages/mcp/src/scenarios/catalog-doctor-fix-scenario.ts` covers exact-write behavior.
 Its tests prove exact price read/write/re-read, a grouped missing-stock-source question
 with zero writes, preservation of sibling stocks and media, permanent deletion with an
 exact verb, complete batch outcomes, detail-read array preservation, and ambiguous
-timeout/5xx results without a second mutation.
+timeout/5xx results without a second mutation. Run the manual real-skill acceptance cases
+in `docs/CATALOG-DOCTOR-VERIFICATION.md` before claiming end-to-end host conformance.

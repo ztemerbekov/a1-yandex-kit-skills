@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "a1-yandex-kit",
   "version": "0.1.0",
-  "description": "A1 Yandex KIT Skills for the Yandex KIT e-commerce platform: six domain skills, a store operator and a read-only catalog doctor, plus the A1 Yandex KIT MCP server with 61 tools covering all 133 API operations.",
+  "description": "A1 Yandex KIT Skills for the Yandex KIT e-commerce platform: six domain skills, a store operator and a catalog doctor for audits and exact owner-authorized fixes, plus the A1 Yandex KIT MCP server with 61 tools covering all 133 API operations.",
   "author": {
     "name": "gistrec",
     "url": "https://github.com/gistrec"

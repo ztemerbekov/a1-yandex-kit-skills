@@ -1,7 +1,6 @@
 ---
 name: a1-yandex-kit-operator
 description: "Use for an operational review or an exact owner-authorized change in a Yandex KIT store: «Как дела в магазине?», «Что срочного?», «Подтверди заказ 123», «Поставь цену 4 990 для SKU-42» or another command with an unambiguous target, action and value. Treat short «Как дела?» as a store request only when Yandex KIT context is already established."
-compatibility: "Requires the a1-yandex-kit MCP server and Node.js >= 20"
 metadata:
   author: gistrec
   version: "0.1.0"
@@ -14,6 +13,8 @@ has already specified. Find current order, storefront, promotion and integration
 state the evidence and consequence; and never invent a business decision or value. This
 is an orchestration skill; use the domain skills for API contracts and `a1-yandex-kit`
 for auth, pagination, rate limits and error behaviour.
+
+Requires the `a1-yandex-kit` MCP server and Node.js 20 or newer.
 
 ## When to act
 
@@ -103,7 +104,12 @@ field. Say this explicitly in the coverage note when relevant.
 For every object, including every member of a batch:
 
 1. Resolve one exact object. If a displayed order number, SKU or promotion code matches
-   zero or multiple objects, ask for an exact ID and do not write.
+   zero or multiple objects, ask for an exact ID and do not write. When the owner
+   supplies an ID that itself matches one object, prefer that ID over any coincidentally
+   equal displayed number, SKU, title or code. A truncated or failed list read cannot
+   prove an alternate key unique: do not write from a displayed number/SKU/title/code
+   until the full lookup succeeds. An explicit ID may still proceed through its detail
+   read.
 2. Read the exact current object with `get_order`, `get_variant`, `get_discount`,
    `get_promocode` or `get_webhook`. Check the relevant precondition against that read.
 3. Call exactly one write tool. Client retry safety guarantees that POST/PATCH/PUT/DELETE
@@ -111,19 +117,27 @@ For every object, including every member of a batch:
    network failure.
 4. Re-read the same object and compare the requested field or state. A successful tool
    response without a matching re-read is not a verified success.
-5. Classify the result as completed, failed or ambiguous. Timeout/network failure, or a
-   failed verification after a possible write, is ambiguous: say «результат неизвестен,
-   нужна проверка». Do not label it failed and do not retry blindly.
+5. Classify the result as completed, failed or ambiguous. HTTP 408,
+   timeout/network/5xx failure, or a failed verification after a possible write, is
+   ambiguous: say «результат неизвестен, нужна проверка». Do not label it failed and do
+   not retry blindly.
 
 Use these operation-specific rules:
 
 - Orders: `WAIT_FOR_CONFIRMATION` may use `confirm_order`; exact cancellation may use
-  `cancel_order`. The KIT cancellation endpoint accepts only the order ID. If the owner
-  supplied a reason, include it in the MCP tool log and report but explicitly say the API
-  does not store it.
+  `cancel_order`. A reason is optional context, not a prerequisite for cancellation.
+  The KIT cancellation endpoint accepts only the order ID, while the MCP tool has an
+  optional log-only `reason` argument. If the owner supplied a reason, call
+  `cancel_order { id, reason }` so it remains in the MCP tool log, and explicitly say in
+  the report that the KIT API does not store it. Without a reason call
+  `cancel_order { id }`. A plural exact command may cancel several orders with one shared
+  optional reason; keep a separate outcome for every order and continue after a local
+  error.
 - Price and stock: resolve the exact SKU, call `get_variant`, then `update_variant` with
   only the stated pricing change or with the full preserved `stocks` array when changing
-  one warehouse. Never invent a warehouse or quantity.
+  one warehouse. Re-read and compare the entire expected `stocks` array, including every
+  sibling warehouse and untouched `reserved`, not just the changed quantity. Never
+  invent a warehouse or quantity.
 - Promotions: resolve one exact discount/promocode, read it, update only the explicitly
   stated status/value/limit or exact bindings, then re-read. Do not invent eligibility,
   dates, limits, values or conflict rules.
@@ -170,11 +184,14 @@ applicable.
 
 ## Scenario evaluation contract
 
-`packages/mcp/src/scenarios/operator-scenario.ts` provides the reusable fake MCP for
-this workflow. It accepts prepared orders, SKUs, products, promotions and webhooks;
+`packages/mcp/src/scenarios/operator-scenario.ts` is a deterministic reference model and
+reusable fake MCP for regression tests; it does not execute this Markdown skill through
+an LLM host. It accepts prepared orders, SKUs, products, promotions and webhooks;
 supports pagination, selected-promotion bindings and prepared write failures; records
 tool names and arguments; mutates prepared state; and retains the final report. Its tests
-cover read-only reviews, exact confirmation/cancellation/price/stock changes, exact
-promocode limit/status/binding and discount-value changes, webhook activation, an
-ambiguous command, partial batches, ambiguous timeouts and a mismatching verification
-read. Compare calls and final state, not an exact word-for-word report.
+cover read-only reviews, partial reads, exact confirmation/cancellation/price/stock
+changes, duplicate targets, batch cancellation, exact promocode
+limit/status/binding and discount-value changes, webhook activation, ambiguous commands,
+timeouts/5xx and a mismatching verification read. Compare calls and final state, not an
+exact word-for-word report. Run the manual real-skill acceptance cases in
+`docs/OPERATOR-VERIFICATION.md` before claiming end-to-end host conformance.

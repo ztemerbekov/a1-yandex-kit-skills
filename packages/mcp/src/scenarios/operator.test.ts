@@ -353,6 +353,58 @@ test("truncated catalog read is visible instead of claiming complete coverage", 
   assert.equal(mcp.writeCalls.length, 0);
 });
 
+test("an interrupted order page returns a partial report instead of throwing", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [
+      order({ id: "first", order_number: 5101 }),
+      order({ id: "second", order_number: 5102 }),
+    ],
+    pageSize: 1,
+    listOrderErrors: {
+      2: new Error("orders page unavailable"),
+    },
+  });
+
+  const result = await runOperatorReadOnlyScenario({
+    request: "Проведи разбор",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.match(result.report, /Покрытие заказов неполное/iu);
+  assert.match(result.report, /1 из 2/iu);
+  assert.match(result.report, /страница 2.*orders page unavailable/iu);
+  assert.doesNotMatch(result.report, /Объективных рисков.*не найдено/iu);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("an unavailable storefront list remains visible while other sections continue", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [],
+    products: [],
+    discounts: [],
+    promocodes: [],
+    webhooks: [],
+    readErrors: {
+      list_variants: new Error("variants unavailable"),
+    },
+  });
+
+  const result = await runOperatorReadOnlyScenario({
+    request: "Проведи разбор",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.match(result.report, /Покрытие каталога/iu);
+  assert.match(result.report, /variants unavailable/iu);
+  assert.ok(mcp.calls.some((call) => call.name === "list_webhooks"));
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
 test("short 'Как дела?' needs KIT context and never invokes a tool without it", async () => {
   const withoutContext = new FakeOperatorMcp({ orders: [order()] });
   const clarification = await runOperatorReadOnlyScenario({

@@ -138,6 +138,32 @@ test("an exact cancellation keeps the owner-provided reason in the MCP log and v
   assert.match(result.report, /API.*не сохраняет причину/i);
 });
 
+test("an exact cancellation does not require a reason the API cannot store", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [order({ id: "order-125", order_number: 125, status: "NEW" })],
+  });
+
+  const result = await runOperatorScenario({
+    request: "Отмени заказ 125",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls
+      .filter((call) => ["get_order", "cancel_order"].includes(call.name))
+      .map((call) => ({ name: call.name, arguments: call.arguments })),
+    [
+      { name: "get_order", arguments: { id: "order-125" } },
+      { name: "cancel_order", arguments: { id: "order-125" } },
+      { name: "get_order", arguments: { id: "order-125" } },
+    ],
+  );
+  assert.match(result.report, /Выполнено \(1\)/);
+  assert.doesNotMatch(result.report, /укажите причину/i);
+});
+
 test("an ambiguous order command asks whether to confirm or cancel and performs no write", async () => {
   const mcp = new FakeOperatorMcp({ orders: [order()] });
 
@@ -190,6 +216,48 @@ test("an exact confirmation batch continues after a local error and reports both
   assert.match(result.report, /order-202.*API rejected order 202/i);
 });
 
+test("an exact cancellation batch continues after a local error and retains the shared reason", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [
+      order({ id: "order-211", order_number: 211, status: "NEW" }),
+      order({ id: "order-212", order_number: 212, status: "NEW" }),
+    ],
+    writeErrors: {
+      "cancel_order:order-212": new Error("API rejected order 212"),
+    },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Отмени заказы 211, 212, причина: клиент попросил",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls
+      .filter((call) => ["get_order", "cancel_order"].includes(call.name))
+      .map((call) => `${call.name}:${String(call.arguments.id)}`),
+    [
+      "get_order:order-211",
+      "cancel_order:order-211",
+      "get_order:order-211",
+      "get_order:order-212",
+      "cancel_order:order-212",
+      "get_order:order-212",
+    ],
+  );
+  assert.equal(mcp.calls.filter((call) => call.name === "cancel_order").length, 2);
+  assert.ok(
+    mcp.calls
+      .filter((call) => call.name === "cancel_order")
+      .every((call) => call.arguments.reason === "клиент попросил"),
+  );
+  assert.match(result.report, /Выполнено \(1\)/);
+  assert.match(result.report, /Не выполнено \(1\)/);
+  assert.match(result.report, /order-212.*API rejected order 212/i);
+});
+
 test("an exact SKU price change reads, writes the stated value once, and verifies it", async () => {
   const mcp = new FakeOperatorMcp({ orders: [], variants: [variant()] });
 
@@ -238,6 +306,118 @@ test("an exact HIDDEN SKU remains addressable like the real list_variants contra
   assert.match(result.report, /Выполнено \(1\)/);
 });
 
+test("duplicate exact SKU matches require an ID and perform no write", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [
+      variant({ id: "variant-a", sku: "DUP" }),
+      variant({ id: "variant-b", sku: "DUP" }),
+    ],
+  });
+
+  const result = await runOperatorScenario({
+    request: "Поставь цену 100 для DUP",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.match(result.report, /Неоднозначно \(1\)/);
+  assert.match(result.report, /несколько SKU.*точный ID/i);
+});
+
+test("a truncated SKU lookup cannot prove uniqueness and performs no write", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [variant({ sku: "DUP" })],
+    truncated: { variants: true },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Поставь цену 100 для DUP",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.match(result.report, /Не выполнено \(1\)/);
+  assert.match(result.report, /чтение списка неполное.*уникальность/iu);
+});
+
+test("an explicit variant ID wins over a coincidentally matching SKU", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [
+      variant({ id: "DUP", sku: "PRIMARY" }),
+      variant({ id: "variant-other", sku: "DUP" }),
+    ],
+    truncated: { variants: true },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Поставь цену 100 для DUP",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls
+      .filter((call) => call.name === "update_variant")
+      .map((call) => call.arguments.id),
+    ["DUP"],
+  );
+  assert.match(result.report, /Выполнено \(1\)/);
+});
+
+test("an explicit UUID bypasses a failed list lookup and uses its detail read", async () => {
+  const id = "00000000-0000-4000-8000-000000000042";
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [variant({ id, sku: "PRIMARY" })],
+    readErrors: {
+      list_variants: new Error("variant list unavailable"),
+    },
+  });
+
+  const result = await runOperatorScenario({
+    request: `Поставь цену 100 для ${id}`,
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls
+      .filter((call) => ["list_variants", "get_variant", "update_variant"].includes(call.name))
+      .map((call) => call.name),
+    ["get_variant", "update_variant", "get_variant"],
+  );
+  assert.match(result.report, /Выполнено \(1\)/);
+});
+
+test("duplicate order numbers require an ID and perform no write", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [
+      order({ id: "order-a", order_number: 777 }),
+      order({ id: "order-b", order_number: 777 }),
+    ],
+  });
+
+  const result = await runOperatorScenario({
+    request: "Подтверди заказ 777",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.match(result.report, /Неоднозначно \(1\)/);
+  assert.match(result.report, /несколько заказов.*точный ID/i);
+});
+
 test("an exact stock change preserves other warehouses and verifies the stated quantity", async () => {
   const mcp = new FakeOperatorMcp({
     orders: [],
@@ -282,6 +462,39 @@ test("an exact stock change preserves other warehouses and verifies the stated q
   assert.equal(mcp.calls.filter((call) => call.name === "update_variant").length, 1);
   assert.match(result.report, /Выполнено \(1\)/);
   assert.match(result.report, /warehouse-1.*5/i);
+});
+
+test("a stock change is ambiguous when verification loses a sibling warehouse", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    variants: [
+      variant({
+        stocks: [
+          { warehouse_id: "warehouse-1", quantity: 3, reserved: 1 },
+          { warehouse_id: "warehouse-2", quantity: 8, reserved: 2 },
+        ],
+      }),
+    ],
+    variantWriteOverrides: {
+      "update_variant:variant-42": {
+        stocks: [
+          { warehouse_id: "warehouse-1", quantity: 5, reserved: 1 },
+        ],
+      },
+    },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Установи остаток 5 для SKU-42 на складе warehouse-1",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 1);
+  assert.match(result.report, /Выполнено \(0\)/);
+  assert.match(result.report, /Неоднозначно \(1\)/);
+  assert.match(result.report, /полный массив stocks/i);
 });
 
 test("an exact promocode limit change reads, writes once, and verifies it", async () => {
@@ -344,6 +557,27 @@ test("an exact promocode status change uses the owner-stated status", async () =
   );
   assert.match(result.report, /Выполнено \(1\)/);
   assert.match(result.report, /PROMO10.*INACTIVE/);
+});
+
+test("duplicate promocode codes require an ID and perform no write", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [],
+    promocodes: [
+      promocode({ id: "promo-a", code: "DUPCODE" }),
+      promocode({ id: "promo-b", code: "DUPCODE" }),
+    ],
+  });
+
+  const result = await runOperatorScenario({
+    request: "Отключи промокод DUPCODE",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.match(result.report, /Неоднозначно \(1\)/);
+  assert.match(result.report, /несколько промокодов.*точный ID/i);
 });
 
 test("an exact discount value is written with its stated unit and verified", async () => {
@@ -540,6 +774,78 @@ test("confirmation, cancellation and price timeouts are attempted once, re-read,
     assert.match(result.report, /Неоднозначно \(1\)/);
     assert.match(result.report, /результат неизвестен.*нужна проверка/i);
   }
+});
+
+test("a mutation 5xx is ambiguous and is never retried", async () => {
+  const serverError = Object.assign(new Error("internal server error"), {
+    status: 500,
+  });
+  const mcp = new FakeOperatorMcp({
+    orders: [order()],
+    writeErrors: {
+      "confirm_order:order-123": serverError,
+    },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Подтверди заказ 123",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.calls.filter((call) => call.name === "confirm_order").length, 1);
+  assert.equal(mcp.calls.filter((call) => call.name === "get_order").length, 2);
+  assert.match(result.report, /Неоднозначно \(1\)/);
+  assert.match(result.report, /результат неизвестен.*нужна проверка/i);
+  assert.doesNotMatch(result.report, /Не выполнено \(1\)/);
+});
+
+test("HTTP 408 after a mutation is ambiguous even without a timeout word", async () => {
+  const requestTimeout = Object.assign(new Error("request expired"), {
+    status: 408,
+  });
+  const mcp = new FakeOperatorMcp({
+    orders: [order()],
+    writeErrors: {
+      "confirm_order:order-123": requestTimeout,
+    },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Подтверди заказ 123",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.calls.filter((call) => call.name === "confirm_order").length, 1);
+  assert.match(result.report, /Неоднозначно \(1\)/);
+  assert.doesNotMatch(result.report, /Не выполнено \(1\)/);
+});
+
+test("an order lookup error becomes a per-target batch outcome", async () => {
+  const mcp = new FakeOperatorMcp({
+    orders: [
+      order({ id: "order-501", order_number: 501 }),
+      order({ id: "order-502", order_number: 502 }),
+    ],
+    listOrderErrors: {
+      1: new Error("orders unavailable"),
+    },
+  });
+
+  const result = await runOperatorScenario({
+    request: "Подтверди заказы 501, 502",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.match(result.report, /Не выполнено \(2\)/);
+  assert.match(result.report, /Заказ 501.*orders unavailable/iu);
+  assert.match(result.report, /Заказ 502.*orders unavailable/iu);
 });
 
 test("a confirmation batch separates failed and ambiguous items and continues", async () => {

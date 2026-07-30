@@ -895,9 +895,11 @@ export async function runCatalogDoctorScenario({
       if (!warehouse) {
         addFinding(
           findings,
-          level,
+          unresolvedWarehouseIds.has(stock.warehouse_id) ? "risk" : level,
           object,
-          `остаток ссылается на отсутствующий склад ${stock.warehouse_id}`,
+          unresolvedWarehouseIds.has(stock.warehouse_id)
+            ? `ссылка на склад не подтверждена из-за ошибки чтения: ${stock.warehouse_id}`
+            : `остаток ссылается на отсутствующий склад ${stock.warehouse_id}`,
         );
       } else if (warehouse.status === "ARCHIVED") {
         addFinding(
@@ -1036,13 +1038,16 @@ export async function runCatalogDoctorScenario({
     const product = products.get(variant.product_id);
     if (!product) {
       const lookupError = productLookupErrors.get(variant.product_id);
+      const unresolved = unresolvedProductIds.has(variant.product_id);
       addFinding(
         findings,
-        productsCoverage.complete ? level : "risk",
+        unresolved || !productsCoverage.complete ? "risk" : level,
         object,
-        productsCoverage.complete
-          ? `сломанная связь: product_id ${variant.product_id} не найден${lookupError ? ` (${lookupError})` : ""}`
-          : `связь с product_id ${variant.product_id} не подтверждена из-за неполной пагинации продуктов${lookupError ? `; get_product: ${lookupError}` : ""}`,
+        unresolved
+          ? `связь с product_id ${variant.product_id} не подтверждена из-за ошибки чтения${lookupError ? `; get_product: ${lookupError}` : ""}`
+          : productsCoverage.complete
+            ? `сломанная связь: product_id ${variant.product_id} не найден${lookupError ? ` (${lookupError})` : ""}`
+            : `связь с product_id ${variant.product_id} не подтверждена из-за неполной пагинации продуктов${lookupError ? `; get_product: ${lookupError}` : ""}`,
       );
       continue;
     }
@@ -1057,9 +1062,24 @@ export async function runCatalogDoctorScenario({
       continue;
     }
     const productCategories = product.category_ids.map((id) => knownCategories.get(id));
-    const missingCategoryIds = product.category_ids.filter(
-      (id, index) => productCategories[index] === undefined,
+    const unresolvedProductCategoryIds = product.category_ids.filter(
+      (id, index) =>
+        productCategories[index] === undefined && unresolvedCategoryIds.has(id),
     );
+    const missingCategoryIds = product.category_ids.filter(
+      (id, index) =>
+        productCategories[index] === undefined && !unresolvedCategoryIds.has(id),
+    );
+    if (unresolvedProductCategoryIds.length > 0) {
+      addFinding(
+        findings,
+        "risk",
+        object,
+        unresolvedProductCategoryIds.length === 1
+          ? `ссылка на категорию не подтверждена из-за ошибки чтения: ${unresolvedProductCategoryIds[0]}`
+          : `ссылки на категории не подтверждены из-за ошибки чтения: ${unresolvedProductCategoryIds.join(", ")}`,
+      );
+    }
     if (missingCategoryIds.length > 0) {
       addFinding(
         findings,

@@ -25,7 +25,7 @@ GitHub Release → Glama → awesome-mcp-servers.
 ## 1. Предпубликационные проверки
 
 ```bash
-npm run typecheck && npm test && npm run build   # 156 тестов, всё зелёное
+npm run typecheck && npm test && npm run build   # 236 тестов, всё зелёное
 npm run gen && git diff --exit-code              # нет дрейфа сгенерированного
 npm publish --dry-run -w packages/core -w packages/mcp
 ```

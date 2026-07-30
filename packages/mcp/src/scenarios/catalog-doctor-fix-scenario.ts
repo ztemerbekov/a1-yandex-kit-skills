@@ -1,4 +1,11 @@
 import type { CatalogVariant } from "./catalog-doctor-scenario.js";
+import {
+  executeVerifiedMutation,
+  isKitObjectId,
+  mutationResultIsAmbiguous,
+  type MutationOutcome,
+  type MutationOutcomeKind,
+} from "./mutation-scenario.js";
 
 export const CATALOG_FIX_BATCH_LIMIT = 100;
 
@@ -28,22 +35,26 @@ export class FakeCatalogDoctorFixMcp {
   readonly #variants = new Map<string, CatalogVariant>();
   readonly #listVariants: CatalogVariant[] | undefined;
   readonly #mutationErrors: Record<string, Error>;
+  readonly #readErrors: Record<string, Error>;
   finalAnswer: string | undefined;
 
   constructor({
     variants,
     listVariants,
     mutationErrors = {},
+    readErrors = {},
   }: {
     variants: CatalogVariant[];
     listVariants?: CatalogVariant[];
     mutationErrors?: Record<string, Error>;
+    readErrors?: Record<string, Error>;
   }) {
     for (const variant of variants) {
       this.#variants.set(variant.id, cloneVariant(variant));
     }
     this.#listVariants = listVariants?.map(cloneVariant);
     this.#mutationErrors = mutationErrors;
+    this.#readErrors = readErrors;
   }
 
   get writeCalls(): CatalogDoctorFixToolCall[] {
@@ -68,6 +79,9 @@ export class FakeCatalogDoctorFixMcp {
     if (name === "list_variants") {
       const page =
         typeof arguments_.page === "number" ? arguments_.page : 1;
+      const preparedError =
+        this.#readErrors[`list_variants:${page}`] ?? this.#readErrors.list_variants;
+      if (preparedError) throw preparedError;
       const perPage =
         typeof arguments_.per_page === "number" ? arguments_.per_page : 100;
       const search = String(arguments_.name ?? "").toLowerCase();
@@ -143,30 +157,6 @@ export class FakeCatalogDoctorFixMcp {
   }
 }
 
-type MutationOutcomeKind = "completed" | "failed" | "ambiguous";
-
-interface MutationOutcome {
-  kind: MutationOutcomeKind;
-  message: string;
-}
-
-function mutationResultIsAmbiguous(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  const status =
-    "status" in error && typeof error.status === "number"
-      ? error.status
-      : "statusCode" in error && typeof error.statusCode === "number"
-        ? error.statusCode
-        : undefined;
-  return (
-    (status !== undefined && status >= 500) ||
-    error.name === "AbortError" ||
-    error.name === "TimeoutError" ||
-    error instanceof TypeError ||
-    /timeout|timed out|network|fetch failed|aborted/iu.test(error.message)
-  );
-}
-
 function formatOutcomes(outcomes: MutationOutcome[], batch = false): string {
   const sections: Array<{
     kind: MutationOutcomeKind;
@@ -218,25 +208,58 @@ async function findExactVariant(
     })) as { variants: CatalogVariant[]; total_count: number };
     totalCount = response.total_count;
     found.push(...response.variants);
+    if (response.variants.length === 0 && found.length < totalCount) {
+      throw new Error(
+        `Variant pagination stopped at ${found.length} of ${totalCount} on page ${page}`,
+      );
+    }
     page += 1;
   } while (found.length < totalCount);
   const normalized = reference.toLowerCase();
-  return found.filter(
-    (variant) =>
-      variant.id.toLowerCase() === normalized ||
-      variant.sku.toLowerCase() === normalized,
-  );
+  const idMatches = found.filter((variant) => variant.id.toLowerCase() === normalized);
+  return idMatches.length > 0
+    ? idMatches
+    : found.filter((variant) => variant.sku.toLowerCase() === normalized);
 }
 
 async function resolveOneVariant(
   mcp: FakeCatalogDoctorFixMcp,
   reference: string,
 ): Promise<
-  | { variant: CatalogVariant }
+  | { variant: CatalogVariant; fromDetail: boolean }
   | { outcome: MutationOutcome }
 > {
-  const matches = await findExactVariant(mcp, reference);
-  if (matches.length === 1) return { variant: matches[0]! };
+  if (isKitObjectId(reference)) {
+    try {
+      return {
+        variant: (await mcp.call("get_variant", { id: reference })) as CatalogVariant,
+        fromDetail: true,
+      };
+    } catch (error) {
+      return {
+        outcome: {
+          kind: "failed",
+          message:
+            `SKU ${reference}: чтение явного ID не удалось — ` +
+            `${error instanceof Error ? error.message : String(error)}; запись не выполняется`,
+        },
+      };
+    }
+  }
+  let matches: CatalogVariant[];
+  try {
+    matches = await findExactVariant(mcp, reference);
+  } catch (error) {
+    return {
+      outcome: {
+        kind: "failed",
+        message:
+          `SKU ${reference}: разрешение цели не завершено — ` +
+          `${error instanceof Error ? error.message : String(error)}; запись не выполняется`,
+      },
+    };
+  }
+  if (matches.length === 1) return { variant: matches[0]!, fromDetail: false };
   if (matches.length === 0) {
     return {
       outcome: {
@@ -256,70 +279,27 @@ async function resolveOneVariant(
 async function executeVerifiedVariantMutation({
   mcp,
   variant,
+  fromDetail,
   write,
   verify,
 }: {
   mcp: FakeCatalogDoctorFixMcp;
   variant: CatalogVariant;
+  fromDetail: boolean;
   write: (before: CatalogVariant) => Promise<unknown>;
   verify: (
     after: CatalogVariant,
     before: CatalogVariant,
   ) => { valid: boolean; message: string };
 }): Promise<MutationOutcome> {
-  let before: CatalogVariant;
-  try {
-    before = (await mcp.call("get_variant", {
-      id: variant.id,
-    })) as CatalogVariant;
-  } catch (error) {
-    return {
-      kind: "failed",
-      message: `SKU ${variant.sku} (${variant.id}): чтение не удалось — ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    };
-  }
-
-  let writeError: unknown;
-  try {
-    await write(before);
-  } catch (error) {
-    writeError = error;
-  }
-
-  let after: CatalogVariant;
-  try {
-    after = (await mcp.call("get_variant", {
-      id: variant.id,
-    })) as CatalogVariant;
-  } catch (error) {
-    return {
-      kind: "ambiguous",
-      message:
-        `SKU ${variant.sku} (${variant.id}): запись вызвана один раз, повторное чтение не удалось ` +
-        `(${error instanceof Error ? error.message : String(error)}); результат неизвестен, нужна проверка`,
-    };
-  }
-
-  if (writeError) {
-    const message =
-      writeError instanceof Error ? writeError.message : String(writeError);
-    return {
-      kind: mutationResultIsAmbiguous(writeError) ? "ambiguous" : "failed",
-      message: mutationResultIsAmbiguous(writeError)
-        ? `SKU ${variant.sku} (${variant.id}): запись вызвана один раз и завершилась ошибкой «${message}»; результат неизвестен, нужна проверка`
-        : `SKU ${variant.sku} (${variant.id}): ${message}`,
-    };
-  }
-
-  const verification = verify(after, before);
-  return {
-    kind: verification.valid ? "completed" : "ambiguous",
-    message: verification.valid
-      ? verification.message
-      : `${verification.message}; повторное чтение не подтвердило запись, результат неизвестен, нужна проверка`,
-  };
+  return executeVerifiedMutation({
+    subject: `SKU ${variant.sku} (${variant.id})`,
+    initialBefore: fromDetail ? variant : undefined,
+    read: () =>
+      mcp.call("get_variant", { id: variant.id }) as Promise<CatalogVariant>,
+    write,
+    verifyAfter: verify,
+  });
 }
 
 async function executePriceChange(
@@ -332,6 +312,7 @@ async function executePriceChange(
   return executeVerifiedVariantMutation({
     mcp,
     variant: resolved.variant,
+    fromDetail: resolved.fromDetail,
     write: (before) =>
       mcp.call("update_variant", {
         id: before.id,
@@ -376,17 +357,21 @@ async function executePermanentVariantDeletion(
   const listed = resolved.variant;
 
   let before: CatalogVariant;
-  try {
-    before = (await mcp.call("get_variant", {
-      id: listed.id,
-    })) as CatalogVariant;
-  } catch (error) {
-    return {
-      kind: "failed",
-      message: `SKU ${listed.sku} (${listed.id}): чтение не удалось — ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    };
+  if (resolved.fromDetail) {
+    before = listed;
+  } else {
+    try {
+      before = (await mcp.call("get_variant", {
+        id: listed.id,
+      })) as CatalogVariant;
+    } catch (error) {
+      return {
+        kind: "failed",
+        message: `SKU ${listed.sku} (${listed.id}): чтение не удалось — ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
   }
   if (before.status !== "ARCHIVED") {
     return {
@@ -555,6 +540,7 @@ export async function runCatalogDoctorFixScenario({
     const outcome = await executeVerifiedVariantMutation({
       mcp,
       variant: resolved.variant,
+      fromDetail: resolved.fromDetail,
       write: async (before) => {
         const target = before.stocks.find(
           (stock) => stock.warehouse_id === warehouseId,
@@ -604,6 +590,7 @@ export async function runCatalogDoctorFixScenario({
     const outcome = await executeVerifiedVariantMutation({
       mcp,
       variant: resolved.variant,
+      fromDetail: resolved.fromDetail,
       write: async (before) => {
         if (
           before.media.some(

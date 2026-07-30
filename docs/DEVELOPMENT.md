@@ -14,7 +14,7 @@ npm ci
 ```bash
 npm run build          # сборка packages/core и packages/mcp в dist/
 npm run typecheck      # проверка типов всех воркспейсов: исходники + тесты (без эмита)
-npm test               # юнит-тесты core + mcp (node --test, мок-клиент, без сети) — 156 тестов
+npm test               # юнит-тесты core + mcp (node --test, мок-клиент, без сети) — 236 тестов
 npm run gen            # перегенерация: registry.json, types.ts, docs/TOOLS.md, skills/*
 npm run spec:fetch     # обновить снапшот specs/kit-swagger.openapi.json с официального URL
 npm run smoke          # живые read-only вызовы к боевому API (нужен YANDEX_KIT_TOKEN)

@@ -1,4 +1,4 @@
 interface:
   display_name: "A1 Yandex KIT Catalog Doctor"
-  short_description: "Глубокий аудит каталога без изменений"
-  default_prompt: "Use $a1-yandex-kit-catalog-doctor to audit my Yandex KIT catalog for sales blockers."
+  short_description: "Аудит и точные исправления каталога"
+  default_prompt: "Use $a1-yandex-kit-catalog-doctor to audit my Yandex KIT catalog and apply only the exact fixes I authorize."
