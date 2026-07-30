@@ -165,6 +165,129 @@ test("HTTP 400 with code VALIDATION_ERROR -> not retried", async () => {
   assert.equal(calls.length, 1);
 });
 
+// Mutations must never be retried automatically: the API gives no idempotency
+// contract, so a repeated write could duplicate a real change (issue #6).
+
+test("POST network error -> single attempt, original error surfaces", async () => {
+  const calls: RecordedCall[] = [];
+  const fetchImpl = (async (input: unknown, init?: RequestInit) => {
+    calls.push({ url: String(input), init: init ?? {} });
+    throw new TypeError("fetch failed");
+  }) as typeof fetch;
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, maxRetries: 3, fetchImpl });
+
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), /fetch failed/);
+  assert.equal(calls.length, 1);
+});
+
+test("POST timeout -> single attempt even with maxRetries", async () => {
+  const calls: RecordedCall[] = [];
+  // Never resolves; rejects only when the client's AbortController fires.
+  const fetchImpl = (async (input: unknown, init?: RequestInit) => {
+    calls.push({ url: String(input), init: init ?? {} });
+    return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(new Error("attempt aborted")));
+    });
+  }) as typeof fetch;
+  const client = new KitClient({
+    token: "t",
+    rps: 1000,
+    timeoutMs: 20,
+    retryBaseMs: 1,
+    maxRetries: 3,
+    fetchImpl,
+  });
+
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), /attempt aborted/);
+  assert.equal(calls.length, 1);
+});
+
+test("POST 500 -> not retried, KitApiError surfaces", async () => {
+  const { calls, fetchImpl } = stubFetch(() =>
+    jsonResponse({ code: "UNKNOWN_ERROR", message: "boom", trace_id: "t3" }, 500),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
+
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.equal(err.status, 500);
+    assert.equal(err.code, "UNKNOWN_ERROR");
+    assert.equal(err.traceId, "t3");
+    return true;
+  });
+  assert.equal(calls.length, 1);
+});
+
+test("POST 429 with Retry-After -> not retried, code/message/traceId preserved", async () => {
+  const { calls, fetchImpl } = stubFetch(() =>
+    jsonResponse({ code: "LIMIT_EXCEEDED", message: "slow down", trace_id: "t4" }, 429, {
+      "retry-after": "0",
+    }),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
+
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.equal(err.status, 429);
+    assert.equal(err.code, "LIMIT_EXCEEDED");
+    assert.equal(err.message, "slow down");
+    assert.equal(err.traceId, "t4");
+    return true;
+  });
+  assert.equal(calls.length, 1);
+});
+
+test("POST 400 LIMIT_EXCEEDED -> not retried, error details preserved", async () => {
+  const { calls, fetchImpl } = stubFetch(() =>
+    jsonResponse({ code: "LIMIT_EXCEEDED", message: "rate limited", trace_id: "t5" }, 400),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
+
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.equal(err.status, 400);
+    assert.equal(err.code, "LIMIT_EXCEEDED");
+    assert.equal(err.traceId, "t5");
+    return true;
+  });
+  assert.equal(calls.length, 1);
+});
+
+test("PATCH, PUT and DELETE on 500 -> exactly one attempt each despite maxRetries", async () => {
+  const mutations: Array<[string, Parameters<KitClient["call"]>[1]]> = [
+    ["UpdateVariant", { pathParams: { id: "v1" }, body: { name: "x" } }],
+    [
+      "SetVariantExternalID",
+      { pathParams: { id: "v1", system_type: "wildberries" }, body: { external_id: "e1" } },
+    ],
+    ["DeleteWebhook", { pathParams: { webhook_id: "w1" } }],
+  ];
+  for (const [operationId, params] of mutations) {
+    const { calls, fetchImpl } = stubFetch(() =>
+      jsonResponse({ code: "UNKNOWN_ERROR", message: "boom" }, 500),
+    );
+    const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, maxRetries: 5, fetchImpl });
+
+    await assert.rejects(client.call(operationId, params), KitApiError);
+    assert.equal(calls.length, 1, `${operationId}: expected exactly one network attempt`);
+  }
+});
+
+test("GET network error then success -> retried and succeeds", async () => {
+  const calls: RecordedCall[] = [];
+  const fetchImpl = (async (input: unknown, init?: RequestInit) => {
+    calls.push({ url: String(input), init: init ?? {} });
+    if (calls.length === 1) throw new TypeError("fetch failed");
+    return jsonResponse({ id: "s1" });
+  }) as typeof fetch;
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
+
+  const store = await client.call<{ id: string }>("GetStore");
+
+  assert.deepEqual(store, { id: "s1" });
+  assert.equal(calls.length, 2);
+});
+
 test("call(UpdateVariant) sends PATCH with merge-patch content type", async () => {
   const { calls, fetchImpl } = stubFetch(() => jsonResponse({ id: "v1" }));
   const client = new KitClient({ token: "t", rps: 1000, fetchImpl });

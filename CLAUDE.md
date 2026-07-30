@@ -32,7 +32,9 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
 
 - `packages/core` — `yandex-kit-core`: `KitClient` (Bearer auth, timeout, token-bucket
   rate limiter at 3 rps, backoff retries on network/5xx/429 **and** `LIMIT_EXCEEDED`
-  which arrives with HTTP 400, auto-pagination via `listAll`, per-operation content type:
+  which arrives with HTTP 400 — **GET only**: mutations always make exactly one
+  network attempt (no idempotency contract from the API, a repeated write could
+  duplicate the change), auto-pagination via `listAll`, per-operation content type:
   merge-patch and multipart where the spec says so), `KitApiError`, ajv-based
   `validateRequestBody`/`resolveOperationSchema`, and `src/generated/{registry.json,types.ts}`.
 - `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 61 tools; `src/tools/*.ts` is
