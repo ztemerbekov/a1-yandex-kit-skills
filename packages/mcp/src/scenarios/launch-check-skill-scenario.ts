@@ -48,6 +48,7 @@ export interface LaunchCheckResult {
 export interface LaunchWebResponse {
   status: number;
   finalUrl?: string;
+  publicPageUrls?: string[];
 }
 
 export interface LaunchWebAdapter {
@@ -57,24 +58,29 @@ export interface LaunchWebAdapter {
 export class FakeLaunchWebAdapter implements LaunchWebAdapter {
   readonly calls: string[] = [];
   readonly #response: LaunchWebResponse | undefined;
+  readonly #responses: Record<string, LaunchWebResponse>;
   readonly #error: Error | undefined;
 
   constructor({
     response,
+    responses = {},
     error,
   }: {
     response?: LaunchWebResponse;
+    responses?: Record<string, LaunchWebResponse>;
     error?: Error;
   }) {
     this.#response = response;
+    this.#responses = responses;
     this.#error = error;
   }
 
   async get(url: string): Promise<LaunchWebResponse> {
     this.calls.push(url);
     if (this.#error) throw this.#error;
-    if (!this.#response) throw new Error("Web response is not prepared");
-    return structuredClone(this.#response);
+    const response = this.#responses[url] ?? this.#response;
+    if (!response) throw new Error(`Web response is not prepared for ${url}`);
+    return structuredClone(response);
   }
 }
 
@@ -85,6 +91,7 @@ export type LaunchCheckoutInput =
 export interface LaunchWebEvidence {
   state: "NOT_CHECKED" | "AVAILABLE" | "UNAVAILABLE";
   details: string;
+  checkedUrls: string[];
 }
 
 export interface LaunchCheckoutEvidence {
@@ -257,6 +264,7 @@ export async function runLaunchCheckScenario({
   let webEvidence: LaunchWebEvidence = {
     state: "NOT_CHECKED",
     details: "Витрина не проверена: публичный URL ещё не прочитан",
+    checkedUrls: [],
   };
   let checkout: LaunchCheckoutEvidence = {
     source: "NONE",
@@ -396,33 +404,97 @@ export async function runLaunchCheckScenario({
     webEvidence = {
       state: "NOT_CHECKED",
       details: `Витрина не проверена: у магазина ${store.id} отсутствует b2c URL`,
+      checkedUrls: [],
     };
   } else if (store?.b2c_url) {
     if (!web) {
       webEvidence = {
         state: "NOT_CHECKED",
         details: `Витрина не проверена: web/HTTP-инструмент недоступен; API сообщил ${store.b2c_url}`,
+        checkedUrls: [],
       };
       unchecked.push(webEvidence.details);
     } else {
       try {
-        const response = await web.get(store.b2c_url);
-        const available = response.status >= 200 && response.status < 400;
-        webEvidence = {
-          state: available ? "AVAILABLE" : "UNAVAILABLE",
-          details: available
-            ? `Публичная витрина доступна: ${store.b2c_url} → HTTP ${response.status}${
-                response.finalUrl ? `, final URL ${response.finalUrl}` : ""
-              }`
-            : `Публичная витрина недоступна: ${store.b2c_url} → HTTP ${response.status}`,
-        };
-        if (!available) blockers.push(webEvidence.details);
+        const rootResponse = await web.get(store.b2c_url);
+        const rootAvailable =
+          rootResponse.status >= 200 && rootResponse.status < 400;
+        if (!rootAvailable) {
+          webEvidence = {
+            state: "UNAVAILABLE",
+            details: `Публичная витрина недоступна: ${store.b2c_url} → HTTP ${rootResponse.status}`,
+            checkedUrls: [store.b2c_url],
+          };
+          blockers.push(webEvidence.details);
+        } else {
+          const rootUrl = new URL(rootResponse.finalUrl ?? store.b2c_url);
+          const publicPageUrls = [
+            ...new Set(
+              (rootResponse.publicPageUrls ?? [])
+                .map((candidate) => {
+                  try {
+                    return new URL(candidate, rootUrl).toString();
+                  } catch {
+                    return undefined;
+                  }
+                })
+                .filter(
+                  (candidate): candidate is string =>
+                    candidate !== undefined &&
+                    new URL(candidate).origin === rootUrl.origin &&
+                    candidate.replace(/\/$/u, "") !==
+                      rootUrl.toString().replace(/\/$/u, ""),
+                ),
+            ),
+          ].slice(0, 3);
+          if (publicPageUrls.length === 0) {
+            webEvidence = {
+              state: "NOT_CHECKED",
+              details:
+                `Корень витрины доступен: ${store.b2c_url} → HTTP ${rootResponse.status}, ` +
+                "но минимальные публичные страницы не обнаружены и не проверены",
+              checkedUrls: [store.b2c_url],
+            };
+            unchecked.push(webEvidence.details);
+          } else {
+            const checkedUrls = [store.b2c_url];
+            const pageFacts: string[] = [];
+            let failedPage: string | undefined;
+            for (const url of publicPageUrls) {
+              const pageResponse = await web.get(url);
+              checkedUrls.push(url);
+              pageFacts.push(`${url} → HTTP ${pageResponse.status}`);
+              if (
+                pageResponse.status < 200 ||
+                pageResponse.status >= 400
+              ) {
+                failedPage = pageFacts.at(-1);
+                break;
+              }
+            }
+            webEvidence = failedPage
+              ? {
+                  state: "UNAVAILABLE",
+                  details: `Публичная страница витрины недоступна: ${failedPage}`,
+                  checkedUrls,
+                }
+              : {
+                  state: "AVAILABLE",
+                  details:
+                    `Публичная витрина и минимальные страницы доступны: ` +
+                    `${store.b2c_url} → HTTP ${rootResponse.status}; ${pageFacts.join("; ")}`,
+                  checkedUrls,
+                };
+            if (failedPage) blockers.push(webEvidence.details);
+          }
+        }
       } catch (error) {
         webEvidence = {
           state: "UNAVAILABLE",
           details: `Публичная витрина недоступна: ${store.b2c_url} → ${
             error instanceof Error ? error.message : String(error)
           }`,
+          checkedUrls: [store.b2c_url],
         };
         blockers.push(webEvidence.details);
       }
@@ -432,48 +504,76 @@ export async function runLaunchCheckScenario({
   const productById = new Map(products.items.map((product) => [product.id, product]));
   const categoryById = new Map(categories.items.map((item) => [item.id, item]));
   const warehouseById = new Map(warehouses.items.map((item) => [item.id, item]));
+  const confirmedCatalogDefects: string[] = [];
+  const uncertainCatalogFacts: string[] = [];
+  let sellableVariantCount = 0;
   if (variants.complete && variants.items.length === 0) {
     blockers.push("Нет ни одного опубликованного варианта для первой продажи");
   }
   for (const variant of variants.items) {
     const label = `SKU ${variant.sku} (${variant.id})`;
+    const defects: string[] = [];
+    const unknowns: string[] = [];
     const price = Number(variant.pricing.price);
     if (!Number.isFinite(price) || price <= 0) {
-      blockers.push(`${label}: отсутствует положительная цена`);
+      defects.push(`${label}: отсутствует положительная цена`);
     }
     for (const stock of variant.stocks) {
       if (stock.reserved > stock.quantity) {
-        blockers.push(
+        defects.push(
           `${label}: склад ${stock.warehouse_id}, резерв ${stock.reserved} больше количества ${stock.quantity}`,
         );
       }
       const warehouse = warehouseById.get(stock.warehouse_id);
       if (!warehouse) {
-        blockers.push(`${label}: ссылка на отсутствующий склад ${stock.warehouse_id}`);
+        const message = `${label}: ссылка на отсутствующий склад ${stock.warehouse_id}`;
+        if (warehouses.complete) defects.push(message);
+        else unknowns.push(`${message}; список складов прочитан не полностью`);
       } else if (warehouse.status === "ARCHIVED") {
-        blockers.push(`${label}: ссылка на архивный склад ${stock.warehouse_id}`);
+        defects.push(`${label}: ссылка на архивный склад ${stock.warehouse_id}`);
       }
     }
     if (availableStock(variant, warehouseById) <= 0) {
-      blockers.push(`${label}: нет доступного остатка на активном складе`);
+      defects.push(`${label}: нет доступного остатка на активном складе`);
     }
     if (!variant.media.some((media) => media.type === "IMAGE")) {
-      blockers.push(`${label}: отсутствует изображение`);
+      defects.push(`${label}: отсутствует изображение`);
     }
     const product = productById.get(variant.product_id);
     if (!product) {
       const message = `${label}: родительский продукт ${variant.product_id} не прочитан`;
-      if (products.complete) blockers.push(message);
-      else risks.push(message);
+      if (products.complete) defects.push(message);
+      else unknowns.push(message);
     } else {
       const activeCategories = product.category_ids.filter(
         (id) => categoryById.get(id)?.status === "ACTIVE",
       );
       if (activeCategories.length === 0) {
-        blockers.push(`${label}: у продукта ${product.id} нет активной категории`);
+        const message = `${label}: у продукта ${product.id} нет активной категории`;
+        if (categories.complete) defects.push(message);
+        else unknowns.push(`${message}; категории прочитаны не полностью`);
       }
     }
+    if (defects.length === 0 && unknowns.length === 0) {
+      sellableVariantCount += 1;
+    }
+    confirmedCatalogDefects.push(...defects);
+    uncertainCatalogFacts.push(...unknowns);
   }
+  if (
+    variants.items.length > 0 &&
+    sellableVariantCount === 0 &&
+    variants.complete &&
+    products.complete &&
+    categories.complete &&
+    warehouses.complete
+  ) {
+    blockers.push("Нет ни одного полностью продаваемого опубликованного варианта");
+    blockers.push(...confirmedCatalogDefects);
+  } else {
+    risks.push(...confirmedCatalogDefects);
+  }
+  risks.push(...uncertainCatalogFacts);
 
   for (const discount of discounts.items) {
     if (expired(discount.discount_dates.end_date, now)) {
@@ -566,10 +666,12 @@ export async function runLaunchCheckScenario({
       const order = (await mcp.call("get_order", {
         id: checkoutEvidence.orderId,
       })) as OperatorOrder;
-      const orderPassed = ![
-        "NEW",
-        "WAIT_FOR_CONFIRMATION",
-        "CANCELLED",
+      const orderPassed = [
+        "ORDER_PLACED",
+        "WAIT_FOR_DELIVERY",
+        "CREATING_FINAL_RECEIPTS",
+        "DELIVERED",
+        "COMPLETED",
       ].includes(order.status);
       const paymentStatus = order.payment?.status ?? "не указан";
       const paymentPassed = paymentStatus === "PAYMENT_PAID";
@@ -578,7 +680,13 @@ export async function runLaunchCheckScenario({
       );
       const deliveryPassed =
         deliveryStatuses.length > 0 &&
-        deliveryStatuses.every((status) => status.length > 0);
+        deliveryStatuses.every(
+          (status) =>
+            status.length > 0 &&
+            !/(?:cancel|fail|error|refund|return|reject|not[_-]?deliver)/iu.test(
+              status,
+            ),
+        );
       checkout = {
         source: "ORDER",
         sufficient: orderPassed && paymentPassed && deliveryPassed,

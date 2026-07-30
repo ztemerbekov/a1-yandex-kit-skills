@@ -1,11 +1,13 @@
 import {
   runLaunchCheckScenario,
+  type LaunchCheckoutInput,
   type LaunchCheckResult,
+  type LaunchWebAdapter,
 } from "./launch-check-skill-scenario.js";
 import {
   runPromoLifecycleScenario,
   type PromoLifecycleResult,
-} from "./promo-launcher-lifecycle-scenario.js";
+} from "./promo-launcher-skill-lifecycle-scenario.js";
 import { FakeP1Mcp } from "./promo-launcher-skill-scenario.js";
 import type { OperatorVariant } from "./operator-skill-scenario.js";
 import { mutationResultIsAmbiguous } from "./skill-mutation-protocol.js";
@@ -243,6 +245,8 @@ async function launchAndFinish({
   request,
   now,
   externalOrderProcessing,
+  web,
+  checkoutEvidence,
   mcp,
   outcomes,
   unknown,
@@ -250,6 +254,8 @@ async function launchAndFinish({
   request: string;
   now: Date;
   externalOrderProcessing?: boolean;
+  web?: LaunchWebAdapter;
+  checkoutEvidence?: LaunchCheckoutInput;
   mcp: FakeP1Mcp;
   outcomes: FixOutcome[];
   unknown: Extract<KnownLaunchFix, { kind: "unknown" }>[];
@@ -258,6 +264,8 @@ async function launchAndFinish({
     request,
     now,
     externalOrderProcessing,
+    web,
+    checkoutEvidence,
     mcp,
   });
   const question = unknown.length > 0 ? groupedQuestion(unknown) : undefined;
@@ -283,12 +291,16 @@ export async function runLaunchCheckFixScenario({
   request,
   now,
   externalOrderProcessing,
+  web,
+  checkoutEvidence,
   knownFixes = [],
   mcp,
 }: {
   request: string;
   now: Date;
   externalOrderProcessing?: boolean;
+  web?: LaunchWebAdapter;
+  checkoutEvidence?: LaunchCheckoutInput;
   knownFixes?: KnownLaunchFix[];
   mcp: FakeP1Mcp;
 }): Promise<LaunchCheckFixResult> {
@@ -311,6 +323,8 @@ export async function runLaunchCheckFixScenario({
       request,
       now,
       externalOrderProcessing,
+      web,
+      checkoutEvidence,
       mcp,
       outcomes: [],
       unknown: [],
@@ -354,6 +368,8 @@ export async function runLaunchCheckFixScenario({
     request,
     now,
     externalOrderProcessing,
+    web,
+    checkoutEvidence,
     mcp,
     outcomes,
     unknown,

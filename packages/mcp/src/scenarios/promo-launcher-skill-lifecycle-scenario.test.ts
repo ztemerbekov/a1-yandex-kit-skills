@@ -4,7 +4,7 @@ import { test } from "node:test";
 import {
   runPromoLifecycleScenario,
   type PromoLifecycleResult,
-} from "./promo-launcher-lifecycle-scenario.js";
+} from "./promo-launcher-skill-lifecycle-scenario.js";
 import {
   FakeP1Mcp,
   type PromoGift,
@@ -244,6 +244,7 @@ test("gift variants use the gift operations and never mix other object families"
     [
       ["kit_request", "GetGiftById"],
       ["get_variant", undefined],
+      ["get_operation_schema", "AddGiftVariants"],
       ["kit_request", "AddGiftVariants"],
       ["kit_request", "GetGiftById"],
       ["kit_request", "GetGiftVariants"],
@@ -320,8 +321,11 @@ test("stop and archive commands use the mechanism of each promotion type", async
     action: "archive",
   });
   assert.deepEqual(promoMcp.calls[1]?.arguments.promocode, { status: "INACTIVE" });
-  assert.equal(giftMcp.calls[1]?.arguments.operation_id, "UpdateGift");
-  assert.deepEqual(giftMcp.calls[1]?.arguments.body, { status: "INACTIVE" });
+  assert.deepEqual(giftMcp.calls[1]?.arguments, {
+    operation_id: "UpdateGift",
+  });
+  assert.equal(giftMcp.calls[2]?.arguments.operation_id, "UpdateGift");
+  assert.deepEqual(giftMcp.calls[2]?.arguments.body, { status: "INACTIVE" });
   assert.equal(giftMcp.calls.some((call) => call.arguments.operation_id === "DeleteGift"), false);
 });
 
@@ -368,13 +372,18 @@ test("restart and restore use the correct mechanism and reread every result", as
     action: "unarchive",
   });
   assert.equal(promoMcp.calls[1]?.name, "update_promocode");
-  assert.equal(giftMcp.calls[1]?.arguments.operation_id, "UpdateGift");
+  assert.deepEqual(giftMcp.calls[1]?.arguments, {
+    operation_id: "UpdateGift",
+  });
+  assert.equal(giftMcp.calls[2]?.arguments.operation_id, "UpdateGift");
   assert.equal(discountMcp.writeCalls.length, 1);
   assert.equal(discountMcp.calls.length, 4);
-  for (const mcp of [archivedMcp, promoMcp, giftMcp]) {
+  for (const mcp of [archivedMcp, promoMcp]) {
     assert.equal(mcp.writeCalls.length, 1);
     assert.equal(mcp.calls.length, 3);
   }
+  assert.equal(giftMcp.writeCalls.length, 1);
+  assert.equal(giftMcp.calls.length, 4);
 });
 
 test("a gift is permanently deleted only by the exact phrase 'удали навсегда'", async () => {
@@ -402,6 +411,7 @@ test("a gift is permanently deleted only by the exact phrase 'удали нав�
     ]),
     [
       ["kit_request", "GetGiftById"],
+      ["get_operation_schema", "DeleteGift"],
       ["kit_request", "DeleteGift"],
       ["kit_request", "GetGiftById"],
     ],

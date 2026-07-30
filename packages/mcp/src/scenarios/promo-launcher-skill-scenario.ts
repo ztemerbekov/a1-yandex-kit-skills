@@ -1431,6 +1431,19 @@ async function runGiftScenario({
   let activationError: unknown;
   if (plan.status === "ACTIVE" && actual.status !== "ACTIVE") {
     try {
+      await mcp.call("get_operation_schema", {
+        operation_id: "UpdateGift",
+      });
+    } catch (error) {
+      return finish(mcp, {
+        kind: "failed",
+        promotionId: actual.id,
+        report: `Подарок ${actual.id} создан INACTIVE, но схема UpdateGift не прочитана; активация не вызывалась: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      });
+    }
+    try {
       await mcp.call("kit_request", {
         operation_id: "UpdateGift",
         path_params: { id: actual.id },

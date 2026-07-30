@@ -16,6 +16,7 @@
 | Здоровый API-срез не поднимается выше `CONDITIONALLY_READY` без витрины и checkout | `a healthy API slice is conditionally ready, fully covered, and read-only` | автоматизировано |
 | Полное покрытие продуктов, вариантов, категорий, складов и активных подарков с количеством страниц | `launch check follows every catalog page and reports the complete coverage`; `active gifts use nested query pagination and preserve complete coverage` | автоматизировано |
 | Критический каталог и доказательства по точным SKU/ID | `proven first-sale catalog blockers produce NOT_READY with exact object evidence` | автоматизировано |
+| Достаточно хотя бы одного полностью продаваемого опубликованного SKU; дефекты остальных остаются рисками | `one fully sellable published SKU keeps defects in other SKUs from blocking launch` | автоматизировано |
 | Публичный URL не считается доказательством доступности | Healthy scenario оставляет витрину в «Не проверено» | автоматизировано |
 | Отсутствие промо не блокирует | Healthy scenario с пустыми discounts/promocodes/gifts | автоматизировано |
 | Истёкшие, исчерпанные и пустые selected-промо остаются видимыми рисками | `expired, exhausted, and empty selected promotions remain factual launch risks` | автоматизировано |
@@ -41,6 +42,7 @@
 | Timeout не повторяет mutation и остаётся неоднозначным | Один `update_variant` на объект и outcome assertions в partial batch | автоматизировано |
 | Backup/snapshot/restore/rollback и повторное подтверждение не создаются | Tool-journal assertions во всех mutation scenarios; контракт `SKILL.md` | автоматизировано |
 | После исправлений launch-check перечитывается; checkout gaps остаются видимыми | Exact stock/promo/mixed/batch scenarios проверяют новый `launch.status` и «Не проверено» | автоматизировано |
+| Уже собранные web/checkout evidence сохраняются при повторном launch-check | `a fix retains web and checkout evidence when recomputing READY` | автоматизировано |
 | Ясность fix-отчёта и сгруппированного вопроса | Прогон exact/mixed/partial формулировок в model host | manual acceptance pending |
 
 ## Issue #20
@@ -51,9 +53,11 @@
 | Недоступная витрина — доказанный блокер и `NOT_READY` | `an inaccessible public storefront is a proven blocker and NOT_READY` | автоматизировано |
 | Отсутствующий web-инструмент оставляет витрину непроверенной и ограничивает статус | `an absent web capability leaves the storefront unverified and caps readiness` | автоматизировано |
 | Доступная витрина без checkout остаётся `CONDITIONALLY_READY` | `an available storefront without checkout evidence remains conditionally ready` | автоматизировано |
+| Доступный корень без обнаруженной публичной страницы не считается полным web-покрытием | `a reachable root without a discoverable public page is incomplete web coverage` | автоматизировано |
 | Ограничение API по настройкам оплаты/доставки остаётся видимым | Assertions в available/no-checkout и order evidence reports | автоматизировано |
 | Скилл не создаёт, не подтверждает и не оплачивает тестовый заказ | Write-journal assertions во всех web/checkout scenarios | автоматизировано |
 | ID тестового заказа читается и даёт проверяемые order/payment/delivery statuses | `a paid test order is read by ID and can provide sufficient checkout evidence` | автоматизировано |
+| Неуспешный delivery status не считается достаточным checkout evidence | `a paid order with a failed delivery status is not sufficient for READY` | автоматизировано |
 | Ручное подтверждение маркируется как owner-provided, не API | `explicit manual checkout proof is owner-provided evidence, not an API claim` | автоматизировано |
 | `READY` требует полное API-покрытие, доступную витрину и достаточное evidence | Paid-order и manual-proof scenarios получают `READY`; остальные статусы ниже | автоматизировано |
 | Отчёт разделяет automatic, web, checkout и remaining unknowns | Section assertions во всех web scenarios | автоматизировано |
@@ -64,6 +68,6 @@
 
 ```bash
 node --import tsx --test packages/mcp/src/scenarios/launch-check-skill-scenario.test.ts
-node --import tsx --test packages/mcp/src/scenarios/launch-check-fix-scenario.test.ts
-node --import tsx --test packages/mcp/src/scenarios/launch-check-web-scenario.test.ts
+node --import tsx --test packages/mcp/src/scenarios/launch-check-skill-fix-scenario.test.ts
+node --import tsx --test packages/mcp/src/scenarios/launch-check-skill-web-scenario.test.ts
 ```

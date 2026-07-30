@@ -5,7 +5,8 @@ import {
   runLaunchCheckFixScenario,
   type KnownLaunchFix,
   type LaunchCheckFixResult,
-} from "./launch-check-fix-scenario.js";
+} from "./launch-check-skill-fix-scenario.js";
+import { FakeLaunchWebAdapter } from "./launch-check-skill-scenario.js";
 import {
   FakeP1Mcp,
   type PromoCategory,
@@ -205,6 +206,52 @@ test("an exact promotion fix reuses lifecycle semantics and removes the factual 
   assertNoBackupTools(mcp);
 });
 
+test("a fix retains web and checkout evidence when recomputing READY", async () => {
+  const publicPageUrl = "https://launch-store.example/products/ready-1";
+  const web = new FakeLaunchWebAdapter({
+    responses: {
+      "https://launch-store.example": {
+        status: 200,
+        publicPageUrls: [publicPageUrl],
+      },
+      [publicPageUrl]: { status: 200 },
+    },
+  });
+  const mcp = new FakeP1Mcp(
+    healthyFixture({
+      variants: [
+        variant({
+          stocks: [
+            { warehouse_id: WAREHOUSE_ID, quantity: 0, reserved: 0 },
+            { warehouse_id: SECOND_WAREHOUSE_ID, quantity: 0, reserved: 0 },
+          ],
+        }),
+      ],
+    }),
+  );
+  const result = await runLaunchCheckFixScenario({
+    request: `Поставь остаток 5 для ${VARIANT_ID} на складе ${WAREHOUSE_ID}`,
+    now: NOW,
+    externalOrderProcessing: false,
+    web,
+    checkoutEvidence: {
+      kind: "manual",
+      ownerConfirmed: true,
+      details: "Владелец успешно прошёл checkout",
+    },
+    mcp,
+  });
+
+  assert.equal(result.launch.status, "READY");
+  assert.equal(result.launch.web.state, "AVAILABLE");
+  assert.equal(result.launch.checkout.sufficient, true);
+  assert.deepEqual(web.calls, [
+    "https://launch-store.example",
+    publicPageUrl,
+  ]);
+  assert.equal(mcp.writeCalls.length, 1);
+});
+
 test("an unknown price becomes one concrete question and never authorizes a write", async () => {
   const mcp = new FakeP1Mcp(
     healthyFixture({ variants: [variant({ pricing: {} })] }),
@@ -350,7 +397,9 @@ test("a batch continues after failure and timeout and keeps every outcome visibl
   assert.deepEqual(result.succeeded, [VARIANT_ID]);
   assert.deepEqual(result.failed, [variant2Id]);
   assert.deepEqual(result.ambiguous, [variant3Id]);
-  assert.equal(result.launch.status, "NOT_READY");
+  assert.equal(result.launch.status, "CONDITIONALLY_READY");
+  assert.ok(result.launch.risks.some((risk) => risk.includes(variant2Id)));
+  assert.ok(result.launch.risks.some((risk) => risk.includes(variant3Id)));
   assert.equal(
     mcp.calls.filter((call) => call.name === "update_variant").length,
     3,

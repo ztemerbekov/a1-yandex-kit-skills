@@ -29,10 +29,7 @@ export interface PromoLifecycleResult {
   ambiguous: string[];
 }
 
-function finish(
-  mcp: FakeP1Mcp,
-  result: PromoLifecycleResult,
-): PromoLifecycleResult {
+function finish(mcp: FakeP1Mcp, result: PromoLifecycleResult): PromoLifecycleResult {
   mcp.finish(result.report);
   return result;
 }
@@ -504,6 +501,17 @@ async function mutateGiftStatus(
   } catch (error) {
     return { id, kind: "failed", report: `${id}: подарок не прочитан — ${String(error)}` };
   }
+  try {
+    await mcp.call("get_operation_schema", {
+      operation_id: "UpdateGift",
+    });
+  } catch (error) {
+    return {
+      id,
+      kind: "failed",
+      report: `${id}: схема UpdateGift не прочитана; запись не выполнялась — ${String(error)}`,
+    };
+  }
   let writeError: unknown;
   try {
     await mcp.call("kit_request", {
@@ -550,6 +558,17 @@ async function deleteGiftPermanently(
     await getGift(mcp, id);
   } catch (error) {
     return { id, kind: "failed", report: `${id}: подарок не прочитан — ${String(error)}` };
+  }
+  try {
+    await mcp.call("get_operation_schema", {
+      operation_id: "DeleteGift",
+    });
+  } catch (error) {
+    return {
+      id,
+      kind: "failed",
+      report: `${id}: схема DeleteGift не прочитана; запись не выполнялась — ${String(error)}`,
+    };
   }
   let writeError: unknown;
   try {
@@ -849,11 +868,23 @@ async function mutateGiftBinding({
       };
     }
   }
+  const operationId =
+    action === "add" ? "AddGiftVariants" : "RemoveGiftVariants";
+  try {
+    await mcp.call("get_operation_schema", {
+      operation_id: operationId,
+    });
+  } catch (error) {
+    return {
+      id: promotionId,
+      kind: "failed",
+      report: `${promotionId}: схема ${operationId} не прочитана; запись не выполнялась — ${String(error)}`,
+    };
+  }
   let writeError: unknown;
   try {
     await mcp.call("kit_request", {
-      operation_id:
-        action === "add" ? "AddGiftVariants" : "RemoveGiftVariants",
+      operation_id: operationId,
       path_params: { id: promotionId },
       body: { variant_ids: [objectId] },
     });

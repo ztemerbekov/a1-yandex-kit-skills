@@ -228,6 +228,42 @@ test("proven first-sale catalog blockers produce NOT_READY with exact object evi
   assert.equal(mcp.writeCalls.length, 0);
 });
 
+test("one fully sellable published SKU keeps defects in other SKUs from blocking launch", async () => {
+  const brokenProductId = "00000000-0000-4000-8000-000000000013";
+  const brokenVariantId = "00000000-0000-4000-8000-000000000014";
+  const mcp = new FakeP1Mcp({
+    store: store(),
+    products: [product(), product({ id: brokenProductId })],
+    variants: [
+      variant(),
+      variant({
+        id: brokenVariantId,
+        sku: "BROKEN-2",
+        product_id: brokenProductId,
+        pricing: {},
+        stocks: [{ warehouse_id: WAREHOUSE_ID, quantity: 0, reserved: 0 }],
+        media: [],
+      }),
+    ],
+    categories: [category()],
+    warehouses: [warehouse()],
+  });
+  const result = await runLaunchCheckScenario({
+    request: "Можно запускать хотя бы с одним готовым товаром?",
+    now: NOW,
+    externalOrderProcessing: false,
+    mcp,
+  });
+
+  assertConditionallyReady(result);
+  assert.equal(result.blockers.length, 0);
+  assert.match(result.risks.join("\n"), new RegExp(brokenVariantId));
+  assert.match(result.risks.join("\n"), /положительная цена/iu);
+  assert.match(result.risks.join("\n"), /доступного остатка/iu);
+  assert.match(result.risks.join("\n"), /изображение/iu);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
 test("launch check follows every catalog page and reports the complete coverage", async () => {
   const secondProductId = "00000000-0000-4000-8000-000000000013";
   const secondVariantId = "00000000-0000-4000-8000-000000000014";

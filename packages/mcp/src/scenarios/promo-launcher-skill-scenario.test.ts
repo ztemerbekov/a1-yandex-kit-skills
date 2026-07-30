@@ -500,6 +500,7 @@ test("an exact active gift validates variants and schema, creates once, activate
       "get_operation_schema",
       "kit_request",
       "kit_request",
+      "get_operation_schema",
       "kit_request",
       "kit_request",
       "kit_request",
@@ -516,6 +517,9 @@ test("an exact active gift validates variants and schema, creates once, activate
     },
   });
   assert.deepEqual(mcp.calls[5]?.arguments, {
+    operation_id: "UpdateGift",
+  });
+  assert.deepEqual(mcp.calls[6]?.arguments, {
     operation_id: "UpdateGift",
     path_params: { id: "gift-1" },
     body: { status: "ACTIVE" },

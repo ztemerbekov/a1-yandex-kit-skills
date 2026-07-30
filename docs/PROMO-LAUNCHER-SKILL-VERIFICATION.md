@@ -53,6 +53,7 @@ reference model и не сравнивает ответ посимвольно.
 | Отсутствующий вариант не передаётся в CreateGift | `a missing gift variant prevents CreateGift` | автоматизировано |
 | Даты подарка не обещаются и не превращаются в ложное расписание | `a dated gift explains the API limitation and creates no false schedule` | автоматизировано |
 | Meta-write предварён чтением схемы CreateGift | Аргументы и порядок `get_operation_schema` → `kit_request` в active gift tracer | автоматизировано |
+| Активация подарка предварена чтением схемы UpdateGift | Порядок `get_operation_schema(UpdateGift)` → `kit_request(UpdateGift)` в active gift tracer | автоматизировано |
 | Timeout CreateGift не повторяется и не запускает активацию | `a CreateGift timeout is attempted once and never followed by activation` | автоматизировано |
 | Естественность объяснения API-ограничения и итогового отчёта | Запуск active/draft/dated формулировок в model host | manual acceptance pending |
 
@@ -65,6 +66,7 @@ reference model и не сравнивает ответ посимвольно.
 | Точное изменение отправляет только названные владельцем условия | `an exact multi-condition change sends only named promocode fields` | автоматизировано |
 | Варианты, категории и коллекции меняются только в совместимом binding mode | `exact binding changes use the compatible object family and verify factual IDs` | автоматизировано |
 | Состав подарка использует только gift variant operations | `gift variants use the gift operations and never mix other object families` | автоматизировано |
+| Каждая gift meta-write предварена чтением соответствующей OpenAPI schema | Schema assertions для `UpdateGift`, `DeleteGift`, `AddGiftVariants` и `RemoveGiftVariants` | автоматизировано |
 | Остановка скидки использует INACTIVE, архив — только явный archive | `stop and archive commands use the mechanism of each promotion type` | автоматизировано |
 | Промокод и подарок останавливаются через INACTIVE без ложного archive | `stop and archive commands use the mechanism of each promotion type` | автоматизировано |
 | Повторный запуск/восстановление используют механизм конкретного типа и перечитывают результат | `restart and restore use the correct mechanism and reread every result` | автоматизировано |
@@ -79,5 +81,5 @@ reference model и не сравнивает ответ посимвольно.
 ```bash
 node --import tsx --test \
   packages/mcp/src/scenarios/promo-launcher-skill-scenario.test.ts \
-  packages/mcp/src/scenarios/promo-launcher-lifecycle-scenario.test.ts
+  packages/mcp/src/scenarios/promo-launcher-skill-lifecycle-scenario.test.ts
 ```

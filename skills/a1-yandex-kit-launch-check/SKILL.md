@@ -73,10 +73,13 @@ business value.
 
 When the host exposes a browser or HTTP capability, use it through a small web-adapter
 boundary and request the factual `b2c_url`. Follow the adapter's redirect result and
-record the HTTP outcome. A 2xx/3xx response proves that public entry point is reachable;
-a failed request or 4xx/5xx is a blocker. If no web tool exists, say «витрина не
-проверена» and cap the result at `CONDITIONALLY_READY`. Do not claim that the URL's API
-presence proves availability, and do not invent undiscoverable product-page URLs.
+record the HTTP outcome. For `AVAILABLE`, require 2xx/3xx from the entry point and at
+least one same-origin public page discovered from factual storefront evidence. Check
+up to three discovered pages. A failed request or 4xx/5xx is a blocker; a reachable
+entry point with no discoverable public page remains «проверено не полностью» and caps
+the result at `CONDITIONALLY_READY`. If no web tool exists, say «витрина не проверена».
+Do not claim that the URL's API presence proves availability, and do not invent
+undiscoverable product-page URLs.
 
 Checkout evidence has two supported sources:
 
@@ -115,5 +118,6 @@ ambiguous IDs.
 
 After all attempted fixes, rerun the affected reads and the full launch check. Payment,
 delivery, storefront and checkout gaps remain under «Не проверено» until factual
-evidence exists. Do not create backups, snapshots, restore/rollback flows or a second
-confirmation for an exact command.
+evidence exists. Retain and pass any already collected web and checkout evidence into
+that rerun; a catalog or promotion fix must not erase it. Do not create backups,
+snapshots, restore/rollback flows or a second confirmation for an exact command.

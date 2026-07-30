@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  FakeLaunchWebAdapter,
-  runLaunchCheckScenario,
-} from "./launch-check-skill-scenario.js";
+import { FakeLaunchWebAdapter, runLaunchCheckScenario } from "./launch-check-skill-scenario.js";
 import {
   FakeP1Mcp,
   type PromoCategory,
@@ -23,6 +20,7 @@ const WAREHOUSE_ID = "00000000-0000-4000-8000-000000000002";
 const PRODUCT_ID = "00000000-0000-4000-8000-000000000003";
 const VARIANT_ID = "00000000-0000-4000-8000-000000000004";
 const STOREFRONT_URL = "https://ready-store.example";
+const PRODUCT_PAGE_URL = `${STOREFRONT_URL}/products/ready-1`;
 
 function store(): PromoStore {
   return { id: "store-1", slug: "ready-store", b2c_url: STOREFRONT_URL };
@@ -90,6 +88,19 @@ function mcpWith(orders: OperatorOrder[] = []): FakeP1Mcp {
   });
 }
 
+function availableWeb(): FakeLaunchWebAdapter {
+  return new FakeLaunchWebAdapter({
+    responses: {
+      [STOREFRONT_URL]: {
+        status: 200,
+        finalUrl: `${STOREFRONT_URL}/`,
+        publicPageUrls: [PRODUCT_PAGE_URL],
+      },
+      [PRODUCT_PAGE_URL]: { status: 200, finalUrl: PRODUCT_PAGE_URL },
+    },
+  });
+}
+
 test("an absent web capability leaves the storefront unverified and caps readiness", async () => {
   const mcp = mcpWith();
   const result = await runLaunchCheckScenario({
@@ -129,9 +140,7 @@ test("an inaccessible public storefront is a proven blocker and NOT_READY", asyn
 
 test("an available storefront without checkout evidence remains conditionally ready", async () => {
   const mcp = mcpWith();
-  const web = new FakeLaunchWebAdapter({
-    response: { status: 200, finalUrl: `${STOREFRONT_URL}/` },
-  });
+  const web = availableWeb();
   const result = await runLaunchCheckScenario({
     request: "Проверь магазин снаружи",
     now: NOW,
@@ -142,6 +151,7 @@ test("an available storefront without checkout evidence remains conditionally re
 
   assert.equal(result.status, "CONDITIONALLY_READY");
   assert.equal(result.web.state, "AVAILABLE");
+  assert.deepEqual(web.calls, [STOREFRONT_URL, PRODUCT_PAGE_URL]);
   assert.equal(result.checkout.sufficient, false);
   assert.match(result.report, /Checkout-свидетельство/iu);
   assert.match(result.report, /не предоставлено/iu);
@@ -149,12 +159,34 @@ test("an available storefront without checkout evidence remains conditionally re
   assert.equal(mcp.writeCalls.length, 0);
 });
 
-test("a paid test order is read by ID and can provide sufficient checkout evidence", async () => {
-  const checkoutOrder = order();
-  const mcp = mcpWith([checkoutOrder]);
+test("a reachable root without a discoverable public page is incomplete web coverage", async () => {
+  const mcp = mcpWith();
   const web = new FakeLaunchWebAdapter({
     response: { status: 200, finalUrl: STOREFRONT_URL },
   });
+  const result = await runLaunchCheckScenario({
+    request: "Проверь магазин снаружи",
+    now: NOW,
+    externalOrderProcessing: false,
+    web,
+    checkoutEvidence: {
+      kind: "manual",
+      ownerConfirmed: true,
+      details: "Checkout пройден вручную",
+    },
+    mcp,
+  });
+
+  assert.equal(result.status, "CONDITIONALLY_READY");
+  assert.equal(result.web.state, "NOT_CHECKED");
+  assert.match(result.web.details, /минимальн.*публичн.*страниц/iu);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a paid test order is read by ID and can provide sufficient checkout evidence", async () => {
+  const checkoutOrder = order();
+  const mcp = mcpWith([checkoutOrder]);
+  const web = availableWeb();
   const result = await runLaunchCheckScenario({
     request: "Проверь запуск по тестовому заказу order-1",
     now: NOW,
@@ -184,11 +216,38 @@ test("a paid test order is read by ID and can provide sufficient checkout eviden
   );
 });
 
+test("a paid order with a failed delivery status is not sufficient for READY", async () => {
+  const failedDelivery = order({
+    delivery_chunks: [
+      {
+        id: 1,
+        delivery_info: {
+          raw_status: "cancelled",
+          human_status: "Отменена",
+          address: { courier_locality: "Москва" },
+        },
+      },
+    ],
+  });
+  const mcp = mcpWith([failedDelivery]);
+  const result = await runLaunchCheckScenario({
+    request: "Проверь заказ order-1",
+    now: NOW,
+    externalOrderProcessing: false,
+    web: availableWeb(),
+    checkoutEvidence: { kind: "order", orderId: "order-1" },
+    mcp,
+  });
+
+  assert.equal(result.status, "CONDITIONALLY_READY");
+  assert.equal(result.checkout.sufficient, false);
+  assert.match(result.checkout.details, /cancelled/u);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
 test("explicit manual checkout proof is owner-provided evidence, not an API claim", async () => {
   const mcp = mcpWith();
-  const web = new FakeLaunchWebAdapter({
-    response: { status: 204, finalUrl: STOREFRONT_URL },
-  });
+  const web = availableWeb();
   const result = await runLaunchCheckScenario({
     request: "Я вручную прошёл checkout: заказ создан и оплата прошла",
     now: NOW,

@@ -412,7 +412,7 @@ test("the catalog doctor documents authoritative sources, array preservation and
   assert.doesNotMatch(skill, /Scenario evaluation contract/u);
 });
 
-test("the shared exact-write protocol is generated identically into both skills", () => {
+test("the shared exact-write protocol is generated identically into all manual write skills", () => {
   const source = readFileSync(
     new URL(
       "../../../../packages/codegen/src/skill-src/references/exact-write-protocol.md",
@@ -422,21 +422,19 @@ test("the shared exact-write protocol is generated identically into both skills"
   );
   const generatedHeader =
     "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n";
-  const catalogCopy = readFileSync(
-    new URL(
-      "../../../../skills/a1-yandex-kit-catalog-doctor/references/exact-write-protocol.md",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-  const operatorCopy = readFileSync(
-    new URL(
-      "../../../../skills/a1-yandex-kit-operator/references/exact-write-protocol.md",
-      import.meta.url,
-    ),
-    "utf8",
-  );
-
-  assert.equal(catalogCopy, generatedHeader + source);
-  assert.equal(operatorCopy, catalogCopy);
+  for (const skill of [
+    "a1-yandex-kit-operator",
+    "a1-yandex-kit-catalog-doctor",
+    "a1-yandex-kit-promo-launcher",
+    "a1-yandex-kit-launch-check",
+  ]) {
+    const copy = readFileSync(
+      new URL(
+        `../../../../skills/${skill}/references/exact-write-protocol.md`,
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.equal(copy, generatedHeader + source, skill);
+  }
 });
