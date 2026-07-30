@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-catalog-doctor
-description: "Run a complete read-only audit of a Yandex KIT catalog for sales blockers, structural defects, risks and recommendations. Use for Russian requests such as «Проверь каталог», «Проведи глубокий аудит каталога», «Почему товары не продаются?», «Проверь группировку, карточки, медиа или коллекции» and requests to verify catalog health or coverage. Use a1-yandex-kit-operator instead for a fast current store signal."
+description: "Audit and exactly repair a Yandex KIT catalog. Use for Russian requests such as «Проверь каталог», «Проведи глубокий аудит», «Проверь группировку, карточки, медиа или коллекции», «Поставь цену 4 990 для SKU-42», «Исправь остатки по этому файлу» and exact single or bulk catalog fixes. Audits are read-only; writes require an explicit command with an exact target, operation and owner value or named authoritative source. Use a1-yandex-kit-operator instead for a fast current store signal."
 ---
 
 # A1 Yandex KIT Catalog Doctor
@@ -9,9 +9,9 @@ Audit the catalog deeply from facts returned by the Yandex KIT MCP server. Read 
 page, state exact coverage, separate confirmed blockers from risks and recommendations,
 and never write or invent a corrective business value.
 
-## Read-only boundary
+## Mode boundary
 
-Use only:
+An audit, inspection, explanation or «найди проблемы» request is strictly read-only. Use:
 
 - `list_products` and `get_product`;
 - `list_variants` and `get_variant`;
@@ -21,9 +21,9 @@ Use only:
 - read-only `kit_request` operations when a relationship cannot be inspected through a
   curated read tool.
 
-Never call create, update, archive, unarchive, delete, upload or action tools. A request
-to fix findings belongs to the explicit-write workflow added in the later catalog-doctor
-slice; do not silently turn an audit into a mutation.
+Never call create, update, archive, unarchive, delete, upload or action tools during an
+audit. A request to fix is a separate exact-write mode described below; do not silently
+turn audit findings or recommendations into mutations.
 
 ## Coverage workflow
 
@@ -234,6 +234,174 @@ Say the catalog is healthy only when all required reads completed and there are 
 blockers or risks under the checked rules. Otherwise state that the conclusion is limited
 to read data. Close by stating that the audit called no writes.
 
+## Exact fix mode
+
+An explicit write command is authorization for that exact mutation. Do not ask for an
+extra confirmation, diff, backup, snapshot or rollback. Authorization does not broaden
+the target, operation or value.
+
+### Accepted value sources
+
+A business value is writable only when it comes from:
+
+1. the owner's command, with an exact object and value;
+2. an owner-named authoritative source such as a specific ERP/WMS export, approved
+   spreadsheet or exact ID mapping, where target-to-value mapping is deterministic;
+3. the current API object only to preserve untouched fields and verify preconditions.
+
+Audit recommendations, product names, neighboring SKUs, averages, model inference,
+industry conventions and “what looks right” are never value sources. Never invent a
+price, quantity, category, characteristic value, image/file ID, grouping rule, badge,
+collection relation or deletion target.
+
+If a field lacks a source, ask one grouped concrete question for that field and source.
+Example: «Для остатков нужен источник правильных количеств: какой WMS/ERP-файл
+использовать и какие колонки содержат SKU, warehouse_id и quantity?» Do not call any
+write tool first.
+
+«Исправь всё» means:
+
+- execute only objects whose exact action and correct value are already determined;
+- group every remaining gap by field and required source;
+- never propagate one known value to objects whose values remain unknown.
+
+### Per-object write protocol
+
+For every object, including every item in a bulk request:
+
+1. Resolve exactly one target. Use exact ID when supplied; for SKU/code search, reject
+   zero or multiple exact matches.
+2. Read the exact current object with its detail tool. Check status and operation
+   preconditions.
+3. Build one minimal mutation. When an API field replaces an array or object, copy the
+   current value and change only the owner-selected element.
+4. Call exactly one write operation. POST/PATCH/PUT/DELETE are not retried by the client;
+   never issue another mutation after timeout, abort or network failure.
+5. Re-read the same object. For permanent deletion, a confirmed not-found is the
+   successful verification state.
+6. Classify the object:
+   - **Исправлено** only when the re-read matches;
+   - **Не исправлено** for a confirmed precondition/validation/local API failure;
+   - **Неоднозначно** for timeout/network failure or mismatching/unreadable verification:
+     say «результат неизвестен, нужна проверка».
+
+A successful mutation response without a matching re-read is not success.
+Timeout/network/5xx classification takes priority over the verification result: even if
+the re-read happens to match afterward, report **Неоднозначно** because the mutation
+call did not produce a reliable acknowledgement. Never retry it.
+
+### Whole-value preservation
+
+These fields replace their whole collection and must be reconstructed from the detail
+read before changing one element:
+
+- `Variant.stocks`: preserve every other warehouse and each untouched `reserved`;
+- `Variant.media`: preserve every other IMAGE/VIDEO/OTHER and display sequence;
+- `Variant.characteristics`: preserve every other characteristic and multi-value;
+- `Product.category_ids`: preserve every category except the exact requested
+  add/remove/replace target;
+- `Product.settings`: preserve both grouping and splitting arrays while changing one ID;
+- static collection cards and badge/context/similar relations: read current relation IDs,
+  apply the exact delta and preserve the rest when the operation replaces the set.
+
+Never treat a list response missing a required projection as an empty array; detail-read
+the object first.
+
+`Product.category_ids` exposes only active bindings. Because the API cannot enumerate
+hidden archived bindings, the detail response alone can never prove that the returned
+array is complete. For every exact add/remove/replace of product category bindings,
+require an owner-named authoritative complete category-ID set that includes archived
+bindings. Without it, report that preservation cannot be proven and leave the product
+unchanged.
+
+### Operation distinctions
+
+- Price: `get_variant` → `update_variant` with only
+  `{pricing: {price: <owner value>}}` (and exact manual discount only when stated) →
+  `get_variant`. `UpdateVariant` uses `application/merge-patch+json`, so omitted
+  `pricing` members are preserved recursively; `promotion_price` and `final_price` are
+  calculated response fields and are not accepted in `VariantPricingRequest`.
+- One stock/media/characteristic change: `get_variant` → `update_variant` with the full
+  preserved target array → `get_variant`.
+- Categories or grouping settings: `get_product` → `update_product` with the full
+  preserved `category_ids` or `settings` value → `get_product`.
+- Category metadata/state:
+  `GetCategoryById(path_params: {id})` → exactly one of
+  `UpdateCategory(path_params: {id}, body: <only exact changed merge-patch fields>)`,
+  `ArchiveCategory(path_params: {id}, query: {archive_variants: <owner choice>})`
+  or `UnarchiveCategory(path_params: {id})` → `GetCategoryById`. Never infer
+  `archive_variants: true`; if dependent active variants make that choice material and
+  the owner did not state it, leave the category unchanged and ask. To prove that there
+  are no dependent active variants, call
+  `GetProducts(query: {page: <N>, per_page: 100})` from page 1 through the reported
+  `total_count`, select products whose active `category_ids` contain the target
+  category, then call
+  `GetVariants(query: {page: <N>, per_page: 100, product_id,
+  status: ["PUBLISHED", "HIDDEN"]})` through each reported `total_count`. Only when every
+  required page succeeds and every variant result is empty may an unstated
+  `archive_variants` be handled by omitting `query` and using the documented API default
+  `false`; incomplete coverage is not proof and requires the owner's choice.
+- Characteristic metadata:
+  `GetCharacteristicById(path_params: {id})` → exactly one of
+  `UpdateCharacteristic(path_params: {id}, body: <only exact changed merge-patch fields>)`,
+  `ArchiveCharacteristic(path_params: {id})` or
+  `UnarchiveCharacteristic(path_params: {id})` → `GetCharacteristicById`.
+  `UpdateCharacteristic` is `application/merge-patch+json`; do not send untouched
+  metadata fields.
+- Collections: `get_collection` before `update_collection`, `manage_collection_cards`
+  or exact `delete_collection`; re-read afterward. A confirmed not-found verifies exact
+  deletion.
+- Badge membership: read all pages with exactly one operation matching `binding_mode` —
+  `GetBadgeVariantIDs`, `GetBadgeCategoryIDs` or `GetBadgeCollectionIDs`, each with
+  `path_params: {badge_id}`. Apply the exact delta with
+  `AddBadgeObjects` or `RemoveBadgeObjects`, `path_params: {badge_id}`, and a body
+  containing only the applicable `product_variant_ids`, `category_ids` or
+  `collection_ids`; then re-read all pages with the same read operation.
+- Similar cards: read all pages with
+  `GetSimilarProductCardIDs(path_params: {product_card_id})`; apply the exact delta with
+  `AddSimilarProductCards` or `DeleteSimilarProductCards`, the same path params and
+  `body: {similar_card_ids: [...]}`; then re-read all pages. Validate the request against
+  the current operation schema rather than inventing a client-side item limit.
+- Context collections:
+  `GetContextCollectionById(path_params: {id})` → one
+  `UpdateContextCollection(path_params: {id}, body: <only exact changed fields>)` →
+  `GetContextCollectionById`. If changing `conditions`, preserve the complete conditions
+  array from the detail read. Use `DeleteContextCollection` only for an exact delete
+  command and verify not-found.
+- Archiving, unarchiving, permanent deletion and ordinary update are different actions.
+  Do not substitute one for another. Permanent SKU deletion uses
+  `kit_request(operation_id: DeleteVariant, path_params: {id})`, only after an exact
+  permanent-delete verb and a detail read confirming `ARCHIVED`. The API has no permanent
+  category-delete operation; do not promise one.
+
+An image addition requires an exact existing `image_id` or a separately authorized
+upload source. Treat file upload and variant linking as two explicit write objects, each
+with its own verification; if only linking was authorized, require an existing
+`image_id`. Do not choose a replacement image or invent a file source.
+
+### Bulk execution and report
+
+Split resolved targets into local chunks of at most 100 while still performing the
+per-object protocol. Send mutations sequentially through the MCP client; its configured
+token bucket (default 3 requests/second) enforces request rate. Continue after a local
+failure or ambiguous item and retain every outcome.
+
+Report exact counts and IDs:
+
+```text
+Исправлено (<count>)
+- <object ID/SKU>: <verified result>.
+
+Не исправлено (<count>)
+- <object ID/SKU>: <confirmed reason>.
+
+Неоднозначно (<count>)
+- <object ID/SKU or field group>: <reason / missing source>.
+```
+
+For missing inputs, group unresolved objects by field and required source rather than
+asking one question per object.
+
 ## Scenario evaluation contract
 
 `packages/mcp/src/scenarios/catalog-doctor-scenario.ts` contains the deterministic fake
@@ -241,3 +409,9 @@ MCP and tracer. Its tests cover multi-page and interrupted audits, grouping and 
 defects, collection relations, completeness levels, a healthy catalog and owner-requested
 merchandising relations. Validate observable tool calls, arguments, coverage,
 classification and the absence of writes rather than exact prose.
+
+`packages/mcp/src/scenarios/catalog-doctor-fix-scenario.ts` covers exact-write behavior.
+Its tests prove exact price read/write/re-read, a grouped missing-stock-source question
+with zero writes, preservation of sibling stocks and media, permanent deletion with an
+exact verb, complete batch outcomes, detail-read array preservation, and ambiguous
+timeout/5xx results without a second mutation.
