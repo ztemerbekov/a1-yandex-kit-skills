@@ -33,6 +33,7 @@ const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVarian
 const MANUAL_EXACT_WRITE_SKILLS = [
   "a1-yandex-kit-operator",
   "a1-yandex-kit-catalog-doctor",
+  "a1-yandex-kit-promo-launcher",
 ] as const;
 
 // ---------------------------------------------------------------------------
