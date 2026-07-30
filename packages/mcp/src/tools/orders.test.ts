@@ -97,12 +97,29 @@ test("confirm_order POSTs to /v1/orders/{id}/confirm without a body", async () =
 
 test("cancel_order POSTs to /v1/orders/{id}/cancel without a body", async () => {
   const { calls, mcp } = await setup({});
-  const res = await mcp.callTool({ name: "cancel_order", arguments: { id: "abc-123" } });
+  const res = await mcp.callTool({
+    name: "cancel_order",
+    arguments: { id: "abc-123", reason: "customer requested cancellation" },
+  });
   assert.equal((res as { isError?: boolean }).isError, undefined);
   assert.equal(calls.length, 1);
   assert.equal(new URL(calls[0]!.url).pathname, "/v1/orders/abc-123/cancel");
   assert.equal(calls[0]!.init?.method, "POST");
   assert.equal(calls[0]!.init?.body, undefined);
+});
+
+test("cancel_order documents owner reason as log context that KIT does not store", async () => {
+  const { mcp } = await setup({});
+  const { tools } = await mcp.listTools();
+  const cancel = tools.find((tool) => tool.name === "cancel_order");
+  const reason = (
+    cancel?.inputSchema as {
+      properties?: { reason?: { description?: string } };
+    }
+  ).properties?.reason;
+
+  assert.ok(reason);
+  assert.match(reason.description ?? "", /not sent to or stored by the KIT API/i);
 });
 
 test("get_order_addons hits /v1/orders/{id}/addons", async () => {

@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-operator
-description: "Use for a read-only operational review of a Yandex KIT store: «Как дела в магазине?», «Дай статус по магазину», «Проведи разбор», «Всё ли нормально?», «Что срочного?» or «Что требует внимания?». Treat short «Как дела?» as a store request only when Yandex KIT context is already established."
+description: "Use for an operational review or an exact owner-authorized change in a Yandex KIT store: «Как дела в магазине?», «Что срочного?», «Подтверди заказ 123», «Поставь цену 4 990 для SKU-42» or another command with an unambiguous target, action and value. Treat short «Как дела?» as a store request only when Yandex KIT context is already established."
 compatibility: "Requires the a1-yandex-kit MCP server and Node.js >= 20"
 metadata:
   author: gistrec
@@ -9,11 +9,11 @@ metadata:
 
 # A1 Yandex KIT Operator
 
-Give a store owner a grounded, read-only operating report: find current order, storefront,
-promotion and integration risks; state the evidence and consequence; and name the
-available next action without inventing a business decision. This is an orchestration
-skill; use the domain skills for API contracts and `a1-yandex-kit` for auth, pagination
-and error behaviour.
+Give a store owner a grounded operating report and perform only exact changes the owner
+has already specified. Find current order, storefront, promotion and integration risks;
+state the evidence and consequence; and never invent a business decision or value. This
+is an orchestration skill; use the domain skills for API contracts and `a1-yandex-kit`
+for auth, pagination, rate limits and error behaviour.
 
 ## When to act
 
@@ -30,13 +30,19 @@ conversation already concerns a Yandex KIT store (for example, the KIT MCP serve
 KIT order was used earlier). Otherwise ask one short question: «О чём речь? Я могу
 разобрать магазин Яндекс KIT, если это нужно.» Do not call a tool in that case.
 
-## Read-only boundary
+## Intent and write boundary
 
-This slice is strictly read-only. Never call `confirm_order`, `cancel_order`,
-`kit_request` for a write operation, or any other write tool — even when a finding says
-that confirmation or cancellation is an available next action. A request to perform an
-operation belongs to the appropriate order-management workflow after the owner states
-the exact action.
+Requests such as «проверь», «покажи», «разбери», «найди», «как дела» and «что срочного»
+are always read-only. An explicit imperative such as «подтверди», «отмени», «поставь»,
+«установи», «измени» or «активируй» authorises exactly the stated write when the target,
+operation and every required business value are unambiguous. Do not add another
+confirmation, diff, backup, snapshot or rollback.
+
+If the target, operation or value is missing, ask one concrete question about that gap
+and call no write tool. For example, «Обработай заказы» requires «Подтвердить или
+отменить?», while «Исправь цену SKU-42» requires the exact new price. Never derive a
+price, stock quantity, category, image, promotion rule, webhook URL/event or any other
+business value from a guess.
 
 Do not promise to find «непросмотренные заказы»: the KIT API exposes no read/unread
 field. Say this explicitly in the coverage note when relevant.
@@ -92,6 +98,46 @@ field. Say this explicitly in the coverage note when relevant.
    `ORDER_DELIVERY_STATUS_CHANGED` across active webhooks. Missing coverage is
    **«Требует проверки»**, not automatically an error: an integration may not be needed.
 
+## Exact write workflow
+
+For every object, including every member of a batch:
+
+1. Resolve one exact object. If a displayed order number, SKU or promotion code matches
+   zero or multiple objects, ask for an exact ID and do not write.
+2. Read the exact current object with `get_order`, `get_variant`, `get_discount`,
+   `get_promocode` or `get_webhook`. Check the relevant precondition against that read.
+3. Call exactly one write tool. Client retry safety guarantees that POST/PATCH/PUT/DELETE
+   are not automatically retried; never issue a second mutation after timeout, abort or
+   network failure.
+4. Re-read the same object and compare the requested field or state. A successful tool
+   response without a matching re-read is not a verified success.
+5. Classify the result as completed, failed or ambiguous. Timeout/network failure, or a
+   failed verification after a possible write, is ambiguous: say «результат неизвестен,
+   нужна проверка». Do not label it failed and do not retry blindly.
+
+Use these operation-specific rules:
+
+- Orders: `WAIT_FOR_CONFIRMATION` may use `confirm_order`; exact cancellation may use
+  `cancel_order`. The KIT cancellation endpoint accepts only the order ID. If the owner
+  supplied a reason, include it in the MCP tool log and report but explicitly say the API
+  does not store it.
+- Price and stock: resolve the exact SKU, call `get_variant`, then `update_variant` with
+  only the stated pricing change or with the full preserved `stocks` array when changing
+  one warehouse. Never invent a warehouse or quantity.
+- Promotions: resolve one exact discount/promocode, read it, update only the explicitly
+  stated status/value/limit or exact bindings, then re-read. Do not invent eligibility,
+  dates, limits, values or conflict rules.
+- Webhooks: read the exact webhook before `validate_webhook`, `update_webhook` or another
+  explicit action. «Проверь и активируй вебхук <id>» may call
+  `validate_webhook { id, activate: true }`; do not invent a URL or event set.
+
+For a batch, continue after an individual failure, keep calls within the MCP/API rate
+limit, retain each object's outcome and never let one ambiguous result trigger a retry.
+
+Do not promise unsupported actions: creating or arbitrarily editing orders, manually
+setting arbitrary order/payment/delivery/refund statuses, issuing refunds, or contacting
+the client are outside the available KIT API operations.
+
 ## Report format
 
 Start with either **«Текущий операционный статус»** or **«Срочный операционный срез»**.
@@ -111,11 +157,24 @@ Close with: «API не содержит признака просмотра за
 непросмотренных заказах нет.» Do not claim that an order is safe, paid, delivered, or
 cancelled beyond the observed API status.
 
+For a write request, use three explicit sections even when a count is zero:
+
+```text
+Выполнено (<count>)
+Не выполнено (<count>)
+Неоднозначно (<count>)
+```
+
+List every target with the requested action, observed result and error/reason where
+applicable.
+
 ## Scenario evaluation contract
 
 `packages/mcp/src/scenarios/operator-scenario.ts` provides the reusable fake MCP for
-this slice. It accepts prepared orders, SKUs, products, promotions and webhooks; supports
-pagination and selected-promotion bindings; records tool names and arguments; and retains
-the final report. Its tests cover the full/urgent/period/context order scenarios plus a
-mixed store, a healthy store and the absence of write calls. Compare calls and final
-state, not an exact word-for-word report.
+this workflow. It accepts prepared orders, SKUs, products, promotions and webhooks;
+supports pagination, selected-promotion bindings and prepared write failures; records
+tool names and arguments; mutates prepared state; and retains the final report. Its tests
+cover read-only reviews, exact confirmation/cancellation/price/stock changes, exact
+promocode limit/status/binding and discount-value changes, webhook activation, an
+ambiguous command, partial batches, ambiguous timeouts and a mismatching verification
+read. Compare calls and final state, not an exact word-for-word report.

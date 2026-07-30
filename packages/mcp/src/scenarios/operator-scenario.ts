@@ -1,3 +1,5 @@
+import type { components } from "yandex-kit-core";
+
 export interface OperatorOrder {
   id: string;
   order_number: number;
@@ -22,15 +24,18 @@ export interface OperatorOrder {
   gift_card_discount: string;
 }
 
+type KitVariant = components["schemas"]["Variant"];
+type KitVariantUpdate = components["schemas"]["UpdateVariantRequest"];
+
 export interface OperatorVariant {
-  id: string;
-  sku: string;
-  name: string;
-  status: string;
-  product_id: string;
-  pricing: { price?: string };
-  stocks: Array<{ warehouse_id: string; quantity: number; reserved: number }>;
-  media: Array<{ type: string; image_id?: string }>;
+  id: KitVariant["id"];
+  sku: KitVariant["sku"];
+  name: KitVariant["name"];
+  status: KitVariant["status"];
+  product_id: KitVariant["product_id"];
+  pricing: { price?: KitVariant["pricing"]["price"] };
+  stocks: KitVariant["stocks"];
+  media: KitVariant["media"];
 }
 
 export interface OperatorProduct {
@@ -39,30 +44,38 @@ export interface OperatorProduct {
 }
 
 export interface OperatorDiscount {
-  id: string;
-  title: string;
-  status: string;
-  discount_dates: { start_date: string; end_date?: string };
-  binding_mode: string;
+  id: components["schemas"]["Discount"]["id"];
+  title: components["schemas"]["Discount"]["title"];
+  status: components["schemas"]["Discount"]["status"];
+  discount_value?: components["schemas"]["Discount"]["discount_value"];
+  discount_dates: components["schemas"]["Discount"]["discount_dates"];
+  binding_mode: components["schemas"]["Discount"]["binding_mode"];
 }
+
+type KitDiscountUpdate = components["schemas"]["UpdateDiscountRequest"];
+
+type KitPromocode = components["schemas"]["Promocode"];
+type KitPromocodeUpdate = Partial<components["schemas"]["UpdatePromocodeRequest"]>;
 
 export interface OperatorPromocode {
-  id: string;
-  code: string;
-  title: string;
-  status: string;
-  type: string;
-  binding_mode?: string;
-  max_usage?: number;
-  usage_count: number;
-  promocode_dates: { start_date: string; end_date?: string };
+  id: KitPromocode["id"];
+  code: KitPromocode["code"];
+  title: KitPromocode["title"];
+  status: KitPromocode["status"];
+  type: KitPromocode["type"];
+  binding_mode?: KitPromocode["binding_mode"];
+  max_usage?: KitPromocode["max_usage"];
+  usage_count: KitPromocode["usage_count"];
+  promocode_dates: KitPromocode["promocode_dates"];
 }
 
+type KitWebhook = components["schemas"]["Webhook"];
+
 export interface OperatorWebhook {
-  id: string;
-  url: string;
-  status: string;
-  events: string[];
+  id: KitWebhook["id"];
+  url: KitWebhook["url"];
+  status: KitWebhook["status"];
+  events: KitWebhook["events"];
 }
 
 export interface RecordedToolCall {
@@ -75,9 +88,13 @@ const READ_ONLY_OPERATOR_TOOLS = new Set([
   "list_orders",
   "get_order",
   "get_order_addons",
+  "get_variant",
+  "get_promocode",
+  "get_webhook",
   "list_variants",
   "list_products",
   "list_discounts",
+  "get_discount",
   "list_promocodes",
   "list_webhooks",
 ]);
@@ -101,6 +118,8 @@ export class FakeOperatorMcp {
   readonly #webhooks: OperatorWebhook[];
   readonly #bindings: Record<string, string[]>;
   readonly #truncated: Partial<Record<"variants" | "products" | "discounts" | "promocodes", boolean>>;
+  readonly #writeErrors: Record<string, Error>;
+  readonly #writeNoops: Set<string>;
   finalAnswer: string | undefined;
 
   constructor({
@@ -116,6 +135,8 @@ export class FakeOperatorMcp {
     webhooks = [],
     bindings = {},
     truncated = {},
+    writeErrors = {},
+    writeNoops = [],
   }: {
     orders: OperatorOrder[];
     pageSize?: number;
@@ -129,6 +150,8 @@ export class FakeOperatorMcp {
     webhooks?: OperatorWebhook[];
     bindings?: Record<string, string[]>;
     truncated?: Partial<Record<"variants" | "products" | "discounts" | "promocodes", boolean>>;
+    writeErrors?: Record<string, Error>;
+    writeNoops?: string[];
   }) {
     this.#orders = orders;
     this.#pageSize = pageSize;
@@ -142,6 +165,8 @@ export class FakeOperatorMcp {
     this.#webhooks = webhooks;
     this.#bindings = bindings;
     this.#truncated = truncated;
+    this.#writeErrors = writeErrors;
+    this.#writeNoops = new Set(writeNoops);
   }
 
   get writeCalls(): RecordedToolCall[] {
@@ -178,25 +203,66 @@ export class FakeOperatorMcp {
     }
 
     if (name === "list_variants") {
-      const variants = this.#variants.filter((variant) => variant.status === "PUBLISHED");
+      const search = typeof arguments_.name === "string" ? arguments_.name.toLowerCase() : undefined;
+      const statuses = Array.isArray(arguments_.status)
+        ? new Set(arguments_.status.map(String))
+        : typeof arguments_.status === "string"
+          ? new Set([arguments_.status])
+          : undefined;
+      const variants = this.#variants.filter(
+        (variant) =>
+          (statuses ? statuses.has(variant.status) : variant.status !== "ARCHIVED") &&
+          (!search ||
+            variant.id.toLowerCase() === search ||
+            variant.sku.toLowerCase() === search ||
+            variant.name.toLowerCase().includes(search)),
+      );
       if (arguments_.all) return { items: variants, pages: 1, truncated: this.#truncated.variants ?? false };
       return { variants, total_count: variants.length };
+    }
+    if (name === "get_variant") {
+      const id = String(arguments_.id);
+      const found = this.#variants.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Variant ${id} is not prepared in FakeOperatorMcp`);
+      return found;
     }
     if (name === "list_products") {
       if (arguments_.all) return { items: this.#products, pages: 1, truncated: this.#truncated.products ?? false };
       return { products: this.#products };
     }
     if (name === "list_discounts") {
-      const discounts = this.#discounts.filter((discount) => discount.status === "ACTIVE");
+      const requestedStatuses = Array.isArray(arguments_.status)
+        ? new Set(arguments_.status.map(String))
+        : new Set([String(arguments_.status ?? "ACTIVE")]);
+      const discounts = this.#discounts.filter((discount) => requestedStatuses.has(discount.status));
       if (arguments_.all) return { items: discounts, pages: 1, truncated: this.#truncated.discounts ?? false };
       return { discounts, total_count: discounts.length };
     }
+    if (name === "get_discount") {
+      const id = String(arguments_.id);
+      const found = this.#discounts.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Discount ${id} is not prepared in FakeOperatorMcp`);
+      return found;
+    }
     if (name === "list_promocodes") {
-      const promocodes = this.#promocodes.filter((promocode) => promocode.status === "ACTIVE");
+      const status = typeof arguments_.status === "string" ? arguments_.status : undefined;
+      const promocodes = this.#promocodes.filter((promocode) => !status || promocode.status === status);
       if (arguments_.all) return { items: promocodes, pages: 1, truncated: this.#truncated.promocodes ?? false };
       return { promocodes, total_count: promocodes.length };
     }
+    if (name === "get_promocode") {
+      const id = String(arguments_.id);
+      const found = this.#promocodes.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Promocode ${id} is not prepared in FakeOperatorMcp`);
+      return found;
+    }
     if (name === "list_webhooks") return { webhooks: this.#webhooks, total_count: this.#webhooks.length };
+    if (name === "get_webhook") {
+      const id = String(arguments_.id);
+      const found = this.#webhooks.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Webhook ${id} is not prepared in FakeOperatorMcp`);
+      return found;
+    }
     if (name === "kit_request") {
       const operationId = String(arguments_.operation_id);
       const id = String((arguments_.path_params as Record<string, unknown> | undefined)?.id);
@@ -206,8 +272,111 @@ export class FakeOperatorMcp {
       return { variant_ids: ids, total_count: ids.length };
     }
 
+    if (name === "confirm_order") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#orders.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Order ${id} is not prepared in FakeOperatorMcp`);
+      if (found.status !== "WAIT_FOR_CONFIRMATION") {
+        throw new Error(`Order ${id} is ${found.status}, expected WAIT_FOR_CONFIRMATION`);
+      }
+      found.status = "ORDER_PLACED";
+      return { ok: true };
+    }
+
+    if (name === "cancel_order") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#orders.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Order ${id} is not prepared in FakeOperatorMcp`);
+      if (TERMINAL_ORDER_STATUSES.has(found.status)) {
+        throw new Error(`Order ${id} is already ${found.status}`);
+      }
+      found.status = "CANCELLED";
+      return { ok: true };
+    }
+
+    if (name === "update_variant") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#variants.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Variant ${id} is not prepared in FakeOperatorMcp`);
+      const patch = arguments_.variant as KitVariantUpdate;
+      if (patch.pricing) found.pricing = { ...found.pricing, ...patch.pricing };
+      if (patch.stocks) found.stocks = patch.stocks;
+      if (patch.media) found.media = patch.media;
+      return found;
+    }
+
+    if (name === "update_promocode") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#promocodes.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Promocode ${id} is not prepared in FakeOperatorMcp`);
+      const patch = arguments_.promocode as KitPromocodeUpdate;
+      if (patch.max_usage !== undefined) found.max_usage = patch.max_usage ?? undefined;
+      if (patch.status !== undefined) found.status = patch.status;
+      return found;
+    }
+
+    if (name === "update_discount") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#discounts.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Discount ${id} is not prepared in FakeOperatorMcp`);
+      const patch = arguments_.discount as KitDiscountUpdate;
+      if (patch.discount_value !== undefined) found.discount_value = patch.discount_value;
+      if (patch.status !== undefined) found.status = patch.status;
+      if (patch.binding_mode !== undefined) found.binding_mode = patch.binding_mode;
+      return found;
+    }
+
+    if (name === "manage_promocode_objects") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const objects = arguments_.objects as components["schemas"]["PromocodeObjects"];
+      const ids = objects.product_variant_ids ?? [];
+      const bindingKey = `GetPromocodeVariantIDs:${id}`;
+      const current = this.#bindings[bindingKey] ?? [];
+      this.#bindings[bindingKey] =
+        arguments_.action === "remove"
+          ? current.filter((candidate) => !ids.includes(candidate))
+          : [...new Set([...current, ...ids])];
+      return { ok: true };
+    }
+
+    if (name === "validate_webhook") {
+      const id = String(arguments_.id);
+      const writeKey = `${name}:${id}`;
+      const preparedError = this.#writeErrors[writeKey];
+      if (preparedError) throw preparedError;
+      if (this.#writeNoops.has(writeKey)) return { ok: true };
+      const found = this.#webhooks.find((candidate) => candidate.id === id);
+      if (!found) throw new Error(`Webhook ${id} is not prepared in FakeOperatorMcp`);
+      if (arguments_.activate === true) found.status = "ACTIVE";
+      return { ok: true };
+    }
+
     if (WRITE_ORDER_TOOLS.has(name)) {
-      throw new Error(`Unexpected write tool in read-only operator scenario: ${name}`);
+      throw new Error(`Unsupported write tool in FakeOperatorMcp: ${name}`);
     }
     throw new Error(`Unsupported FakeOperatorMcp tool: ${name}`);
   }
@@ -238,7 +407,7 @@ const REFUND_OR_CANCELLATION_STATUSES = new Set([
 ]);
 
 function isKnownOperatorRequest(request: string): boolean {
-  return /как дела(?: в магазине)?|дай статус|проведи разбор|всё ли нормально|что срочного|что требует внимания|статус.*магазин/u.test(
+  return /как дела(?: в магазине)?|дай статус|проведи разбор|всё ли нормально|что срочного|что требует внимания|статус.*магазин|проверь.*магазин|покажи.*магазин|разбери.*магазин|найди.*магазин/u.test(
     request.toLowerCase(),
   );
 }
@@ -619,7 +788,7 @@ async function inspectStore(mcp: FakeOperatorMcp, now: Date): Promise<Operationa
     });
   }
   const requiredEvents = ["ORDER_STATUS_CHANGED", "ORDER_PAYMENT_STATUS_CHANGED", "ORDER_DELIVERY_STATUS_CHANGED"];
-  const coveredEvents = new Set(activeWebhooks.flatMap((webhook) => webhook.events));
+  const coveredEvents = new Set<string>(activeWebhooks.flatMap((webhook) => webhook.events));
   const missingEvents = requiredEvents.filter((event) => !coveredEvents.has(event));
   if (missingEvents.length > 0) {
     signals.push({
@@ -720,4 +889,557 @@ export async function runOperatorReadOnlyScenario({
   ].join("\n\n");
   mcp.finish(report);
   return { report };
+}
+
+async function findOrderByReference(mcp: FakeOperatorMcp, reference: string): Promise<OperatorOrder | undefined> {
+  const orders: OperatorOrder[] = [];
+  let page = 1;
+  let totalCount = 0;
+  do {
+    const response = (await mcp.call("list_orders", { page, per_page: 100 })) as {
+      orders: OperatorOrder[];
+      total_count: number;
+    };
+    orders.push(...response.orders);
+    totalCount = response.total_count;
+    page += 1;
+  } while (orders.length < totalCount);
+
+  return orders.find(
+    (order) => order.id === reference || String(order.order_number) === reference,
+  );
+}
+
+function mutationResultIsAmbiguous(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "AbortError" ||
+    error.name === "TimeoutError" ||
+    error instanceof TypeError ||
+    /timeout|timed out|network|fetch failed|aborted/iu.test(error.message)
+  );
+}
+
+type MutationOutcomeKind = "completed" | "failed" | "ambiguous";
+
+interface MutationOutcome {
+  kind: MutationOutcomeKind;
+  message: string;
+}
+
+function formatMutationOutcomes(outcomes: MutationOutcome[]): string {
+  const sections: Array<{ kind: MutationOutcomeKind; title: string }> = [
+    { kind: "completed", title: "Выполнено" },
+    { kind: "failed", title: "Не выполнено" },
+    { kind: "ambiguous", title: "Неоднозначно" },
+  ];
+  return sections
+    .map(({ kind, title }) => {
+      const items = outcomes.filter((outcome) => outcome.kind === kind);
+      const details = items.map((item) => `- ${item.message}.`).join("\n");
+      return `${title} (${items.length})${details ? `\n${details}` : ""}`;
+    })
+    .join("\n\n");
+}
+
+function finishMutationReport(mcp: FakeOperatorMcp, outcomes: MutationOutcome[]): { report: string } {
+  const report = formatMutationOutcomes(outcomes);
+  mcp.finish(report);
+  return { report };
+}
+
+async function executeVerifiedMutation<T>({
+  subject,
+  read,
+  validateBefore,
+  write,
+  verifyAfter,
+}: {
+  subject: string;
+  read: () => Promise<T>;
+  validateBefore?: (before: T) => string | undefined;
+  write: (before: T) => Promise<unknown>;
+  verifyAfter: (after: T) => { valid: boolean; message: string };
+}): Promise<MutationOutcome> {
+  let before: T;
+  try {
+    before = await read();
+  } catch (error) {
+    return {
+      kind: "failed",
+      message: `${subject}: чтение не удалось — ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
+
+  const preconditionFailure = validateBefore?.(before);
+  if (preconditionFailure) return { kind: "failed", message: `${subject}: ${preconditionFailure}` };
+
+  let writeError: unknown;
+  try {
+    await write(before);
+  } catch (error) {
+    writeError = error;
+  }
+
+  let after: T;
+  try {
+    after = await read();
+  } catch (error) {
+    return {
+      kind: "ambiguous",
+      message:
+        `${subject}: операция записи вызвана один раз, повторное чтение не удалось ` +
+        `(${error instanceof Error ? error.message : String(error)}); результат неизвестен, нужна проверка`,
+    };
+  }
+
+  if (writeError) {
+    const message = writeError instanceof Error ? writeError.message : String(writeError);
+    if (mutationResultIsAmbiguous(writeError)) {
+      return {
+        kind: "ambiguous",
+        message:
+          `${subject}: операция записи вызвана один раз и завершилась ошибкой «${message}»; ` +
+          "результат неизвестен, нужна проверка",
+      };
+    }
+    return { kind: "failed", message: `${subject}: ${message}` };
+  }
+
+  const verification = verifyAfter(after);
+  return {
+    kind: verification.valid ? "completed" : "ambiguous",
+    message: verification.valid
+      ? verification.message
+      : `${verification.message}; повторное чтение не подтвердило запись, результат неизвестен, нужна проверка`,
+  };
+}
+
+async function findVariantByReference(
+  mcp: FakeOperatorMcp,
+  reference: string,
+): Promise<OperatorVariant | undefined> {
+  const listed = (await mcp.call("list_variants", { name: reference, all: true })) as {
+    items: OperatorVariant[];
+  };
+  return listed.items.find(
+    (variant) => variant.id === reference || variant.sku.toLowerCase() === reference.toLowerCase(),
+  );
+}
+
+async function findPromocodeByReference(
+  mcp: FakeOperatorMcp,
+  reference: string,
+): Promise<OperatorPromocode | undefined> {
+  const results = await Promise.all(
+    (["ACTIVE", "INACTIVE"] as const).map(
+      (status) =>
+        mcp.call("list_promocodes", { status, all: true }) as Promise<{
+          items: OperatorPromocode[];
+        }>,
+    ),
+  );
+  return results
+    .flatMap((result) => result.items)
+    .find(
+      (promocode) =>
+        promocode.id === reference || promocode.code.toLowerCase() === reference.toLowerCase(),
+    );
+}
+
+async function findDiscountsByReference(
+  mcp: FakeOperatorMcp,
+  reference: string,
+): Promise<OperatorDiscount[]> {
+  const result = (await mcp.call("list_discounts", {
+    status: ["ACTIVE", "INACTIVE", "ARCHIVED"],
+    all: true,
+  })) as { items: OperatorDiscount[] };
+  return result.items.filter(
+    (discount) =>
+      discount.id === reference || discount.title.toLowerCase() === reference.toLowerCase(),
+  );
+}
+
+export async function runOperatorScenario({
+  request,
+  kitContext,
+  now,
+  mcp,
+}: {
+  request: string;
+  kitContext: boolean;
+  now: Date;
+  mcp: FakeOperatorMcp;
+}): Promise<{ report: string }> {
+  if (/обработай\s+заказы/iu.test(request)) {
+    return finishMutationReport(mcp, [
+      {
+        kind: "ambiguous",
+        message: "Уточните действие: заказы нужно подтвердить или отменить?",
+      },
+    ]);
+  }
+
+  const missingPrice = request.match(/исправь\s+цену\s+([^\s,]+)/iu);
+  if (missingPrice) {
+    return finishMutationReport(mcp, [
+      {
+        kind: "ambiguous",
+        message: `Укажите точную новую цену для ${missingPrice[1]}; без значения запись не выполняется`,
+      },
+    ]);
+  }
+
+  const priceChange = request.match(
+    /поставь\s+цену\s+([\d\s]+(?:[.,]\d{1,2})?)\s+для\s+([^\s,]+)/iu,
+  );
+  if (priceChange) {
+    const rawPrice = priceChange[1]!.replace(/\s+/gu, "").replace(",", ".");
+    const price = Number(rawPrice).toFixed(2);
+    const reference = priceChange[2]!;
+    const matched = await findVariantByReference(mcp, reference);
+    if (!matched) {
+      return finishMutationReport(mcp, [
+        { kind: "failed", message: `SKU ${reference}: не найден` },
+      ]);
+    }
+    const outcome = await executeVerifiedMutation({
+      subject: `SKU ${matched.sku} (${matched.id})`,
+      read: () => mcp.call("get_variant", { id: matched.id }) as Promise<OperatorVariant>,
+      write: (before) =>
+        mcp.call("update_variant", {
+        id: before.id,
+        variant: { pricing: { price } },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.pricing.price === price,
+        message:
+          after.pricing.price === price
+            ? `SKU ${after.sku} (${after.id}): цена установлена ${price}`
+            : `SKU ${after.sku} (${after.id}): ожидалась цена ${price}, прочитано ${after.pricing.price ?? "нет цены"}`,
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const stockChange = request.match(
+    /(?:установи|поставь)\s+остаток\s+(\d+)\s+для\s+([^\s,]+)\s+на\s+складе\s+([^\s,]+)/iu,
+  );
+  if (stockChange) {
+    const quantity = Number(stockChange[1]);
+    const reference = stockChange[2]!;
+    const warehouseId = stockChange[3]!;
+    const matched = await findVariantByReference(mcp, reference);
+    if (!matched) {
+      return finishMutationReport(mcp, [
+        { kind: "failed", message: `SKU ${reference}: не найден` },
+      ]);
+    }
+    const outcome = await executeVerifiedMutation({
+      subject: `SKU ${matched.sku} (${matched.id}), склад ${warehouseId}`,
+      read: () => mcp.call("get_variant", { id: matched.id }) as Promise<OperatorVariant>,
+      validateBefore: (before) =>
+        before.stocks.some((stock) => stock.warehouse_id === warehouseId)
+          ? undefined
+          : `склад ${warehouseId} отсутствует в текущих остатках; источник нового склада нужно уточнить`,
+      write: (before) =>
+        mcp.call("update_variant", {
+          id: before.id,
+          variant: {
+            stocks: before.stocks.map((stock) =>
+              stock.warehouse_id === warehouseId ? { ...stock, quantity } : stock,
+            ),
+          },
+        }),
+      verifyAfter: (after) => {
+        const stock = after.stocks.find((candidate) => candidate.warehouse_id === warehouseId);
+        return {
+          valid: stock?.quantity === quantity,
+          message:
+            stock?.quantity === quantity
+              ? `SKU ${after.sku} (${after.id}), склад ${warehouseId}: остаток установлен ${quantity}`
+              : `SKU ${after.sku} (${after.id}), склад ${warehouseId}: ожидался остаток ${quantity}, прочитано ${stock?.quantity ?? "нет склада"}`,
+        };
+      },
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const promocodeLimit = request.match(
+    /(?:установи|поставь)\s+лимит\s+(\d+)\s+для\s+промокода\s+([^\s,]+)/iu,
+  );
+  if (promocodeLimit) {
+    const limit = Number(promocodeLimit[1]);
+    const reference = promocodeLimit[2]!;
+    const matched = await findPromocodeByReference(mcp, reference);
+    if (!matched) {
+      return finishMutationReport(mcp, [
+        { kind: "failed", message: `Промокод ${reference}: не найден` },
+      ]);
+    }
+    const outcome = await executeVerifiedMutation({
+      subject: `Промокод ${matched.code} (${matched.id})`,
+      read: () => mcp.call("get_promocode", { id: matched.id }) as Promise<OperatorPromocode>,
+      write: (before) =>
+        mcp.call("update_promocode", {
+          id: before.id,
+          promocode: { max_usage: limit },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.max_usage === limit,
+        message:
+          after.max_usage === limit
+            ? `Промокод ${after.code} (${after.id}): лимит установлен ${limit}`
+            : `Промокод ${after.code} (${after.id}): ожидался лимит ${limit}, прочитано ${after.max_usage ?? "без лимита"}`,
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const promocodeStatus = request.match(/(активируй|отключи)\s+промокод\s+([^\s,]+)/iu);
+  if (promocodeStatus) {
+    const reference = promocodeStatus[2]!;
+    const status: OperatorPromocode["status"] =
+      promocodeStatus[1]!.toLowerCase() === "активируй" ? "ACTIVE" : "INACTIVE";
+    const matched = await findPromocodeByReference(mcp, reference);
+    if (!matched) {
+      return finishMutationReport(mcp, [
+        { kind: "failed", message: `Промокод ${reference}: не найден` },
+      ]);
+    }
+    const outcome = await executeVerifiedMutation({
+      subject: `Промокод ${matched.code} (${matched.id})`,
+      read: () => mcp.call("get_promocode", { id: matched.id }) as Promise<OperatorPromocode>,
+      write: (before) =>
+        mcp.call("update_promocode", {
+          id: before.id,
+          promocode: { status },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.status === status,
+        message:
+          after.status === status
+            ? `Промокод ${after.code} (${after.id}): статус установлен ${status}`
+            : `Промокод ${after.code} (${after.id}): ожидался статус ${status}, прочитано ${after.status}`,
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const discountValue = request.match(
+    /установи\s+скидку\s+(\d+(?:[.,]\d+)?)\s*(%|₽|руб(?:ль|ля|лей)?)\s+для\s+акции\s+(.+)$/iu,
+  );
+  if (discountValue) {
+    const value = Number(discountValue[1]!.replace(",", ".")).toFixed(2);
+    const type: components["schemas"]["DiscountValue"]["type"] =
+      discountValue[2] === "%" ? "PERCENT" : "VALUE";
+    const reference = discountValue[3]!.trim();
+    const matches = await findDiscountsByReference(mcp, reference);
+    if (matches.length !== 1) {
+      return finishMutationReport(mcp, [
+        matches.length === 0
+          ? { kind: "failed", message: `Акция ${reference}: не найдена` }
+          : {
+              kind: "ambiguous",
+              message: `Найдено несколько акций «${reference}»; укажите точный ID`,
+            },
+      ]);
+    }
+    const matched = matches[0]!;
+    const outcome = await executeVerifiedMutation({
+      subject: `Акция ${matched.title} (${matched.id})`,
+      read: () => mcp.call("get_discount", { id: matched.id }) as Promise<OperatorDiscount>,
+      validateBefore: (before) =>
+        before.status === "ARCHIVED" ? "архивную акцию нельзя обновить без явной разархивации" : undefined,
+      write: (before) =>
+        mcp.call("update_discount", {
+          id: before.id,
+          discount: { discount_value: { value, type } },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.discount_value?.value === value && after.discount_value.type === type,
+        message:
+          after.discount_value?.value === value && after.discount_value.type === type
+            ? `Акция ${after.title} (${after.id}): скидка установлена ${value} ${type}`
+            : `Акция ${after.title} (${after.id}): ожидалась скидка ${value} ${type}, прочитано ${after.discount_value?.value ?? "нет значения"} ${after.discount_value?.type ?? ""}`.trim(),
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const promocodeBinding = request.match(
+    /привяжи\s+([^\s,]+)\s+к\s+промокоду\s+([^\s,]+)/iu,
+  );
+  if (promocodeBinding) {
+    const variantReference = promocodeBinding[1]!;
+    const promocodeReference = promocodeBinding[2]!;
+    const [variant, promocode] = await Promise.all([
+      findVariantByReference(mcp, variantReference),
+      findPromocodeByReference(mcp, promocodeReference),
+    ]);
+    if (!variant || !promocode) {
+      return finishMutationReport(mcp, [
+        {
+          kind: "failed",
+          message: !variant
+            ? `SKU ${variantReference}: не найден`
+            : `Промокод ${promocodeReference}: не найден`,
+        },
+      ]);
+    }
+    const readBinding = async () => {
+      const currentPromocode = (await mcp.call("get_promocode", {
+        id: promocode.id,
+      })) as OperatorPromocode;
+      const response = (await mcp.call("kit_request", {
+        operation_id: "GetPromocodeVariantIDs",
+        path_params: { id: promocode.id },
+      })) as { variant_ids?: string[] };
+      return { promocode: currentPromocode, variantIds: response.variant_ids ?? [] };
+    };
+    const outcome = await executeVerifiedMutation({
+      subject: `Промокод ${promocode.code} (${promocode.id}), SKU ${variant.sku} (${variant.id})`,
+      read: readBinding,
+      validateBefore: (before) =>
+        before.promocode.binding_mode === "SELECTED_VARIANTS"
+          ? undefined
+          : `режим ${before.promocode.binding_mode ?? "не указан"}; для точной привязки SKU нужен SELECTED_VARIANTS`,
+      write: () =>
+        mcp.call("manage_promocode_objects", {
+          id: promocode.id,
+          action: "add",
+          objects: { product_variant_ids: [variant.id] },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.variantIds.includes(variant.id),
+        message: after.variantIds.includes(variant.id)
+          ? `Промокод ${promocode.code} (${promocode.id}): SKU ${variant.sku} (${variant.id}) привязан`
+          : `Промокод ${promocode.code} (${promocode.id}): повторное чтение не содержит SKU ${variant.sku} (${variant.id})`,
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const webhookActivation = request.match(
+    /(?:(?:проверь|валидируй)\s+и\s+)?активируй\s+вебхук\s+([^\s,]+)/iu,
+  );
+  if (webhookActivation) {
+    const id = webhookActivation[1]!;
+    const outcome = await executeVerifiedMutation({
+      subject: `Вебхук ${id}`,
+      read: () => mcp.call("get_webhook", { id }) as Promise<OperatorWebhook>,
+      write: () => mcp.call("validate_webhook", { id, activate: true }),
+      verifyAfter: (after) => ({
+        valid: after.status === "ACTIVE",
+        message:
+          after.status === "ACTIVE"
+            ? `Вебхук ${after.id}: валидация выполнена, текущий статус ACTIVE`
+            : `Вебхук ${after.id}: после валидации текущий статус ${after.status}`,
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const confirmationBatch = request.match(/подтверд(?:и|ить)\s+заказы\s+(.+)$/iu);
+  if (confirmationBatch) {
+    const references = confirmationBatch[1]!
+      .split(/[,\s]+/u)
+      .map((reference) => reference.trim())
+      .filter(Boolean);
+    const outcomes: MutationOutcome[] = [];
+
+    for (const reference of references) {
+      const listedOrder = await findOrderByReference(mcp, reference);
+      if (!listedOrder) {
+        outcomes.push({ kind: "failed", message: `Заказ ${reference}: не найден` });
+        continue;
+      }
+      outcomes.push(
+        await executeVerifiedMutation({
+          subject: `Заказ ${listedOrder.id}`,
+          read: () => mcp.call("get_order", { id: listedOrder.id }) as Promise<OperatorOrder>,
+          validateBefore: (before) =>
+            before.status === "WAIT_FOR_CONFIRMATION"
+              ? undefined
+              : `статус ${before.status}, подтверждение недоступно`,
+          write: (before) => mcp.call("confirm_order", { id: before.id }),
+          verifyAfter: (after) => ({
+            valid: after.status !== "WAIT_FOR_CONFIRMATION",
+            message:
+              after.status === "WAIT_FOR_CONFIRMATION"
+                ? `Заказ ${after.id}: после записи статус не изменился`
+                : `Заказ ${after.id} подтверждён; текущий статус ${after.status}`,
+          }),
+        }),
+      );
+    }
+
+    return finishMutationReport(mcp, outcomes);
+  }
+
+  const cancellation = request.match(
+    /отмен(?:и|ить)\s+заказ\s+([^\s,]+)(?:\s*,?\s*причина\s*:\s*(.+))?$/iu,
+  );
+  if (cancellation) {
+    const reference = cancellation[1]!;
+    const reason = cancellation[2]?.trim();
+    if (!reason) {
+      return finishMutationReport(mcp, [
+        { kind: "ambiguous", message: `Заказ ${reference}: укажите причину отмены` },
+      ]);
+    }
+    const listedOrder = await findOrderByReference(mcp, reference);
+    if (!listedOrder) {
+      return finishMutationReport(mcp, [
+        { kind: "failed", message: `Заказ ${reference}: не найден` },
+      ]);
+    }
+    const outcome = await executeVerifiedMutation({
+      subject: `Заказ ${listedOrder.id}`,
+      read: () => mcp.call("get_order", { id: listedOrder.id }) as Promise<OperatorOrder>,
+      validateBefore: (before) =>
+        TERMINAL_ORDER_STATUSES.has(before.status)
+          ? `статус ${before.status}, отмена недоступна`
+          : undefined,
+      write: (before) => mcp.call("cancel_order", { id: before.id, reason }),
+      verifyAfter: (after) => ({
+        valid: after.status === "CANCELLED",
+        message:
+          after.status === "CANCELLED"
+            ? `Заказ ${after.id} отменён. Причина владельца: ${reason}. API отмены не сохраняет причину; она остаётся только в журнале MCP и отчёте`
+            : `Заказ ${after.id}: после отмены текущий статус ${after.status}`,
+      }),
+    });
+    return finishMutationReport(mcp, [outcome]);
+  }
+
+  const confirmation = request.match(/подтверд(?:и|ить)\s+заказ\s+([^\s,]+)/iu);
+  if (!confirmation) return runOperatorReadOnlyScenario({ request, kitContext, now, mcp });
+
+  const reference = confirmation[1]!;
+  const listedOrder = await findOrderByReference(mcp, reference);
+  if (!listedOrder) {
+    return finishMutationReport(mcp, [
+      { kind: "failed", message: `Заказ ${reference}: не найден` },
+    ]);
+  }
+
+  const outcome = await executeVerifiedMutation({
+    subject: `Заказ ${listedOrder.id}`,
+    read: () => mcp.call("get_order", { id: listedOrder.id }) as Promise<OperatorOrder>,
+    validateBefore: (before) =>
+      before.status === "WAIT_FOR_CONFIRMATION"
+        ? undefined
+        : `статус ${before.status}, подтверждение недоступно`,
+    write: (before) => mcp.call("confirm_order", { id: before.id }),
+    verifyAfter: (after) => ({
+      valid: after.status !== "WAIT_FOR_CONFIRMATION",
+      message:
+        after.status === "WAIT_FOR_CONFIRMATION"
+          ? `Заказ ${after.id}: после записи статус не изменился`
+          : `Заказ ${after.id} подтверждён; текущий статус ${after.status}`,
+    }),
+  });
+  return finishMutationReport(mcp, [outcome]);
 }

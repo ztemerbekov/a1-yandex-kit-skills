@@ -84,9 +84,19 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
       title: "Cancel order",
       description:
         "Cancel an order. Whether cancellation is possible depends on the order's current status. " +
+        "The optional owner reason is retained only in the MCP conversation/tool log; the KIT " +
+        "CancelOrder endpoint has no reason field, so it is not sent to or stored by the KIT API. " +
         "No request body is required.",
       inputSchema: {
         id: z.string().describe("Order ID (UUID)."),
+        reason: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            "Owner-provided cancellation reason for conversation and tool-log context only; " +
+              "it is not sent to or stored by the KIT API.",
+          ),
       },
     },
     async ({ id }) => {

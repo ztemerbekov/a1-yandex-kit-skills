@@ -10,7 +10,7 @@
     {
       "name": "a1-yandex-kit",
       "source": "./",
-      "description": "A1 Yandex KIT Skills for the Yandex KIT e-commerce platform: six domain skills plus a read-only store operator and the A1 Yandex KIT MCP server with 61 tools covering all 133 API operations.",
+      "description": "A1 Yandex KIT Skills for the Yandex KIT e-commerce platform: six domain skills plus a store operator for reviews and exact owner-specified actions, and the A1 Yandex KIT MCP server with 61 tools covering all 133 API operations.",
       "license": "MIT",
       "author": {
         "name": "gistrec"

@@ -277,10 +277,23 @@ test("healthy operational data reports no objective store signals", async () => 
         product_id: "healthy-product",
         pricing: { price: "100.00" },
         stocks: [{ warehouse_id: "w1", quantity: 3, reserved: 0 }],
-        media: [{ type: "IMAGE", image_id: "image-1" }],
+        media: [{ type: "IMAGE", image_id: "image-1", display_sequence: 1 }],
+      },
+      {
+        id: "hidden-broken-sku",
+        sku: "HIDDEN-BROKEN",
+        name: "Скрытый SKU не относится к витринному срезу",
+        status: "HIDDEN",
+        product_id: "hidden-product",
+        pricing: {},
+        stocks: [{ warehouse_id: "w1", quantity: 0, reserved: 0 }],
+        media: [],
       },
     ],
-    products: [{ id: "healthy-product", category_ids: ["category-1"] }],
+    products: [
+      { id: "healthy-product", category_ids: ["category-1"] },
+      { id: "hidden-product", category_ids: [] },
+    ],
     discounts: [],
     promocodes: [
       {
@@ -313,6 +326,7 @@ test("healthy operational data reports no objective store signals", async () => 
   });
 
   assert.match(result.report, /Объективных рисков.*не найдено/i);
+  assert.doesNotMatch(result.report, /hidden-broken-sku/i);
   assert.equal(mcp.writeCalls.length, 0);
 });
 
