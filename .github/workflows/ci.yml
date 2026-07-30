@@ -35,3 +35,44 @@ jobs:
           npm run gen
           git add -N -- packages/core/src/generated docs/TOOLS.md skills
           git diff --exit-code -- packages/core/src/generated docs/TOOLS.md skills
+
+  e2e:
+    runs-on: ubuntu-latest
+    # Live writes against the TEST store behind the YANDEX_KIT_TOKEN secret.
+    # Runs only after unit tests pass, so broken code never reaches the store.
+    needs: test
+    if: github.repository == 'ztemerbekov/a1-yandex-kit-skills'
+    # A fixed group serializes live runs across all refs: parallel e2e runs
+    # would trip the store's rate limiter, and creates are not retried by design.
+    concurrency:
+      group: e2e-live-store
+      cancel-in-progress: false
+    steps:
+      - name: Check whether the YANDEX_KIT_TOKEN secret is set
+        id: token
+        env:
+          YANDEX_KIT_TOKEN: ${{ secrets.YANDEX_KIT_TOKEN }}
+        run: |
+          if [ -n "$YANDEX_KIT_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "YANDEX_KIT_TOKEN secret is not set - skipping the live e2e check."
+          fi
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.present == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.present == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.token.outputs.present == 'true'
+        run: npm ci
+      - if: steps.token.outputs.present == 'true'
+        run: npm run build
+      - name: Live E2E (writes to the test store)
+        if: steps.token.outputs.present == 'true'
+        env:
+          YANDEX_KIT_TOKEN: ${{ secrets.YANDEX_KIT_TOKEN }}
+          YANDEX_KIT_E2E_WRITE: "1"
+        run: npm run e2e -w packages/mcp
