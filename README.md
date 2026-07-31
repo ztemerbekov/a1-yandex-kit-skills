@@ -83,7 +83,7 @@
 
    > Как дела в магазине?
 
-Готовые профили есть для Claude Code, Claude Desktop, Cursor, OpenAI Codex, Kimi Code, Kimi Desktop, Hermes Agent, OpenClaw и VS Code. Полный сценарий и ручной путь — в [инструкции по установке](docs/INSTALLATION.md).
+Установщик работает с Claude Code, Claude Desktop, Cursor, OpenAI Codex, Hermes Agent, OpenClaw и другими AI-приложениями. Если подключение не завершилось, откройте [подробную инструкцию](docs/INSTALLATION.md): там есть полный список платформ, ручная настройка и способы устранения ошибок.
 
 ## Подробнее о четырёх сценариях
 
