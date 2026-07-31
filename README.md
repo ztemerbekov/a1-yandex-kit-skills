@@ -59,7 +59,7 @@
 
    > Как дела в магазине?
 
-Готовые профили есть для <img src="./assets/icons/claudecode.svg" alt="" width="18">&nbsp;Claude Code, <img src="./assets/icons/claude.svg" alt="" width="18">&nbsp;Claude Desktop, <img src="./assets/icons/cursor.svg" alt="" width="18">&nbsp;Cursor, <img src="./assets/icons/codex.svg" alt="" width="18">&nbsp;OpenAI Codex, <img src="./assets/icons/kimi.svg" alt="" width="18">&nbsp;Kimi Code, <img src="./assets/icons/kimi.svg" alt="" width="18">&nbsp;Kimi Desktop, <img src="./assets/icons/hermesagent.svg" alt="" width="18">&nbsp;Hermes Agent, <img src="./assets/icons/openclaw.svg" alt="" width="18">&nbsp;OpenClaw и VS Code. Полный сценарий и ручной путь — в [инструкции по установке](docs/INSTALLATION.md).
+Готовые профили есть для <img src="./assets/icons/claudecode.svg" alt="" width="18">&nbsp;Claude Code, <img src="./assets/icons/claude.svg" alt="" width="18">&nbsp;Claude Desktop, <img src="./assets/icons/cursor.svg" alt="" width="18">&nbsp;Cursor, <img src="./assets/icons/codex.svg" alt="" width="18">&nbsp;OpenAI Codex, <img src="./assets/icons/kimi.svg" alt="" width="18">&nbsp;Kimi Code, <img src="./assets/icons/kimi.svg" alt="" width="18">&nbsp;Kimi Desktop, <img src="./assets/icons/hermesagent.svg" alt="" width="18">&nbsp;Hermes Agent, <img src="./assets/icons/openclaw.svg" alt="" width="18">&nbsp;OpenClaw и <img src="./assets/icons/vscode.png" alt="" width="18">&nbsp;VS Code. Полный сценарий и ручной путь — в [инструкции по установке](docs/INSTALLATION.md).
 
 ## Подробнее о четырёх сценариях
 
