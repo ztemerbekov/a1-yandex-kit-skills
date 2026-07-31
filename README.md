@@ -85,7 +85,7 @@
 
    > Как дела в магазине?
 
-Готовые профили есть для <img src="./assets/icons/claudecode.svg" alt="Claude Code" width="14">&nbsp;Claude Code, <img src="./assets/icons/claude.svg" alt="Claude Desktop" width="14">&nbsp;Claude Desktop, <img src="./assets/icons/cursor.svg" alt="Cursor" width="14">&nbsp;Cursor, <img src="./assets/icons/codex.svg" alt="OpenAI Codex" width="14">&nbsp;OpenAI Codex, <img src="./assets/icons/kimi.svg" alt="Kimi Code" width="14">&nbsp;Kimi Code, <img src="./assets/icons/kimi.svg" alt="Kimi Desktop" width="14">&nbsp;Kimi Desktop, <img src="./assets/icons/hermesagent.svg" alt="Hermes Agent" width="14">&nbsp;Hermes Agent, <img src="./assets/icons/openclaw.svg" alt="OpenClaw" width="14">&nbsp;OpenClaw и <img src="./assets/icons/vscode.png" alt="VS Code" width="14">&nbsp;VS Code. Полный сценарий и ручной путь — в [инструкции по установке](docs/INSTALLATION.md).
+Готовые профили есть для Claude Code, Claude Desktop, Cursor, OpenAI Codex, Kimi Code, Kimi Desktop, Hermes Agent, OpenClaw и VS Code. Полный сценарий и ручной путь — в [инструкции по установке](docs/INSTALLATION.md).
 
 ## Подробнее о четырёх сценариях
 
