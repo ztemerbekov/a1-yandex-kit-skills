@@ -278,6 +278,28 @@ test("uses a fallback name for an exact project collision without changing eithe
   });
 });
 
+test("treats a malformed project server entry as an occupied name", async () => {
+  await withTempDir(async (tempDir) => {
+    const projectDir = path.join(tempDir, "project");
+    const projectConfig = path.join(projectDir, ".cursor", "mcp.json");
+    await mkdir(path.dirname(projectConfig), { recursive: true });
+    await writeFile(
+      projectConfig,
+      JSON.stringify({ mcpServers: { "yandex-kit": "invalid-entry" } }),
+    );
+
+    const selected = await selectManagedAdapter(
+      resolveAdapter({
+        client: "cursor",
+        configPath: path.join(tempDir, "user", "mcp.json"),
+        projectDir,
+      }),
+    );
+
+    assert.equal(selected.serverName, FALLBACK_SERVER_NAME);
+  });
+});
+
 test("keeps using the managed fallback on later runs", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "mcp.json");
