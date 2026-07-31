@@ -85,7 +85,7 @@
 
 ## Подробнее о четырёх сценариях
 
-<details>
+<details open>
 <summary><strong>Оператор — риски и приоритеты магазина</strong></summary>
 
 <br>
