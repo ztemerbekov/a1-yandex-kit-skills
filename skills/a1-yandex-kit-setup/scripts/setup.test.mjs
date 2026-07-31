@@ -533,6 +533,17 @@ test("dynamic native CLI receives the token in argv without exposing it", async 
   assert.match(failure.stderr, /"code":"NATIVE_CONFIGURE_FAILED"/);
 });
 
+test("skill validates candidate tokens before configuration without a retry limit", async () => {
+  const skill = await readFile(path.join(scriptDir, "..", "SKILL.md"), "utf8");
+  assert.ok(skill.indexOf("smoke-token --token-stdin") < skill.indexOf("## 4."));
+  assert.match(skill, /Do not impose a retry limit\./);
+  assert.doesNotMatch(skill, /replacement token once/);
+  assert.match(
+    skill,
+    /Принято! Оставляем действующий токен Яндекс KIT без изменений\. Всё работает в прежнем режиме\./,
+  );
+});
+
 test("direct smoke performs initialize, tools/list, and read-only get_store", async () => {
   const result = await smokeMcp({
     token: SECRET_ONE,

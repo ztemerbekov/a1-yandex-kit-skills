@@ -68,10 +68,13 @@ When there is no working native add command, pass the verified format and
 absolute config path to `scripts/setup.mjs`. Follow the token and configuration
 rules in steps 3–4 of `SKILL.md`.
 
-After configuration, use the documented client-level test and the helper's
-direct `get_store` smoke test. Use `smoke-token --token-stdin` when the native
-CLI does not expose a supported file adapter. A successful run can be reported
-immediately; the static profile does not need to be updated first.
+Validate the candidate token with `smoke-token --token-stdin` before either
+configuration route, as required by step 3 of `SKILL.md`. After configuration,
+use the documented client-level test. For a file adapter, also run
+`smoke --client` to prove the stored entry. A native CLI without a supported
+file adapter reuses the pre-configuration direct smoke result. A successful run
+can be reported immediately; the static profile does not need to be updated
+first.
 
 ## 4. Produce a technical handoff when automation cannot finish
 

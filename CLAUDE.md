@@ -10,7 +10,7 @@ Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
 npm ci
 npm run typecheck   # builds core first, then checks every workspace
 npm run build       # core + mcp -> dist/
-npm test            # unit tests, no network (currently 309: core 34 + mcp 260 + setup 15)
+npm test            # unit tests, no network (currently 310: core 34 + mcp 260 + setup 16)
 npm run gen         # regenerate registry/types/TOOLS.md/skills (deterministic)
 npm run spec:fetch  # refresh specs/ from Yandex + diff report
 npm run smoke       # live READ-ONLY calls (needs YANDEX_KIT_TOKEN)

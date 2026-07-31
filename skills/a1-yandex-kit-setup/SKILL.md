@@ -68,14 +68,28 @@ without attempting to read its token.
 - When `configured` is true, always ask:
   `Токен Яндекс KIT уже сохранён в настройках. Вы хотите его обновить?`
   - For `нет`, do not configure, normalize or verify anything. Finish with:
-    `Хорошо, текущий токен и настройки Яндекс KIT оставлены без изменений.`
+    `Принято! Оставляем действующий токен Яндекс KIT без изменений. Всё работает в прежнем режиме.`
   - For `да`, ask:
     `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
 
 Accept the token in chat. Do not echo, summarize, quote, log or interpolate it
-into a shell command. Pass a new token only through stdin to `setup.mjs`. This
-step is complete when the run has either one new token or an explicit decision
-to keep the stored token.
+into a shell command. Pass a new token only through stdin to `setup.mjs`.
+
+Before writing any new or replacement token, validate it with the direct
+read-only MCP smoke test:
+
+```bash
+node "<skill-directory>/scripts/setup.mjs" smoke-token --token-stdin --json
+```
+
+If authentication fails, ask for another token with the replacement-token
+prompt and repeat this validation until it succeeds or the user explicitly
+cancels. Do not impose a retry limit. Because configuration has not started,
+cancellation leaves the current client settings unchanged. Treat other smoke
+failures as their own diagnostics instead of asking for a different token.
+
+This step is complete when one candidate token has passed `get_store`. The
+explicit `нет` branch above finishes the skill without reaching this point.
 
 ## 4. Configure the user-level client
 
@@ -130,20 +144,15 @@ Treat `structural` as the expected client check for GUI clients without a
 non-interactive MCP diagnostic. For a dynamic adapter, run the client-level
 verification established from its official documentation.
 
-Then run:
+For a file adapter, then run:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" smoke --client <client> --json
 ```
 
 Repeat the verified `--format` and `--config` flags for a dynamic adapter.
-After native CLI configuration without a supported file adapter, pass the same
-token through stdin:
-
-```bash
-node "<skill-directory>/scripts/setup.mjs" smoke-token --token-stdin --json
-```
-
+For a native CLI without a supported file adapter, use the successful direct
+smoke from step 3 and do not run the file-based `smoke --client` command.
 The smoke test must complete the MCP initialize handshake, list tools, find
 `get_store`, and call only `get_store`. It must not call any write tool.
 
@@ -163,12 +172,13 @@ node "<skill-directory>/scripts/setup.mjs" rollback --config <configPath> --crea
 ```
 
 If the hash check refuses rollback, preserve the newer config and report its
-path. If authentication fails, ask for a replacement token once. If the config
-is malformed, do not repair it; try the documented native CLI before using the
-technical handoff.
+path. If a post-write check reports authentication failure, roll back this run's
+file change when one exists, then return to the unlimited token-validation loop
+in step 3. If the config is malformed, do not repair it; try the documented
+native CLI before using the technical handoff.
 
-This step is complete only when both the client check and the direct MCP smoke
-test pass.
+This step is complete only when the client check passes and the direct MCP
+smoke test has passed during this run.
 
 ## 6. Finish simply
 
