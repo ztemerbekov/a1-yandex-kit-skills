@@ -55,6 +55,7 @@ test("every config format has the common inspect and merge interface", () => {
   assert.deepEqual([...CONFIG_FORMATS.keys()], [
     "mcp-json",
     "vscode-json",
+    "daimon-json",
     "openclaw-json",
     "codex-toml",
     "hermes-yaml",
@@ -85,6 +86,7 @@ test("one client registry owns aliases, formats, paths, and client checks", () =
       ["codex", "codex-toml"],
       ["vscode", "vscode-json"],
       ["kimi", "mcp-json"],
+      ["kimi-desktop", "daimon-json"],
       ["hermes", "hermes-yaml"],
       ["openclaw", "openclaw-json"],
     ],
@@ -105,6 +107,7 @@ test("one client registry owns aliases, formats, paths, and client checks", () =
     codex: "codex",
     vscode: null,
     kimi: "kimi",
+    "kimi-desktop": null,
     hermes: null,
     openclaw: "openclaw",
   });

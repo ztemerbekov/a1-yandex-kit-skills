@@ -23,6 +23,15 @@ export const CONFIG_FORMATS = new Map([
     },
   ],
   [
+    "daimon-json",
+    {
+      inspect: (content, configPath, serverName) =>
+        inspectJson(content, "daimon-json", configPath, serverName),
+      merge: (content, token, configPath, serverName) =>
+        mergeJson(content, "daimon-json", token, configPath, serverName),
+    },
+  ],
+  [
     "openclaw-json",
     {
       inspect: (content, configPath, serverName) =>

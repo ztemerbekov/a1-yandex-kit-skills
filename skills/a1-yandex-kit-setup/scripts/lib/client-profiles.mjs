@@ -84,6 +84,19 @@ export const CLIENT_PROFILES = [
     },
   },
   {
+    id: "kimi-desktop",
+    aliases: ["kimi-desktop", "kimi-work"],
+    format: "daimon-json",
+    platforms: ["darwin", "win32"],
+    configPath: ({ configDir, env }) =>
+      path.join(
+        env.KIMI_DESKTOP_USER_DATA || path.join(configDir, "Kimi"),
+        "daimon-share",
+        "daimon",
+        "config.json",
+      ),
+  },
+  {
     id: "hermes",
     aliases: ["hermes", "hermes-agent"],
     format: "hermes-yaml",
@@ -149,6 +162,12 @@ export function defaultConfigPath(
     throw new SetupError(
       `No tested config path for client "${client}". Pass --format and --config.`,
       "UNKNOWN_CLIENT",
+    );
+  }
+  if (profile.platforms && !profile.platforms.includes(platform)) {
+    throw new SetupError(
+      `Client "${profile.id}" is not supported on platform "${platform}".`,
+      "UNSUPPORTED_PLATFORM",
     );
   }
   return profile.configPath({
