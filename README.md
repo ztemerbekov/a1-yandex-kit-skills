@@ -2,15 +2,15 @@
 
 **Вариант: 2 px**
 
-# Управляйте <img src="./assets/yandex-kit/partner-logo-01-offset-2.svg" alt="Яндекс KIT" height="24"> с помощью AI-ассистента
+# Управляйте <img src="./assets/yandex-kit/partner-logo-01.svg" alt="Яндекс KIT" height="24" style="vertical-align: -2px"> с помощью AI-ассистента
 
 **Вариант: 4 px**
 
-# Управляйте <img src="./assets/yandex-kit/partner-logo-01-offset-4.svg" alt="Яндекс KIT" height="24"> с помощью AI-ассистента
+# Управляйте <img src="./assets/yandex-kit/partner-logo-01.svg" alt="Яндекс KIT" height="24" style="vertical-align: -4px"> с помощью AI-ассистента
 
 **Вариант: 6 px**
 
-# Управляйте <img src="./assets/yandex-kit/partner-logo-01-offset-6.svg" alt="Яндекс KIT" height="24"> с помощью AI-ассистента
+# Управляйте <img src="./assets/yandex-kit/partner-logo-01.svg" alt="Яндекс KIT" height="24" style="vertical-align: -6px"> с помощью AI-ассистента
 
 <img src="./assets/logos/a1-logo-warm.svg" alt="A1" width="22">&nbsp;**Yandex KIT Skills** подключает магазин к привычному AI-приложению. Вы ставите задачу обычными словами, а ассистент читает фактические данные магазина и берёт рутинную работу на себя — не просто даёт общие советы.
 
