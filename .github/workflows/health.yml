@@ -31,8 +31,8 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -95,9 +95,9 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "YANDEX_KIT_TOKEN secret is not set - skipping the live smoke check."
           fi
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         if: steps.token.outputs.present == 'true'
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         if: steps.token.outputs.present == 'true'
         with:
           node-version: 22
