@@ -16,6 +16,7 @@ import os from "node:os";
 import path from "node:path";
 
 export const SERVER_NAME = "yandex-kit";
+export const FALLBACK_SERVER_NAME = "a1-yandex-kit-global";
 export const TOKEN_KEY = "YANDEX_KIT_TOKEN";
 export const SERVER_COMMAND = "npx";
 export const SERVER_ARGS = ["-y", "mcp-yandex-kit@latest"];
@@ -78,6 +79,17 @@ export function normalizeClient(client) {
   return CLIENT_ALIASES.get(normalized) ?? normalized;
 }
 
+function normalizeServerName(serverName = SERVER_NAME) {
+  const normalized = String(serverName || "").trim();
+  if (![SERVER_NAME, FALLBACK_SERVER_NAME].includes(normalized)) {
+    throw new SetupError(
+      `Unsupported managed server name "${normalized}".`,
+      "INVALID_SERVER_NAME",
+    );
+  }
+  return normalized;
+}
+
 function platformConfigDir(platform, home, env) {
   if (platform === "win32") {
     return env.APPDATA || path.join(home, "AppData", "Roaming");
@@ -134,6 +146,8 @@ export function resolveAdapter({
   platform,
   home,
   env,
+  serverName,
+  projectDir,
 }) {
   const id = normalizeClient(client);
   const resolvedFormat = format || PROFILE_FORMATS[id];
@@ -147,7 +161,13 @@ export function resolveAdapter({
   const resolvedPath = configPath
     ? path.resolve(configPath)
     : defaultConfigPath(id, { platform, home, env });
-  return { client: id, format: resolvedFormat, configPath: resolvedPath };
+  return {
+    client: id,
+    format: resolvedFormat,
+    configPath: resolvedPath,
+    serverName: normalizeServerName(serverName),
+    projectDir: path.resolve(projectDir || process.cwd()),
+  };
 }
 
 async function fileExists(filePath) {
@@ -198,29 +218,34 @@ function objectAt(root, keys, create = false) {
   return current;
 }
 
-function jsonEntry(config, format, create = false) {
+function jsonEntry(config, format, create = false, serverName = SERVER_NAME) {
   const servers = objectAt(config, JSON_ROOTS[format], create);
   if (!servers) return undefined;
-  const existing = servers[SERVER_NAME];
+  const existing = servers[serverName];
   if (existing === undefined && create) {
-    servers[SERVER_NAME] = {};
+    servers[serverName] = {};
   } else if (
     existing !== undefined &&
     (!existing || typeof existing !== "object" || Array.isArray(existing))
   ) {
     throw new SetupError(
-      `The "${SERVER_NAME}" entry is not an object.`,
+      `The "${serverName}" entry is not an object.`,
       "MALFORMED_CONFIG",
     );
   }
-  return servers[SERVER_NAME];
+  return servers[serverName];
 }
 
-export function inspectJson(content, format, configPath = "<config>") {
+export function inspectJson(
+  content,
+  format,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
   const config = parseJsonConfig(content, configPath);
   let entry;
   try {
-    entry = jsonEntry(config, format, false);
+    entry = jsonEntry(config, format, false, serverName);
   } catch (error) {
     if (
       error instanceof SetupError &&
@@ -260,9 +285,15 @@ export function inspectJson(content, format, configPath = "<config>") {
   };
 }
 
-export function mergeJson(content, format, token, configPath = "<config>") {
+export function mergeJson(
+  content,
+  format,
+  token,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
   const config = parseJsonConfig(content, configPath);
-  const entry = jsonEntry(config, format, true);
+  const entry = jsonEntry(config, format, true, serverName);
   const env =
     entry.env === undefined
       ? {}
@@ -270,7 +301,7 @@ export function mergeJson(content, format, token, configPath = "<config>") {
         ? entry.env
         : (() => {
             throw new SetupError(
-              `The "${SERVER_NAME}.env" entry is not an object.`,
+              `The "${serverName}.env" entry is not an object.`,
               "MALFORMED_CONFIG",
             );
           })();
@@ -621,16 +652,20 @@ function parseTomlArgs(value) {
   }
 }
 
-export function inspectToml(content, configPath = "<config>") {
+export function inspectToml(
+  content,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
   const chunks = validateTomlSubset(content, configPath);
   const server = uniqueTomlChunk(
     chunks,
-    `mcp_servers.${SERVER_NAME}`,
+    `mcp_servers.${serverName}`,
     configPath,
   );
   const env = uniqueTomlChunk(
     chunks,
-    `mcp_servers.${SERVER_NAME}.env`,
+    `mcp_servers.${serverName}.env`,
     configPath,
   );
   if (!server) {
@@ -671,23 +706,28 @@ function renderToml(chunks) {
   return `${lines.join("\n")}\n`;
 }
 
-export function mergeToml(content, token, configPath = "<config>") {
+export function mergeToml(
+  content,
+  token,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
   const chunks = validateTomlSubset(content, configPath);
   let server = uniqueTomlChunk(
     chunks,
-    `mcp_servers.${SERVER_NAME}`,
+    `mcp_servers.${serverName}`,
     configPath,
   );
   let env = uniqueTomlChunk(
     chunks,
-    `mcp_servers.${SERVER_NAME}.env`,
+    `mcp_servers.${serverName}.env`,
     configPath,
   );
 
   if (!server) {
     server = {
-      header: `[mcp_servers.${SERVER_NAME}]`,
-      name: `mcp_servers.${SERVER_NAME}`,
+      header: `[mcp_servers.${serverName}]`,
+      name: `mcp_servers.${serverName}`,
       array: false,
       body: [],
     };
@@ -695,8 +735,8 @@ export function mergeToml(content, token, configPath = "<config>") {
   }
   if (!env) {
     env = {
-      header: `[mcp_servers.${SERVER_NAME}.env]`,
-      name: `mcp_servers.${SERVER_NAME}.env`,
+      header: `[mcp_servers.${serverName}.env]`,
+      name: `mcp_servers.${serverName}.env`,
       array: false,
       body: [],
     };
@@ -889,7 +929,7 @@ function validateYamlSubset(content, configPath) {
   }
 }
 
-function locateYaml(content, configPath) {
+function locateYaml(content, configPath, serverName = SERVER_NAME) {
   validateYamlSubset(content, configPath);
   const lines = content.split(/\r?\n/);
   const roots = [];
@@ -915,13 +955,17 @@ function locateYaml(content, configPath) {
   }
 
   const targets = [];
+  const escapedServerName = serverName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const serverPattern = new RegExp(
+    `^(\\s+)${escapedServerName}:\\s*(?:#.*)?$`,
+  );
   for (let index = rootStart + 1; index < rootEnd; index += 1) {
-    const match = lines[index].match(/^(\s+)yandex-kit:\s*(?:#.*)?$/);
+    const match = lines[index].match(serverPattern);
     if (match) targets.push({ index, indent: match[1].length });
   }
   if (targets.length > 1) {
     throw new SetupError(
-      `Cannot safely update duplicate YAML server ${SERVER_NAME} at ${configPath}.`,
+      `Cannot safely update duplicate YAML server ${serverName} at ${configPath}.`,
       "MALFORMED_CONFIG",
     );
   }
@@ -986,8 +1030,12 @@ function removeYamlFields(block, keys, fieldIndent) {
   return output;
 }
 
-export function inspectYaml(content, configPath = "<config>") {
-  const located = locateYaml(content, configPath);
+export function inspectYaml(
+  content,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
+  const located = locateYaml(content, configPath, serverName);
   if (located.targetStart === undefined || located.targetStart < 0) {
     return {
       entryPresent: false,
@@ -1031,13 +1079,18 @@ export function inspectYaml(content, configPath = "<config>") {
   };
 }
 
-export function mergeYaml(content, token, configPath = "<config>") {
-  const located = locateYaml(content, configPath);
+export function mergeYaml(
+  content,
+  token,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
+  const located = locateYaml(content, configPath, serverName);
   const tokenLine = `${TOKEN_KEY}: ${JSON.stringify(token)}`;
   if (located.rootStart < 0) {
     const prefix = content.trimEnd();
     return `${prefix}${prefix ? "\n\n" : ""}mcp_servers:\n` +
-      `  ${SERVER_NAME}:\n` +
+      `  ${serverName}:\n` +
       `    command: ${JSON.stringify(SERVER_COMMAND)}\n` +
       `    args: ${JSON.stringify(SERVER_ARGS)}\n` +
       `    env:\n` +
@@ -1046,7 +1099,7 @@ export function mergeYaml(content, token, configPath = "<config>") {
 
   if (located.targetStart < 0) {
     const insert = [
-      `  ${SERVER_NAME}:`,
+      `  ${serverName}:`,
       `    command: ${JSON.stringify(SERVER_COMMAND)}`,
       `    args: ${JSON.stringify(SERVER_ARGS)}`,
       "    env:",
@@ -1096,32 +1149,52 @@ export function mergeYaml(content, token, configPath = "<config>") {
   return `${lines.join("\n")}\n`;
 }
 
-function inspectContent(content, format, configPath) {
+function inspectContent(content, format, configPath, serverName = SERVER_NAME) {
   if (Object.hasOwn(JSON_ROOTS, format)) {
-    return inspectJson(content, format, configPath);
+    return inspectJson(content, format, configPath, serverName);
   }
-  if (format === "codex-toml") return inspectToml(content, configPath);
-  if (format === "hermes-yaml") return inspectYaml(content, configPath);
+  if (format === "codex-toml") {
+    return inspectToml(content, configPath, serverName);
+  }
+  if (format === "hermes-yaml") {
+    return inspectYaml(content, configPath, serverName);
+  }
   throw new SetupError(`Unsupported capability "${format}".`, "UNSUPPORTED_FORMAT");
 }
 
-function mergeContent(content, format, token, configPath) {
+function mergeContent(
+  content,
+  format,
+  token,
+  configPath,
+  serverName = SERVER_NAME,
+) {
   if (Object.hasOwn(JSON_ROOTS, format)) {
-    return mergeJson(content, format, token, configPath);
+    return mergeJson(content, format, token, configPath, serverName);
   }
-  if (format === "codex-toml") return mergeToml(content, token, configPath);
-  if (format === "hermes-yaml") return mergeYaml(content, token, configPath);
+  if (format === "codex-toml") {
+    return mergeToml(content, token, configPath, serverName);
+  }
+  if (format === "hermes-yaml") {
+    return mergeYaml(content, token, configPath, serverName);
+  }
   throw new SetupError(`Unsupported capability "${format}".`, "UNSUPPORTED_FORMAT");
 }
 
 export async function inspectAdapter(adapter) {
   const exists = await fileExists(adapter.configPath);
   const content = exists ? await readFile(adapter.configPath, "utf8") : "";
-  const state = inspectContent(content, adapter.format, adapter.configPath);
+  const state = inspectContent(
+    content,
+    adapter.format,
+    adapter.configPath,
+    adapter.serverName,
+  );
   return {
     client: adapter.client,
     format: adapter.format,
     configPath: adapter.configPath,
+    serverName: adapter.serverName,
     configExists: exists,
     configured: state.configured,
     entryPresent: state.entryPresent,
@@ -1129,6 +1202,117 @@ export async function inspectAdapter(adapter) {
     tokenPresent: state.tokenPresent,
     token: state.token,
   };
+}
+
+function ancestorDirectories(directory) {
+  const directories = [];
+  let current = path.resolve(directory);
+  while (true) {
+    directories.push(current);
+    const parent = path.dirname(current);
+    if (parent === current) return directories;
+    current = parent;
+  }
+}
+
+function directoryContains(parent, child) {
+  const relative = path.relative(path.resolve(parent), path.resolve(child));
+  return (
+    relative === "" ||
+    relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative)
+  );
+}
+
+async function jsonFileHasServer(configPath, format, serverName) {
+  if (!(await fileExists(configPath))) return false;
+  try {
+    const config = parseJsonConfig(await readFile(configPath, "utf8"), configPath);
+    const servers = objectAt(config, JSON_ROOTS[format], false);
+    return Boolean(servers && Object.hasOwn(servers, serverName));
+  } catch (error) {
+    if (error instanceof SetupError && error.code === "MALFORMED_CONFIG") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function claudeLocalHasServer(adapter, serverName) {
+  if (adapter.client !== "claude-code" ||
+      !(await fileExists(adapter.configPath))) {
+    return false;
+  }
+  try {
+    const config = parseJsonConfig(
+      await readFile(adapter.configPath, "utf8"),
+      adapter.configPath,
+    );
+    if (!config.projects || typeof config.projects !== "object" ||
+        Array.isArray(config.projects)) {
+      return false;
+    }
+    return Object.entries(config.projects).some(([projectPath, project]) =>
+      directoryContains(projectPath, adapter.projectDir) &&
+      project &&
+      typeof project === "object" &&
+      !Array.isArray(project) &&
+      project.mcpServers &&
+      typeof project.mcpServers === "object" &&
+      !Array.isArray(project.mcpServers) &&
+      Object.hasOwn(project.mcpServers, serverName)
+    );
+  } catch (error) {
+    if (error instanceof SetupError && error.code === "MALFORMED_CONFIG") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function projectFileHasServer(adapter, serverName) {
+  const relativeConfig =
+    adapter.client === "claude-code"
+      ? [".mcp.json", "mcp-json"]
+      : adapter.client === "cursor"
+        ? [path.join(".cursor", "mcp.json"), "mcp-json"]
+        : adapter.client === "vscode"
+          ? [path.join(".vscode", "mcp.json"), "vscode-json"]
+          : adapter.client === "kimi"
+            ? [path.join(".kimi-code", "mcp.json"), "mcp-json"]
+          : null;
+  if (!relativeConfig) return false;
+  const [relativePath, format] = relativeConfig;
+  for (const directory of ancestorDirectories(adapter.projectDir)) {
+    const candidate = path.join(directory, relativePath);
+    if (path.resolve(candidate) === path.resolve(adapter.configPath)) continue;
+    if (await jsonFileHasServer(candidate, format, serverName)) return true;
+  }
+  return false;
+}
+
+export async function projectShadowsServer(
+  adapter,
+  serverName = adapter.serverName,
+) {
+  return (
+    await claudeLocalHasServer(adapter, serverName) ||
+    await projectFileHasServer(adapter, serverName)
+  );
+}
+
+export async function selectManagedAdapter(adapter) {
+  if (adapter.serverName !== SERVER_NAME) return adapter;
+
+  const fallback = { ...adapter, serverName: FALLBACK_SERVER_NAME };
+  const fallbackState = await inspectAdapter(fallback);
+  if (fallbackState.canonical) return fallback;
+
+  if (await projectShadowsServer(adapter, SERVER_NAME)) {
+    return fallback;
+  }
+  return adapter;
 }
 
 async function transactionalWrite(configPath, content, verify) {
@@ -1191,6 +1375,7 @@ export async function configureAdapter(adapter, { token }) {
     adapter.format,
     token,
     adapter.configPath,
+    adapter.serverName,
   );
   const write = await transactionalWrite(
     adapter.configPath,
@@ -1200,6 +1385,7 @@ export async function configureAdapter(adapter, { token }) {
         written,
         adapter.format,
         adapter.configPath,
+        adapter.serverName,
       );
       if (!verified.canonical || verified.token !== token) {
         throw new SetupError(
@@ -1213,6 +1399,7 @@ export async function configureAdapter(adapter, { token }) {
     client: adapter.client,
     format: adapter.format,
     configPath: adapter.configPath,
+    serverName: adapter.serverName,
     configured: true,
     tokenPresent: true,
     changed: write.changed,
@@ -1403,9 +1590,11 @@ export async function configureNative({
   command,
   argsTemplate,
   token,
+  serverName = SERVER_NAME,
   timeoutMs = 60_000,
   run = spawnCaptured,
 }) {
+  const managedName = normalizeServerName(serverName);
   if (
     typeof command !== "string" ||
     !command.trim() ||
@@ -1460,7 +1649,7 @@ export async function configureNative({
       token,
     ).slice(-2_000);
     throw new SetupError(
-      `${command} could not configure ${SERVER_NAME}${
+      `${command} could not configure ${managedName}${
         diagnostic ? `: ${diagnostic}` : "."
       }`,
       "NATIVE_CONFIGURE_FAILED",
@@ -1470,41 +1659,68 @@ export async function configureNative({
     configured: true,
     mode: "native-cli",
     command,
+    serverName: managedName,
   };
 }
 
-const CLIENT_CHECKS = {
-  "claude-code": { command: "claude", args: ["mcp", "list"], optional: false },
-  cursor: { command: "cursor-agent", args: ["mcp", "list"], optional: true },
-  codex: { command: "codex", args: ["mcp", "list", "--json"], optional: false },
-  openclaw: {
-    command: "openclaw",
-    args: ["mcp", "doctor", SERVER_NAME, "--probe"],
-    optional: false,
-  },
-};
+function clientCheckDefinition(client, serverName) {
+  const checks = {
+    "claude-code": {
+      command: "claude",
+      args: ["mcp", "get", serverName],
+      optional: false,
+    },
+    cursor: {
+      command: "cursor-agent",
+      args: ["mcp", "list"],
+      optional: true,
+    },
+    codex: {
+      command: "codex",
+      args: ["mcp", "list", "--json"],
+      optional: false,
+    },
+    kimi: {
+      command: "kimi",
+      args: ["mcp", "test", serverName],
+      optional: true,
+      targeted: true,
+    },
+    openclaw: {
+      command: "openclaw",
+      args: ["mcp", "doctor", serverName, "--probe"],
+      optional: false,
+      targeted: true,
+    },
+  };
+  return checks[client];
+}
 
-export async function clientCheck(adapter) {
+export async function clientCheck(adapter, { run = spawnCaptured } = {}) {
   const state = await inspectAdapter(adapter);
+  const serverName = adapter.serverName;
   if (!state.canonical) {
     throw new SetupError(
-      `The ${SERVER_NAME} entry is not canonical in ${adapter.configPath}.`,
+      `The ${serverName} entry is not canonical in ${adapter.configPath}.`,
       "CLIENT_CHECK",
     );
   }
-  const check = CLIENT_CHECKS[adapter.client];
+  const check = clientCheckDefinition(adapter.client, serverName);
   if (!check) {
     return {
       ok: true,
       mode: "structural",
       client: adapter.client,
       configPath: adapter.configPath,
+      serverName,
     };
   }
-  const result = await spawnCaptured(check.command, check.args, {
+  const result = await run(check.command, check.args, {
     env:
       adapter.client === "codex"
         ? { ...process.env, CODEX_HOME: path.dirname(adapter.configPath) }
+        : adapter.client === "kimi"
+          ? { ...process.env, KIMI_CODE_HOME: path.dirname(adapter.configPath) }
         : process.env,
     secret: state.token,
     timeoutMs: 60_000,
@@ -1515,6 +1731,7 @@ export async function clientCheck(adapter) {
       mode: "structural",
       client: adapter.client,
       configPath: adapter.configPath,
+      serverName,
     };
   }
   if (!result.available) {
@@ -1529,24 +1746,35 @@ export async function clientCheck(adapter) {
       "CLIENT_CHECK",
     );
   }
-  if (!`${result.stdout}\n${result.stderr}`.includes(SERVER_NAME)) {
+  const output = `${result.stdout}\n${result.stderr}`;
+  if (!check.targeted && !output.includes(serverName)) {
     throw new SetupError(
-      `${check.command} did not find the ${SERVER_NAME} server.`,
+      `${check.command} did not find the ${serverName} server.`,
       "CLIENT_CHECK",
+    );
+  }
+  if (
+    adapter.client === "claude-code" &&
+    (!output.includes(SERVER_COMMAND) ||
+      !output.includes(SERVER_ARGS.at(-1)))
+  ) {
+    throw new SetupError(
+      `Claude Code is using a different ${serverName} definition.`,
+      "SERVER_SHADOWED",
     );
   }
   if (adapter.client === "codex") {
     try {
       const servers = JSON.parse(result.stdout);
       const server = Array.isArray(servers)
-        ? servers.find((item) => item?.name === SERVER_NAME)
+        ? servers.find((item) => item?.name === serverName)
         : undefined;
       if (!server || server.enabled === false) {
         throw new Error("server missing or disabled");
       }
     } catch {
       throw new SetupError(
-        `Codex did not report an enabled ${SERVER_NAME} server.`,
+        `Codex did not report an enabled ${serverName} server.`,
         "CLIENT_CHECK",
       );
     }
@@ -1555,6 +1783,7 @@ export async function clientCheck(adapter) {
     ok: true,
     mode: "native",
     client: adapter.client,
+    serverName,
     command: [check.command, ...check.args].join(" "),
   };
 }

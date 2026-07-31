@@ -1,12 +1,20 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   BACKUP_SUFFIX,
+  FALLBACK_SERVER_NAME,
   TOKEN_PLACEHOLDER,
   SetupError,
   assertNode20,
@@ -15,6 +23,7 @@ import {
   clientCheck,
   configureAdapter,
   defaultConfigPath,
+  inspectAdapter,
   inspectJson,
   inspectToml,
   inspectYaml,
@@ -23,6 +32,7 @@ import {
   mergeYaml,
   resolveAdapter,
   rollbackChange,
+  selectManagedAdapter,
   smokeMcp,
 } from "./setup-lib.mjs";
 
@@ -182,6 +192,228 @@ test("merges every JSON capability and preserves unrelated settings", () => {
     assert.equal(inspected.canonical, true);
     assert.equal(inspected.token, SECRET_ONE);
   }
+});
+
+test("uses the primary name when a project contains only unrelated MCP servers", async () => {
+  await withTempDir(async (tempDir) => {
+    const projectDir = path.join(tempDir, "project");
+    const projectConfig = path.join(projectDir, ".cursor", "mcp.json");
+    const userConfig = path.join(tempDir, "user", "mcp.json");
+    await mkdir(path.dirname(projectConfig), { recursive: true });
+    await writeFile(
+      projectConfig,
+      JSON.stringify({
+        mcpServers: {
+          github: { command: "github-mcp", args: ["serve"] },
+          playwright: { command: "playwright-mcp" },
+        },
+      }),
+    );
+
+    const adapter = resolveAdapter({
+      client: "cursor",
+      configPath: userConfig,
+      projectDir,
+    });
+    const selected = await selectManagedAdapter(adapter);
+    assert.equal(selected.serverName, "yandex-kit");
+  });
+});
+
+test("uses a fallback name for an exact project collision without changing either project server", async () => {
+  await withTempDir(async (tempDir) => {
+    const projectDir = path.join(tempDir, "project");
+    const projectConfig = path.join(projectDir, ".cursor", "mcp.json");
+    const userConfig = path.join(tempDir, "user", "mcp.json");
+    const projectState = {
+      mcpServers: {
+        github: { command: "github-mcp", args: ["serve"] },
+        "yandex-kit": {
+          command: "project-owned-command",
+          env: { PROJECT_ONLY: "kept" },
+        },
+      },
+    };
+    const userState = {
+      theme: "dark",
+      mcpServers: {
+        slack: { command: "slack-mcp", env: { TEAM: "kept" } },
+      },
+    };
+    await mkdir(path.dirname(projectConfig), { recursive: true });
+    await mkdir(path.dirname(userConfig), { recursive: true });
+    await writeFile(projectConfig, JSON.stringify(projectState, null, 2));
+    await writeFile(userConfig, JSON.stringify(userState, null, 2));
+
+    const adapter = resolveAdapter({
+      client: "cursor",
+      configPath: userConfig,
+      projectDir,
+    });
+    const selected = await selectManagedAdapter(adapter);
+    assert.equal(selected.serverName, FALLBACK_SERVER_NAME);
+    await configureAdapter(selected, { token: SECRET_ONE });
+
+    assert.deepEqual(
+      JSON.parse(await readFile(projectConfig, "utf8")),
+      projectState,
+    );
+    const configured = JSON.parse(await readFile(userConfig, "utf8"));
+    assert.deepEqual(configured.mcpServers.slack, userState.mcpServers.slack);
+    assert.equal(configured.theme, "dark");
+    assert.equal(configured.mcpServers["yandex-kit"], undefined);
+    assert.equal(
+      configured.mcpServers[FALLBACK_SERVER_NAME].env.YANDEX_KIT_TOKEN,
+      SECRET_ONE,
+    );
+    assert.equal(
+      inspectJson(
+        JSON.stringify(configured),
+        "mcp-json",
+        userConfig,
+        FALLBACK_SERVER_NAME,
+      ).canonical,
+      true,
+    );
+  });
+});
+
+test("keeps using the managed fallback on later runs", async () => {
+  await withTempDir(async (tempDir) => {
+    const configPath = path.join(tempDir, "mcp.json");
+    const adapter = resolveAdapter({
+      client: "cursor",
+      configPath,
+      projectDir: tempDir,
+      serverName: FALLBACK_SERVER_NAME,
+    });
+    await configureAdapter(adapter, { token: SECRET_ONE });
+
+    const selected = await selectManagedAdapter(
+      resolveAdapter({
+        client: "cursor",
+        configPath,
+        projectDir: tempDir,
+      }),
+    );
+    assert.equal(selected.serverName, FALLBACK_SERVER_NAME);
+    assert.equal((await inspectAdapter(selected)).configured, true);
+  });
+});
+
+test("detects a Claude local-scope collision stored in the user config", async () => {
+  await withTempDir(async (tempDir) => {
+    const projectDir = path.join(tempDir, "project");
+    const configPath = path.join(tempDir, ".claude.json");
+    const localServer = {
+      command: "project-owned-command",
+      env: { PROJECT_ONLY: "kept" },
+    };
+    await mkdir(projectDir, { recursive: true });
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        mcpServers: {
+          github: { command: "github-mcp" },
+        },
+        projects: {
+          [projectDir]: {
+            mcpServers: {
+              "yandex-kit": localServer,
+              playwright: { command: "playwright-mcp" },
+            },
+          },
+        },
+      }),
+    );
+
+    const selected = await selectManagedAdapter(
+      resolveAdapter({
+        client: "claude-code",
+        configPath,
+        projectDir,
+      }),
+    );
+    assert.equal(selected.serverName, FALLBACK_SERVER_NAME);
+    await configureAdapter(selected, { token: SECRET_ONE });
+
+    const configured = JSON.parse(await readFile(configPath, "utf8"));
+    assert.deepEqual(
+      configured.projects[projectDir].mcpServers["yandex-kit"],
+      localServer,
+    );
+    assert.deepEqual(
+      configured.projects[projectDir].mcpServers.playwright,
+      { command: "playwright-mcp" },
+    );
+    assert.deepEqual(configured.mcpServers.github, { command: "github-mcp" });
+  });
+});
+
+test("detects Kimi's documented project-level override", async () => {
+  await withTempDir(async (tempDir) => {
+    const projectDir = path.join(tempDir, "project");
+    const projectConfig = path.join(projectDir, ".kimi-code", "mcp.json");
+    const userConfig = path.join(tempDir, "user", "mcp.json");
+    await mkdir(path.dirname(projectConfig), { recursive: true });
+    await writeFile(
+      projectConfig,
+      JSON.stringify({
+        mcpServers: {
+          "yandex-kit": { command: "project-owned-command" },
+          github: { command: "github-mcp" },
+        },
+      }),
+    );
+
+    const selected = await selectManagedAdapter(
+      resolveAdapter({
+        client: "kimi",
+        configPath: userConfig,
+        projectDir,
+      }),
+    );
+    assert.equal(selected.serverName, FALLBACK_SERVER_NAME);
+  });
+});
+
+test("supports the fallback name in JSON, TOML, and YAML without touching other servers", () => {
+  const json = mergeJson(
+    '{"mcpServers":{"other":{"command":"other"}}}',
+    "mcp-json",
+    SECRET_ONE,
+    "<json>",
+    FALLBACK_SERVER_NAME,
+  );
+  assert.deepEqual(JSON.parse(json).mcpServers.other, { command: "other" });
+  assert.equal(
+    inspectJson(json, "mcp-json", "<json>", FALLBACK_SERVER_NAME).canonical,
+    true,
+  );
+
+  const toml = mergeToml(
+    '[mcp_servers.other]\ncommand = "other"\n',
+    SECRET_ONE,
+    "<toml>",
+    FALLBACK_SERVER_NAME,
+  );
+  assert.match(toml, /\[mcp_servers\.other\]/);
+  assert.equal(
+    inspectToml(toml, "<toml>", FALLBACK_SERVER_NAME).canonical,
+    true,
+  );
+
+  const yaml = mergeYaml(
+    'mcp_servers:\n  other:\n    command: "other"\n',
+    SECRET_ONE,
+    "<yaml>",
+    FALLBACK_SERVER_NAME,
+  );
+  assert.match(yaml, /  other:/);
+  assert.equal(
+    inspectYaml(yaml, "<yaml>", FALLBACK_SERVER_NAME).canonical,
+    true,
+  );
 });
 
 test("merges Codex TOML and preserves unrelated tables and server options", () => {
@@ -422,6 +654,101 @@ test("Kimi and Hermes use a structural client check plus direct smoke", async ()
   });
 });
 
+test("Claude client check verifies the effective server definition, not only its name", async () => {
+  await withTempDir(async (tempDir) => {
+    const configPath = path.join(tempDir, ".claude.json");
+    const adapter = resolveAdapter({
+      client: "claude-code",
+      configPath,
+      projectDir: tempDir,
+      serverName: FALLBACK_SERVER_NAME,
+    });
+    await configureAdapter(adapter, { token: SECRET_ONE });
+
+    const calls = [];
+    const result = await clientCheck(adapter, {
+      run: async (command, args) => {
+        calls.push([command, args]);
+        return {
+          available: true,
+          code: 0,
+          stdout: [
+            `Name: ${FALLBACK_SERVER_NAME}`,
+            "Command: npx",
+            "Args: -y mcp-yandex-kit@latest",
+          ].join("\n"),
+          stderr: "",
+        };
+      },
+    });
+    assert.deepEqual(calls, [
+      ["claude", ["mcp", "get", FALLBACK_SERVER_NAME]],
+    ]);
+    assert.equal(result.serverName, FALLBACK_SERVER_NAME);
+
+    await assert.rejects(
+      clientCheck(adapter, {
+        run: async () => ({
+          available: true,
+          code: 0,
+          stdout: [
+            `Name: ${FALLBACK_SERVER_NAME}`,
+            "Command: another-command",
+          ].join("\n"),
+          stderr: "",
+        }),
+      }),
+      (error) =>
+        error instanceof SetupError && error.code === "SERVER_SHADOWED",
+    );
+  });
+});
+
+test("CLI automatically configures the fallback on an exact project collision", async () => {
+  await withTempDir(async (tempDir) => {
+    const projectDir = path.join(tempDir, "project");
+    const projectConfig = path.join(projectDir, ".vscode", "mcp.json");
+    const userConfig = path.join(tempDir, "user", "mcp.json");
+    await mkdir(path.dirname(projectConfig), { recursive: true });
+    await writeFile(
+      projectConfig,
+      JSON.stringify({
+        servers: {
+          "yandex-kit": { command: "project-owned-command" },
+          github: { command: "github-mcp" },
+        },
+      }),
+    );
+
+    const result = await runCli(
+      [
+        "configure",
+        "--client",
+        "vscode",
+        "--config",
+        userConfig,
+        "--project-dir",
+        projectDir,
+        "--token-stdin",
+        "--json",
+      ],
+      `${SECRET_ONE}\n`,
+    );
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).serverName, FALLBACK_SERVER_NAME);
+    const user = JSON.parse(await readFile(userConfig, "utf8"));
+    assert.equal(user.servers["yandex-kit"], undefined);
+    assert.equal(
+      user.servers[FALLBACK_SERVER_NAME].env.YANDEX_KIT_TOKEN,
+      SECRET_ONE,
+    );
+    assert.deepEqual(
+      JSON.parse(await readFile(projectConfig, "utf8")).servers.github,
+      { command: "github-mcp" },
+    );
+  });
+});
+
 test("CLI receives token through stdin and never prints it", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "mcp.json");
@@ -495,6 +822,8 @@ test("dynamic native CLI receives the token in argv without exposing it", async 
       "--args-json",
       JSON.stringify(successArgs),
       "--token-stdin",
+      "--server-name",
+      FALLBACK_SERVER_NAME,
       "--json",
     ],
     `${SECRET_ONE}\n`,
@@ -506,6 +835,7 @@ test("dynamic native CLI receives the token in argv without exposing it", async 
     configured: true,
     mode: "native-cli",
     command: process.execPath,
+    serverName: FALLBACK_SERVER_NAME,
   });
 
   const failureArgs = [

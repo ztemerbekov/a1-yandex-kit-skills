@@ -12,6 +12,7 @@ import {
   inspectAdapter,
   resolveAdapter,
   rollbackChange,
+  selectManagedAdapter,
   smokeAdapter,
   smokeMcp,
 } from "./setup-lib.mjs";
@@ -47,6 +48,8 @@ function adapterFrom(options) {
     client: options.client,
     format: options.format,
     configPath: options.config,
+    serverName: options["server-name"],
+    projectDir: options["project-dir"],
   });
 }
 
@@ -88,11 +91,11 @@ function usage() {
   return [
     "Usage:",
     "  setup.mjs preflight [--json]",
-    "  setup.mjs status --client <id> [--format <capability> --config <path>] [--json]",
-    "  setup.mjs configure --client <id> --token-stdin [--format <capability> --config <path>] [--json]",
-    "  setup.mjs native-configure --command <executable> --args-json <json-array-with-{{YANDEX_KIT_TOKEN}}> --token-stdin [--json]",
-    "  setup.mjs client-check --client <id> [--format <capability> --config <path>] [--json]",
-    "  setup.mjs smoke --client <id> [--format <capability> --config <path>] [--json]",
+    "  setup.mjs status --client <id> [--format <capability> --config <path> --project-dir <path>] [--json]",
+    "  setup.mjs configure --client <id> --token-stdin [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
+    "  setup.mjs native-configure --command <executable> --args-json <json-array-with-{{YANDEX_KIT_TOKEN}}> --token-stdin [--server-name <name>] [--json]",
+    "  setup.mjs client-check --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
+    "  setup.mjs smoke --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke-token --token-stdin [--json]",
     "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
     "",
@@ -151,6 +154,7 @@ export async function main(argv = process.argv.slice(2)) {
         command: options.command,
         argsTemplate,
         token,
+        serverName: options["server-name"],
       }),
       options.json,
     );
@@ -170,7 +174,7 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  const adapter = adapterFrom(options);
+  const adapter = await selectManagedAdapter(adapterFrom(options));
   if (command === "status") {
     const prerequisites = await checkPrerequisites();
     const state = publicStatus(await inspectAdapter(adapter));

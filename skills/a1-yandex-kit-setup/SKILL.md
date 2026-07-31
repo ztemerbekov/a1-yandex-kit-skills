@@ -36,6 +36,12 @@ system and stop. Leave installation to that operating-system installer. For
 another client, run the independent preflight and continue to the compatibility
 ladder in step 2:
 
+For Claude Code, Cursor, VS Code and Kimi Code, `status` also checks whether a
+known project- or local-scope server named `yandex-kit` would override the
+user-level entry. On an exact-name collision it selects the managed fallback
+name `a1-yandex-kit-global`. It ignores every differently named MCP server. A
+previously configured canonical fallback stays selected on later runs.
+
 ```bash
 node "<skill-directory>/scripts/setup.mjs" preflight --json
 ```
@@ -60,8 +66,9 @@ supported by local evidence or current official vendor documentation.
 
 Use the `status` result without reading or displaying the stored token.
 For a native CLI without a supported file adapter, use its documented
-list/show command: treat an existing `yandex-kit` entry as `configured: true`
-without attempting to read its token.
+list/show command: treat an existing managed `yandex-kit` or
+`a1-yandex-kit-global` entry as `configured: true` without attempting to read its
+token.
 
 - When `configured` is false, ask:
   `Для настройки потребуется токен Яндекс KIT. Чтобы его получить, зайдите в кабинет Яндекс KIT: Настройки → API и скопируйте ключ. Вставьте его сюда — я привяжу его к приложению и не буду повторять в ответе. Токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
@@ -119,6 +126,12 @@ In either route, the canonical server is always:
 npx -y mcp-yandex-kit@latest
 ```
 
+Only add or update the selected managed entry. Preserve every differently named
+MCP server and every unrelated client setting. Do not remove, rename, disable or
+rewrite another server. When an exact project/local `yandex-kit` entry shadows
+the user-level name, leave that entry unchanged and configure
+`a1-yandex-kit-global` instead.
+
 Treat skill invocation as the configuration authorization and surface only the
 host application's unavoidable filesystem approval. If an existing config
 cannot be parsed safely, leave it unchanged and return to the compatibility
@@ -143,6 +156,13 @@ node "<skill-directory>/scripts/setup.mjs" client-check --client <client> --json
 Treat `structural` as the expected client check for GUI clients without a
 non-interactive MCP diagnostic. For a dynamic adapter, run the client-level
 verification established from its official documentation.
+
+The client check must verify the effective managed definition, not merely that
+its name appears in a list. If a locally changed client path or precedence rule
+still causes `SERVER_SHADOWED`, configure the same validated token once under
+`a1-yandex-kit-global` by passing
+`--server-name a1-yandex-kit-global` to `configure`, `client-check` and `smoke`.
+Leave the shadowing project entry and all other MCP servers unchanged.
 
 For a file adapter, then run:
 

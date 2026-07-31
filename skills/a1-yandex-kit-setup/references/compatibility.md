@@ -21,6 +21,7 @@ Search only the client's official vendor documentation. Confirm:
 - the stdio server schema or native add command;
 - how environment variables are stored;
 - how to list/test servers;
+- whether project/local entries override user-level entries with the same name;
 - whether a non-interactive reload exists.
 
 Prefer a current native CLI command because it owns its schema. Otherwise map
@@ -62,6 +63,12 @@ terminal. If the corrected native command still fails and the official
 documentation also provides a supported file shape, continue with the file
 adapter below before producing a technical handoff.
 
+If the effective list/show command proves that an existing project/local
+`yandex-kit` entry overrides the user-level entry, leave it and every other
+server unchanged. Repeat the native add command with the managed name
+`a1-yandex-kit-global`, pass `--server-name a1-yandex-kit-global` to
+`native-configure`, then verify that exact effective definition.
+
 ### Documented file format
 
 When there is no working native add command, pass the verified format and
@@ -86,7 +93,7 @@ Give the user one copyable block for a technical specialist containing:
 Client and version: <name/version>
 Operating system: <OS>
 User config path: <absolute path or "not established">
-Required server name: yandex-kit
+Required server name: yandex-kit (or a1-yandex-kit-global after an exact-name collision)
 Required stdio command: npx -y mcp-yandex-kit@latest
 Required environment entry: YANDEX_KIT_TOKEN=<paste the user's token locally>
 Documented config capability: <format or native CLI>
