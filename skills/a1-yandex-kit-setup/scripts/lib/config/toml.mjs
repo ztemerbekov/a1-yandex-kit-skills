@@ -5,8 +5,8 @@ import {
   TOKEN_KEY,
   SetupError,
   configStatus,
+  stripCommentOutsideQuotes,
 } from "../shared.mjs";
-import { stripCommentOutsideQuotes } from "./text.mjs";
 
 function parseTomlDottedKey(name) {
   const rawParts = [];

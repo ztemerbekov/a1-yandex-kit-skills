@@ -32,7 +32,7 @@ export {
   assertNode20,
   buildSpawnInvocation,
   checkPrerequisites,
+  clientCheck,
   configureNative,
 } from "./lib/process.mjs";
-export { clientCheck } from "./lib/client-check.mjs";
 export { smokeAdapter, smokeMcp } from "./lib/smoke.mjs";
