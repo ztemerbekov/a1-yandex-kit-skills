@@ -2,3 +2,5 @@ interface:
   display_name: "A1 Yandex KIT Setup"
   short_description: "Подключает Яндекс KIT к вашему AI-клиенту"
   default_prompt: "Use $a1-yandex-kit-setup to connect Yandex KIT to my current AI client."
+policy:
+  allow_implicit_invocation: false

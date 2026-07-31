@@ -10,6 +10,7 @@ import {
 export const JSON_ROOTS = {
   "mcp-json": ["mcpServers"],
   "vscode-json": ["servers"],
+  "daimon-json": ["mcp", "servers"],
   "openclaw-json": ["mcp", "servers"],
 };
 
@@ -95,7 +96,12 @@ export function inspectJson(
     command: entry.command,
     args: entry.args,
     token,
-    transportValid: format !== "vscode-json" || entry.type === "stdio",
+    transportValid:
+      format === "vscode-json"
+        ? entry.type === "stdio"
+        : format === "daimon-json"
+          ? entry.transport === "stdio"
+          : true,
   });
 }
 
@@ -124,5 +130,6 @@ export function mergeJson(
   entry.args = [...SERVER_ARGS];
   entry.env = { ...env, [TOKEN_KEY]: token };
   if (format === "vscode-json") entry.type = "stdio";
+  if (format === "daimon-json") entry.transport = "stdio";
   return `${JSON.stringify(config, null, 2)}\n`;
 }

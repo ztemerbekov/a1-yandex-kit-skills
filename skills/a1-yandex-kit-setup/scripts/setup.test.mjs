@@ -108,12 +108,13 @@ test("requires Node.js 20 or newer and an executable npx", async () => {
   );
 });
 
-test("resolves user-level paths for all eight tested clients", () => {
+test("resolves user-level paths for all nine tested clients", () => {
   const home = "/users/test";
   const env = {
     APPDATA: "C:\\Users\\test\\AppData\\Roaming",
     CODEX_HOME: "/custom/codex",
     KIMI_CODE_HOME: "/custom/kimi",
+    KIMI_DESKTOP_USER_DATA: "/custom/kimi-desktop",
     HERMES_HOME: "/custom/hermes",
   };
   const cases = [
@@ -131,6 +132,11 @@ test("resolves user-level paths for all eight tested clients", () => {
       "vscode-json",
     ],
     ["kimi", "/custom/kimi/mcp.json", "mcp-json"],
+    [
+      "kimi-desktop",
+      "/custom/kimi-desktop/daimon-share/daimon/config.json",
+      "daimon-json",
+    ],
     ["hermes", "/custom/hermes/config.yaml", "hermes-yaml"],
     ["openclaw", "/users/test/.openclaw/openclaw.json", "openclaw-json"],
   ];
@@ -146,10 +152,40 @@ test("resolves user-level paths for all eight tested clients", () => {
   }
 });
 
+test("Kimi Desktop rejects unsupported platforms unless a dynamic adapter supplies a path", () => {
+  assert.throws(
+    () =>
+      defaultConfigPath("kimi-desktop", {
+        platform: "linux",
+        home: "/users/test",
+        env: {},
+      }),
+    (error) =>
+      error instanceof SetupError && error.code === "UNSUPPORTED_PLATFORM",
+  );
+
+  assert.equal(
+    resolveAdapter({
+      client: "kimi-desktop",
+      platform: "linux",
+      configPath: "/verified/kimi/config.json",
+      format: "daimon-json",
+    }).configPath,
+    "/verified/kimi/config.json",
+  );
+});
+
 test("merges every JSON capability and preserves unrelated settings", () => {
-  for (const format of ["mcp-json", "vscode-json", "openclaw-json"]) {
+  for (
+    const format of [
+      "mcp-json",
+      "vscode-json",
+      "daimon-json",
+      "openclaw-json",
+    ]
+  ) {
     const root =
-      format === "openclaw-json"
+      format === "openclaw-json" || format === "daimon-json"
         ? { theme: "dark", mcp: { servers: {
             other: { command: "other" },
             "yandex-kit": {
@@ -174,7 +210,7 @@ test("merges every JSON capability and preserves unrelated settings", () => {
     const merged = mergeJson(JSON.stringify(root), format, SECRET_ONE);
     const parsed = JSON.parse(merged);
     const servers =
-      format === "openclaw-json"
+      format === "openclaw-json" || format === "daimon-json"
         ? parsed.mcp.servers
         : parsed[format === "vscode-json" ? "servers" : "mcpServers"];
     assert.deepEqual(servers.other, { command: "other" });
@@ -187,6 +223,9 @@ test("merges every JSON capability and preserves unrelated settings", () => {
     ]);
     if (format === "vscode-json") {
       assert.equal(servers["yandex-kit"].type, "stdio");
+    }
+    if (format === "daimon-json") {
+      assert.equal(servers["yandex-kit"].transport, "stdio");
     }
     const inspected = inspectJson(merged, format);
     assert.equal(inspected.canonical, true);
@@ -660,10 +699,11 @@ test("Windows command shims run through cmd.exe without a Node shell", () => {
   );
 });
 
-test("Kimi and Hermes use a structural client check plus direct smoke", async () => {
+test("Kimi clients and Hermes use a structural client check plus direct smoke", async () => {
   await withTempDir(async (tempDir) => {
     for (const [client, filename] of [
       ["kimi", "mcp.json"],
+      ["kimi-desktop", "config.json"],
       ["hermes", "config.yaml"],
     ]) {
       const configPath = path.join(tempDir, client, filename);
@@ -893,6 +933,20 @@ test("skill validates candidate tokens before configuration without a retry limi
   assert.match(
     skill,
     /Принято! Оставляем действующий токен Яндекс KIT без изменений\. Всё работает в прежнем режиме\./,
+  );
+});
+
+test("setup skill requires explicit invocation across supported hosts", async () => {
+  const skill = await readFile(path.join(scriptDir, "..", "SKILL.md"), "utf8");
+  const openAiMetadata = await readFile(
+    path.join(scriptDir, "..", "agents", "openai.yaml"),
+    "utf8",
+  );
+
+  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.match(
+    openAiMetadata,
+    /^policy:\n  allow_implicit_invocation: false$/m,
   );
 });
 

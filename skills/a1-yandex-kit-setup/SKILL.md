@@ -1,6 +1,7 @@
 ---
 name: a1-yandex-kit-setup
-description: "Connect the Yandex KIT MCP server to the user's current AI client. Use when the user asks «подключи Яндекс KIT» or «настрой Yandex KIT», or explicitly wants to replace its Yandex KIT token. Handles Claude Code, Claude Desktop, Cursor, OpenAI Codex, VS Code, Kimi Code, Hermes Agent, OpenClaw and new clients through a compatibility ladder."
+description: "Connect the Yandex KIT MCP server to the user's current AI client. Use when the user asks «подключи Яндекс KIT» or «настрой Yandex KIT», or explicitly wants to replace its Yandex KIT token. Handles Claude Code, Claude Desktop, Cursor, OpenAI Codex, VS Code, Kimi Code, Kimi Desktop, Hermes Agent, OpenClaw and new clients through a compatibility ladder."
+disable-model-invocation: true
 ---
 
 # A1 Yandex KIT Setup
@@ -21,7 +22,12 @@ question: `В каком приложении вы сейчас хотите п�
 Normalize the answer to one of:
 
 `claude-code`, `claude-desktop`, `cursor`, `codex`, `vscode`, `kimi`,
-`hermes`, `openclaw`.
+`kimi-desktop`, `hermes`, `openclaw`.
+
+Treat Kimi Code and Kimi Desktop as different clients. Use `kimi` only for the
+Kimi Code CLI and `kimi-desktop` for the Kimi Work desktop application. When
+the user says only “Kimi” and the host does not disambiguate it, ask:
+`Вы используете приложение Kimi на компьютере или Kimi Code в терминале?`
 
 For a tested client, run:
 

@@ -31,6 +31,7 @@ the documented schema to one helper capability:
 |---|---|
 | `mcp-json` | JSON root `mcpServers` |
 | `vscode-json` | JSON root `servers` with stdio type |
+| `daimon-json` | JSON root `mcp.servers` with stdio transport |
 | `codex-toml` | TOML tables under `mcp_servers` |
 | `hermes-yaml` | YAML root `mcp_servers` |
 | `openclaw-json` | JSON root `mcp.servers` |
