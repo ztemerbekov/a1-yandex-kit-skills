@@ -1,7 +1,7 @@
 /**
  * Fetch-based client for the Yandex KIT API.
  *
- * Features (see PLAN.md §2/§6): Bearer auth, per-attempt timeout via
+ * Features (see docs/history/PLAN.md §2/§6): Bearer auth, per-attempt timeout via
  * AbortController, token-bucket rate limiter (default 3 rps, gates every
  * attempt including retries), exponential backoff retries for GET requests
  * (network/abort, 429, >=500, and HTTP 400 with code LIMIT_EXCEEDED — KIT
