@@ -8,10 +8,12 @@ import {
   checkPrerequisites,
   clientCheck,
   configureAdapter,
+  configureNative,
   inspectAdapter,
   resolveAdapter,
   rollbackChange,
   smokeAdapter,
+  smokeMcp,
 } from "./setup-lib.mjs";
 
 function parseArgs(argv) {
@@ -85,10 +87,13 @@ function printResult(result, asJson) {
 function usage() {
   return [
     "Usage:",
+    "  setup.mjs preflight [--json]",
     "  setup.mjs status --client <id> [--format <capability> --config <path>] [--json]",
     "  setup.mjs configure --client <id> (--token-stdin|--keep-token) [--format <capability> --config <path>] [--json]",
+    "  setup.mjs native-configure --command <executable> --args-json <json-array-with-{{YANDEX_KIT_TOKEN}}> --token-stdin [--json]",
     "  setup.mjs client-check --client <id> [--format <capability> --config <path>] [--json]",
     "  setup.mjs smoke --client <id> [--format <capability> --config <path>] [--json]",
+    "  setup.mjs smoke-token --token-stdin [--json]",
     "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
     "",
     "Capabilities: mcp-json, vscode-json, codex-toml, hermes-yaml, openclaw-json",
@@ -100,6 +105,11 @@ export async function main(argv = process.argv.slice(2)) {
   const { command, options } = parseArgs(argv);
   if (!command || command === "help" || command === "--help") {
     process.stdout.write(`${usage()}\n`);
+    return;
+  }
+
+  if (command === "preflight") {
+    printResult(await checkPrerequisites(), options.json);
     return;
   }
 
@@ -115,6 +125,48 @@ export async function main(argv = process.argv.slice(2)) {
       expectedHash: options["expected-hash"],
     });
     printResult(result, options.json);
+    return;
+  }
+
+  if (command === "native-configure") {
+    if (!options.command || !options["args-json"] || !options["token-stdin"]) {
+      throw new SetupError(
+        "Native configuration requires --command, --args-json and --token-stdin.",
+        "USAGE",
+      );
+    }
+    let argsTemplate;
+    try {
+      argsTemplate = JSON.parse(options["args-json"]);
+    } catch {
+      throw new SetupError(
+        "--args-json must be a JSON array of strings.",
+        "INVALID_NATIVE_ARGUMENTS",
+      );
+    }
+    await checkPrerequisites();
+    const token = await readTokenStdin();
+    printResult(
+      await configureNative({
+        command: options.command,
+        argsTemplate,
+        token,
+      }),
+      options.json,
+    );
+    return;
+  }
+
+  if (command === "smoke-token") {
+    if (!options["token-stdin"]) {
+      throw new SetupError(
+        "Direct token smoke requires --token-stdin.",
+        "USAGE",
+      );
+    }
+    await checkPrerequisites();
+    const token = await readTokenStdin();
+    printResult(await smokeMcp({ token }), options.json);
     return;
   }
 

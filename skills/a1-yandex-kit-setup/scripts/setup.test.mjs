@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   BACKUP_SUFFIX,
+  TOKEN_PLACEHOLDER,
   SetupError,
   assertNode20,
   buildSpawnInvocation,
@@ -461,6 +462,63 @@ test("CLI receives token through stdin and never prints it", async () => {
       SECRET_ONE,
     );
   });
+});
+
+test("dynamic native CLI receives the token in argv without exposing it", async () => {
+  const successArgs = [
+    "-e",
+    [
+      'const value = process.argv[1] || "";',
+      'process.stdout.write(value);',
+      'if (!value.startsWith("--token=y0_")) process.exit(9);',
+    ].join(""),
+    "--",
+    `--token=${TOKEN_PLACEHOLDER}`,
+  ];
+  const success = await runCli(
+    [
+      "native-configure",
+      "--command",
+      process.execPath,
+      "--args-json",
+      JSON.stringify(successArgs),
+      "--token-stdin",
+      "--json",
+    ],
+    `${SECRET_ONE}\n`,
+  );
+  assert.equal(success.code, 0, success.stderr);
+  assert.equal(success.stdout.includes(SECRET_ONE), false);
+  assert.equal(success.stderr.includes(SECRET_ONE), false);
+  assert.deepEqual(JSON.parse(success.stdout), {
+    configured: true,
+    mode: "native-cli",
+    command: process.execPath,
+  });
+
+  const failureArgs = [
+    "-e",
+    'process.stderr.write(process.argv[1] || "");process.exit(7);',
+    "--",
+    `--token=${TOKEN_PLACEHOLDER}`,
+  ];
+  const failure = await runCli(
+    [
+      "native-configure",
+      "--command",
+      process.execPath,
+      "--args-json",
+      JSON.stringify(failureArgs),
+      "--token-stdin",
+      "--json",
+    ],
+    `${SECRET_ONE}\n`,
+  );
+  assert.equal(failure.code, 1);
+  assert.equal(failure.stdout.includes(SECRET_ONE), false);
+  assert.equal(failure.stderr.includes(SECRET_ONE), false);
+  assert.match(failure.stderr, /\[redacted\]/);
+  assert.match(failure.stderr, /"code":"NATIVE_CONFIGURE_FAILED"/);
 });
 
 test("direct smoke performs initialize, tools/list, and read-only get_store", async () => {

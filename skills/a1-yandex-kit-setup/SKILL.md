@@ -33,9 +33,15 @@ node "<skill-directory>/scripts/setup.mjs" status --client <client> --json
 requested or any config is changed. If either prerequisite is unavailable, give
 one exact Node.js installation link or instruction appropriate to the operating
 system and stop. Leave installation to that operating-system installer. For
-another client, continue directly to the compatibility ladder in step 2 and run
-`status` after it establishes a format and path. This step is complete when
-Node.js 20+, `npx` and one client are identified.
+another client, run the independent preflight and continue to the compatibility
+ladder in step 2:
+
+```bash
+node "<skill-directory>/scripts/setup.mjs" preflight --json
+```
+
+Run `status` later only when the ladder establishes a supported format and path.
+This step is complete when Node.js 20+, `npx` and one client are identified.
 
 ## 2. Validate the compatibility profile
 
@@ -82,8 +88,14 @@ To keep the current token while normalizing the server command, run:
 node "<skill-directory>/scripts/setup.mjs" configure --client <client> --keep-token --json
 ```
 
-For a dynamically discovered adapter, also pass its verified capability and
-path:
+For a dynamically discovered native CLI, follow
+[`references/compatibility.md`](references/compatibility.md) and run
+`native-configure`. The helper reads the token from stdin, substitutes it into
+the documented child-process arguments, keeps it out of the agent-issued shell
+command and shell history, and redacts it from output.
+
+For a dynamically discovered file adapter, also pass its verified capability
+and path:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" configure --client <label> --format <format> --config <absolute-path> --token-stdin --json
@@ -92,7 +104,7 @@ node "<skill-directory>/scripts/setup.mjs" configure --client <label> --format <
 Replace `--token-stdin` with `--keep-token` when the user keeps the current
 token.
 
-The canonical server is always:
+In either route, the canonical server is always:
 
 ```text
 npx -y mcp-yandex-kit@latest
@@ -100,13 +112,16 @@ npx -y mcp-yandex-kit@latest
 
 Treat skill invocation as the configuration authorization and surface only the
 host application's unavoidable filesystem approval. If an existing config
-cannot be parsed safely, leave it unchanged, state its path, and give the
-technical handoff from `references/compatibility.md`.
+cannot be parsed safely, leave it unchanged and return to the compatibility
+ladder to try the client's documented native CLI. Give the technical handoff
+only when the native route is also unavailable or fails.
 
-This step is complete when the helper reports `configured: true`, the token is
-present without being printed, unrelated client settings remain intact, and a
-backup exists for every changed pre-existing config. On POSIX systems, the
-changed config and its backup must have mode `0600`.
+For a file adapter, this step is complete when the helper reports
+`configured: true`, the token is present without being printed, unrelated
+client settings remain intact, and a backup exists for every changed
+pre-existing config. On POSIX systems, the changed config and its backup must
+have mode `0600`. For a native CLI, this step is complete when the documented
+add command exits successfully; the client owns its configuration mutation.
 
 ## 5. Prove the connection
 
@@ -127,6 +142,12 @@ node "<skill-directory>/scripts/setup.mjs" smoke --client <client> --json
 ```
 
 Repeat the verified `--format` and `--config` flags for a dynamic adapter.
+After native CLI configuration without a supported file adapter, pass the same
+token through stdin:
+
+```bash
+node "<skill-directory>/scripts/setup.mjs" smoke-token --token-stdin --json
+```
 
 The smoke test must complete the MCP initialize handshake, list tools, find
 `get_store`, and call only `get_store`. It must not call any write tool.
@@ -148,7 +169,8 @@ node "<skill-directory>/scripts/setup.mjs" rollback --config <configPath> --crea
 
 If the hash check refuses rollback, preserve the newer config and report its
 path. If authentication fails, ask for a replacement token once. If the config
-is malformed, stop with the technical handoff instead of attempting repair.
+is malformed, do not repair it; try the documented native CLI before using the
+technical handoff.
 
 This step is complete only when both the client check and the direct MCP smoke
 test pass.

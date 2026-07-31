@@ -20,6 +20,7 @@ export const TOKEN_KEY = "YANDEX_KIT_TOKEN";
 export const SERVER_COMMAND = "npx";
 export const SERVER_ARGS = ["-y", "mcp-yandex-kit@latest"];
 export const BACKUP_SUFFIX = ".a1-yandex-kit-setup.bak";
+export const TOKEN_PLACEHOLDER = "{{YANDEX_KIT_TOKEN}}";
 
 const CLIENT_ALIASES = new Map([
   ["claude", "claude-code"],
@@ -1398,6 +1399,80 @@ export async function checkPrerequisites({
     nodeVersion,
     npxAvailable: true,
     npxVersion: result.stdout.trim() || null,
+  };
+}
+
+export async function configureNative({
+  command,
+  argsTemplate,
+  token,
+  timeoutMs = 60_000,
+  run = spawnCaptured,
+}) {
+  if (
+    typeof command !== "string" ||
+    !command.trim() ||
+    /[\0\r\n]/.test(command)
+  ) {
+    throw new SetupError(
+      "Native configuration requires one executable name or path.",
+      "INVALID_NATIVE_COMMAND",
+    );
+  }
+  if (
+    !Array.isArray(argsTemplate) ||
+    argsTemplate.some(
+      (argument) =>
+        typeof argument !== "string" || /[\0\r\n]/.test(argument),
+    )
+  ) {
+    throw new SetupError(
+      "Native configuration arguments must be a JSON array of strings.",
+      "INVALID_NATIVE_ARGUMENTS",
+    );
+  }
+  if (!token) {
+    throw new SetupError(
+      "A Yandex KIT token is required on stdin.",
+      "TOKEN_REQUIRED",
+    );
+  }
+  if (!argsTemplate.some((argument) => argument.includes(TOKEN_PLACEHOLDER))) {
+    throw new SetupError(
+      `Native configuration arguments must contain ${TOKEN_PLACEHOLDER}.`,
+      "TOKEN_PLACEHOLDER_REQUIRED",
+    );
+  }
+
+  const args = argsTemplate.map((argument) =>
+    argument.split(TOKEN_PLACEHOLDER).join(token),
+  );
+  const result = await run(command, args, {
+    secret: token,
+    timeoutMs,
+  });
+  if (!result.available) {
+    throw new SetupError(
+      `${command} is unavailable for native MCP configuration.`,
+      "NATIVE_COMMAND_MISSING",
+    );
+  }
+  if (result.code !== 0) {
+    const diagnostic = sanitize(
+      `${result.stderr || ""}\n${result.stdout || ""}`.trim(),
+      token,
+    ).slice(-2_000);
+    throw new SetupError(
+      `${command} could not configure ${SERVER_NAME}${
+        diagnostic ? `: ${diagnostic}` : "."
+      }`,
+      "NATIVE_CONFIGURE_FAILED",
+    );
+  }
+  return {
+    configured: true,
+    mode: "native-cli",
+    command,
   };
 }
 

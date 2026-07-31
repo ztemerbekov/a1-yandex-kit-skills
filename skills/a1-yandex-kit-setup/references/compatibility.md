@@ -34,23 +34,48 @@ the documented schema to one helper capability:
 | `hermes-yaml` | YAML root `mcp_servers` |
 | `openclaw-json` | JSON root `mcp.servers` |
 
-Completion criterion: an official source and local evidence agree on one
-user-level path, one capability and one verification method.
+Completion criterion: an official source and local evidence agree on either one
+native add command or one user-level path and helper capability, plus one
+verification method.
 
 ## 3. Configure through the capability
 
-Pass the verified format and absolute config path to `scripts/setup.mjs`.
-Follow the token and configuration rules in steps 3–4 of `SKILL.md`.
+### Native CLI
+
+When the vendor documents a native add command, use it immediately. Build a JSON
+array containing its exact arguments and replace the token value with the
+literal placeholder `{{YANDEX_KIT_TOKEN}}`. Then run the helper interactively
+and write the token followed by a newline to its stdin:
+
+```bash
+node "<skill-directory>/scripts/setup.mjs" native-configure --command <executable> --args-json '<JSON argument array>' --token-stdin --json
+```
+
+The helper substitutes the token inside the child-process arguments. This is
+allowed even when the native CLI requires `KEY=<token>` as one argument. The
+agent-issued shell command and shell history contain no token, and captured
+output is redacted.
+
+If the documented command fails, use its sanitized diagnostic and current local
+`--help` to correct the command and retry without sending the user to a
+terminal.
+
+### Documented file format
+
+When there is no native add command, pass the verified format and absolute
+config path to `scripts/setup.mjs`. Follow the token and configuration rules in
+steps 3–4 of `SKILL.md`.
 
 After configuration, use the documented client-level test and the helper's
-direct `get_store` smoke test. A successful run can be reported immediately;
-the static profile does not need to be updated first.
+direct `get_store` smoke test. Use `smoke-token --token-stdin` when the native
+CLI does not expose a supported file adapter. A successful run can be reported
+immediately; the static profile does not need to be updated first.
 
 ## 4. Produce a technical handoff when automation is unsafe
 
-Use this final rung only when official documentation and local evidence cannot
-establish a safe write. Give the user one copyable block for a technical
-specialist containing:
+Use this final rung only when official documentation and local evidence provide
+neither a working native add command nor a file shape the helper can update.
+Give the user one copyable block for a technical specialist containing:
 
 ```text
 Client and version: <name/version>
