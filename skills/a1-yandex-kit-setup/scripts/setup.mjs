@@ -25,7 +25,7 @@ function parseArgs(argv) {
       throw new SetupError(`Unexpected argument "${item}".`, "USAGE");
     }
     const key = item.slice(2);
-    if (["json", "keep-token", "token-stdin", "created"].includes(key)) {
+    if (["json", "token-stdin", "created"].includes(key)) {
       options[key] = true;
       continue;
     }
@@ -89,7 +89,7 @@ function usage() {
     "Usage:",
     "  setup.mjs preflight [--json]",
     "  setup.mjs status --client <id> [--format <capability> --config <path>] [--json]",
-    "  setup.mjs configure --client <id> (--token-stdin|--keep-token) [--format <capability> --config <path>] [--json]",
+    "  setup.mjs configure --client <id> --token-stdin [--format <capability> --config <path>] [--json]",
     "  setup.mjs native-configure --command <executable> --args-json <json-array-with-{{YANDEX_KIT_TOKEN}}> --token-stdin [--json]",
     "  setup.mjs client-check --client <id> [--format <capability> --config <path>] [--json]",
     "  setup.mjs smoke --client <id> [--format <capability> --config <path>] [--json]",
@@ -178,18 +178,15 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
   if (command === "configure") {
-    if (Boolean(options["token-stdin"]) === Boolean(options["keep-token"])) {
+    if (!options["token-stdin"]) {
       throw new SetupError(
-        "Choose exactly one of --token-stdin or --keep-token.",
+        "Configuration requires --token-stdin.",
         "USAGE",
       );
     }
     await checkPrerequisites();
-    const token = options["token-stdin"] ? await readTokenStdin() : undefined;
-    const result = await configureAdapter(adapter, {
-      token,
-      keepToken: Boolean(options["keep-token"]),
-    });
+    const token = await readTokenStdin();
+    const result = await configureAdapter(adapter, { token });
     printResult(result, options.json);
     return;
   }

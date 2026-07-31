@@ -264,7 +264,7 @@ test("configure is idempotent, supports token replacement, and backs up changes"
     assert.equal((await stat(configPath)).mode & 0o777, 0o600);
     assert.equal((await stat(first.backupPath)).mode & 0o777, 0o600);
 
-    const repeated = await configureAdapter(adapter, { keepToken: true });
+    const repeated = await configureAdapter(adapter, { token: SECRET_ONE });
     assert.equal(repeated.changed, false);
     assert.equal(inspectJson(await readFile(configPath, "utf8"), "mcp-json").token, SECRET_ONE);
 
@@ -440,6 +440,18 @@ test("CLI receives token through stdin and never prints it", async () => {
     );
     assert.equal(unavailable.code, 1);
     assert.match(unavailable.stderr, /"code":"NPX_UNAVAILABLE"/);
+    await assert.rejects(readFile(configPath, "utf8"), { code: "ENOENT" });
+
+    const obsoleteRepair = await runCli([
+      "configure",
+      "--client",
+      "cursor",
+      "--config",
+      configPath,
+      "--keep-token",
+      "--json",
+    ]);
+    assert.equal(obsoleteRepair.code, 1);
     await assert.rejects(readFile(configPath, "utf8"), { code: "ENOENT" });
 
     const result = await runCli(

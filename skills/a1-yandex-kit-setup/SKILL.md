@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-setup
-description: "Connect the Yandex KIT MCP server to the user's current AI client. Use when the user asks «подключи Яндекс KIT» or «настрой Yandex KIT», needs to replace its token or update its MCP connection, or installed these skills but the Yandex KIT tools are unavailable. Handles Claude Code, Claude Desktop, Cursor, OpenAI Codex, VS Code, Kimi Code, Hermes Agent, OpenClaw and new clients through a compatibility ladder."
+description: "Connect the Yandex KIT MCP server to the user's current AI client. Use when the user asks «подключи Яндекс KIT» or «настрой Yandex KIT», or explicitly wants to replace its Yandex KIT token. Handles Claude Code, Claude Desktop, Cursor, OpenAI Codex, VS Code, Kimi Code, Hermes Agent, OpenClaw and new clients through a compatibility ladder."
 ---
 
 # A1 Yandex KIT Setup
@@ -59,12 +59,16 @@ supported by local evidence or current official vendor documentation.
 ## 3. Obtain the token
 
 Use the `status` result without reading or displaying the stored token.
+For a native CLI without a supported file adapter, use its documented
+list/show command: treat an existing `yandex-kit` entry as `configured: true`
+without attempting to read its token.
 
 - When `configured` is false, ask:
   `Для настройки потребуется токен Яндекс KIT. Чтобы его получить, зайдите в кабинет Яндекс KIT: Настройки → API и скопируйте ключ. Вставьте его сюда — я привяжу его к приложению и не буду повторять в ответе. Токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
 - When `configured` is true, always ask:
   `Токен Яндекс KIT уже сохранён в настройках. Вы хотите его обновить?`
-  - For `нет`, keep the stored token exactly.
+  - For `нет`, do not configure, normalize or verify anything. Finish with:
+    `Хорошо, текущий токен и настройки Яндекс KIT оставлены без изменений.`
   - For `да`, ask:
     `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
 
@@ -82,12 +86,6 @@ write the token followed by a newline to its stdin:
 node "<skill-directory>/scripts/setup.mjs" configure --client <client> --token-stdin --json
 ```
 
-To keep the current token while normalizing the server command, run:
-
-```bash
-node "<skill-directory>/scripts/setup.mjs" configure --client <client> --keep-token --json
-```
-
 For a dynamically discovered native CLI, follow
 [`references/compatibility.md`](references/compatibility.md) and run
 `native-configure`. The helper reads the token from stdin, substitutes it into
@@ -100,9 +98,6 @@ and path:
 ```bash
 node "<skill-directory>/scripts/setup.mjs" configure --client <label> --format <format> --config <absolute-path> --token-stdin --json
 ```
-
-Replace `--token-stdin` with `--keep-token` when the user keeps the current
-token.
 
 In either route, the canonical server is always:
 

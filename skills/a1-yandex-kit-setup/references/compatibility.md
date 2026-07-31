@@ -58,20 +58,22 @@ output is redacted.
 
 If the documented command fails, use its sanitized diagnostic and current local
 `--help` to correct the command and retry without sending the user to a
-terminal.
+terminal. If the corrected native command still fails and the official
+documentation also provides a supported file shape, continue with the file
+adapter below before producing a technical handoff.
 
 ### Documented file format
 
-When there is no native add command, pass the verified format and absolute
-config path to `scripts/setup.mjs`. Follow the token and configuration rules in
-steps 3–4 of `SKILL.md`.
+When there is no working native add command, pass the verified format and
+absolute config path to `scripts/setup.mjs`. Follow the token and configuration
+rules in steps 3–4 of `SKILL.md`.
 
 After configuration, use the documented client-level test and the helper's
 direct `get_store` smoke test. Use `smoke-token --token-stdin` when the native
 CLI does not expose a supported file adapter. A successful run can be reported
 immediately; the static profile does not need to be updated first.
 
-## 4. Produce a technical handoff when automation is unsafe
+## 4. Produce a technical handoff when automation cannot finish
 
 Use this final rung only when official documentation and local evidence provide
 neither a working native add command nor a file shape the helper can update.
@@ -91,6 +93,6 @@ Official source: <vendor URL>
 Diagnostic: <sanitized failure without token>
 ```
 
-Explain in one sentence that the config was left unchanged because its safe
-path or schema could not be established. Give the handoff as the immediate next
-route, with the token represented only by its local placeholder.
+Explain in one sentence which automatic route failed or was unavailable. Give
+the handoff as the immediate next route, with the token represented only by its
+local placeholder.

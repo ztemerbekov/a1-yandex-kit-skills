@@ -1175,14 +1175,11 @@ async function transactionalWrite(configPath, content, verify) {
   return { changed: true, created: !existed, backupPath };
 }
 
-export async function configureAdapter(adapter, { token, keepToken = false }) {
+export async function configureAdapter(adapter, { token }) {
   const before = await inspectAdapter(adapter);
-  const selectedToken = keepToken ? before.token : token;
-  if (!selectedToken) {
+  if (!token) {
     throw new SetupError(
-      keepToken
-        ? "No stored Yandex KIT token is available to keep."
-        : "A Yandex KIT token is required on stdin.",
+      "A Yandex KIT token is required on stdin.",
       "TOKEN_REQUIRED",
     );
   }
@@ -1192,7 +1189,7 @@ export async function configureAdapter(adapter, { token, keepToken = false }) {
   const newContent = mergeContent(
     oldContent,
     adapter.format,
-    selectedToken,
+    token,
     adapter.configPath,
   );
   const write = await transactionalWrite(
@@ -1204,7 +1201,7 @@ export async function configureAdapter(adapter, { token, keepToken = false }) {
         adapter.format,
         adapter.configPath,
       );
-      if (!verified.canonical || verified.token !== selectedToken) {
+      if (!verified.canonical || verified.token !== token) {
         throw new SetupError(
           `Verification failed for ${adapter.configPath}.`,
           "WRITE_VERIFICATION",
