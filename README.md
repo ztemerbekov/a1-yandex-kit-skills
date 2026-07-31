@@ -90,7 +90,7 @@
 ## Подробнее о четырёх сценариях
 
 <details>
-<summary><strong>Оператор — текущий контроль магазина</strong></summary>
+<summary><strong>Оператор — риски и приоритеты магазина</strong></summary>
 
 <br>
 
@@ -105,7 +105,7 @@
 </details>
 
 <details>
-<summary><strong>Доктор каталога — состояние каталога</strong></summary>
+<summary><strong>Доктор каталога — ошибки, мешающие товарам продаваться</strong></summary>
 
 <br>
 
@@ -120,7 +120,7 @@
 </details>
 
 <details>
-<summary><strong>Запуск промо — скидки, промокоды и подарки</strong></summary>
+<summary><strong>Запуск промо — акции по заданным условиям</strong></summary>
 
 <br>
 
@@ -135,7 +135,7 @@
 </details>
 
 <details>
-<summary><strong>Проверка запуска — готовность к открытию</strong></summary>
+<summary><strong>Проверка запуска — готовность магазина к открытию</strong></summary>
 
 <br>
 
