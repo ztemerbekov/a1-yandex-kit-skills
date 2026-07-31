@@ -14,7 +14,8 @@
   "scripts": {
     "build": "npm run build -w packages/core && npm run build -w packages/mcp",
     "typecheck": "npm run build -w packages/core && npm run typecheck -w packages/core && npm run typecheck -w packages/codegen && npm run typecheck -w packages/mcp",
-    "test": "npm run test -w packages/core && npm run test -w packages/mcp",
+    "test": "npm run test -w packages/core && npm run test -w packages/mcp && npm run test:setup-skill",
+    "test:setup-skill": "node --test skills/a1-yandex-kit-setup/scripts/setup.test.mjs skills/a1-yandex-kit-setup/scripts/modules.test.mjs",
     "gen": "npm run gen -w packages/codegen",
     "spec:fetch": "npm run fetch -w packages/codegen",
     "smoke": "npm run smoke -w packages/mcp",

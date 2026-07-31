@@ -10,7 +10,7 @@ Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
 npm ci
 npm run typecheck   # builds core first, then checks every workspace
 npm run build       # core + mcp -> dist/
-npm test            # unit tests, no network (currently 294: core 34 + mcp 260)
+npm test            # unit tests, no network (currently 310: core 34 + mcp 260 + setup 16)
 npm run gen         # regenerate registry/types/TOOLS.md/skills (deterministic)
 npm run spec:fetch  # refresh specs/ from Yandex + diff report
 npm run smoke       # live READ-ONLY calls (needs YANDEX_KIT_TOKEN)
@@ -43,8 +43,8 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `get_operation_schema`, `kit_request`) that covers all 133 operations (65 have curated tools).
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
   `gen-docs`, `gen-skills`, `fetch-spec`.
-- `skills/` — 6 generated API skills plus the manually maintained operator,
-  catalog-doctor, promo-launcher and launch-check scenarios.
+- `skills/` — 6 generated API skills plus setup and the manually maintained
+  operator, catalog-doctor, promo-launcher and launch-check scenarios.
 - `.claude-plugin/{plugin,marketplace}.json` + `.mcp.json` — Claude Code plugin
   (plugin `a1-yandex-kit`, marketplace `a1-yandex-kit-skills`).
 
@@ -57,10 +57,10 @@ The six API-reference skill directories, `docs/TOOLS.md` and
 CI fails on drift (`git add -N` + `git diff --exit-code`), so hand edits both break CI and
 get silently overwritten by the next `gen`.
 
-`skills/a1-yandex-kit-operator/`, `skills/a1-yandex-kit-catalog-doctor/`,
-`skills/a1-yandex-kit-promo-launcher/` and `skills/a1-yandex-kit-launch-check/` are
-manual top-level scenario skills. `gen-skills.ts` only replaces the six directories it
-owns and must preserve these four.
+`skills/a1-yandex-kit-setup/`, `skills/a1-yandex-kit-operator/`,
+`skills/a1-yandex-kit-catalog-doctor/`, `skills/a1-yandex-kit-promo-launcher/` and
+`skills/a1-yandex-kit-launch-check/` are manual top-level skills. `gen-skills.ts`
+only replaces the six directories it owns and must preserve these five.
 
 ## Adding a curated tool
 

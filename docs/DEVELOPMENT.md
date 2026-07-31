@@ -14,7 +14,7 @@ npm ci
 ```bash
 npm run build          # сборка packages/core и packages/mcp в dist/
 npm run typecheck      # проверка типов всех воркспейсов: исходники + тесты (без эмита)
-npm test               # юнит-тесты core + mcp (node --test, мок-клиент, без сети) — 294 теста
+npm test               # юнит-тесты core + mcp + setup-скилл (node --test, без сети)
 npm run gen            # перегенерация: registry.json, types.ts, docs/TOOLS.md, skills/*
 npm run spec:fetch     # обновить снапшот specs/kit-swagger.openapi.json с официального URL
 npm run smoke          # живые read-only вызовы к боевому API (нужен YANDEX_KIT_TOKEN)
@@ -29,7 +29,7 @@ specs/kit-swagger.openapi.json   # снапшот OpenAPI-спеки — еди�
 packages/core/                   # yandex-kit-core: клиент (Bearer, ретраи, 3 rps, ajv-валидация)
 packages/mcp/                    # mcp-yandex-kit: MCP-сервер (stdio), 61 тул
 packages/codegen/                # генераторы: спека → registry / types / скиллы / TOOLS.md
-skills/                          # 6 сгенерированных доменных + вручную поддерживаемые сценарные скиллы
+skills/                          # 6 сгенерированных доменных + 5 вручную поддерживаемых скиллов
 .claude-plugin/ + .mcp.json      # манифесты плагина Claude Code
 docs/TOOLS.md                    # справочник тулов (СГЕНЕРИРОВАН)
 ```
@@ -44,21 +44,24 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 
 - `packages/core/src/generated/registry.json` и `.../generated/types.ts`;
 - `docs/TOOLS.md`;
-- `skills/**` целиком (включая `SKILL.md`, `scripts/`, `data/*.json.gz`).
+- шесть доменных `skills/a1-yandex-kit{,-catalog,-orders,-marketing,-store,-webhooks}/`
+  целиком (включая `SKILL.md`, `scripts/`, `data/*.json.gz`).
 
 Любые правки этих файлов вносите в генераторы (`packages/codegen/src/gen-*.ts`),
 включая прозу скиллов — она живёт в шаблонах `gen-skills.ts`. CI проверяет дрейф:
 `npm run gen && git diff --exit-code` должен проходить, иначе сборка красная.
 
-Исключение: верхнеуровневые сценарные навыки поддерживаются вручную, отдельно от
-генерации API-справочника. Сейчас это `skills/a1-yandex-kit-operator/`,
+Исключение: setup и верхнеуровневые сценарные навыки поддерживаются вручную,
+отдельно от генерации API-справочника. Сейчас это
+`skills/a1-yandex-kit-setup/`, `skills/a1-yandex-kit-operator/`,
 `skills/a1-yandex-kit-catalog-doctor/`, `skills/a1-yandex-kit-promo-launcher/` и
 `skills/a1-yandex-kit-launch-check/`; `npm run gen` не удаляет и не перезаписывает
 их, кроме общего `references/exact-write-protocol.md`. Его единственный исходник —
 `packages/codegen/src/skill-src/references/exact-write-protocol.md`, а `npm run gen`
-копирует его во все четыре скилла для автономной установки. Их semiautomated сценарии и
-fake MCP находятся в `packages/mcp/src/scenarios/` и запускаются через обычный
-`npm test`.
+копирует его во все четыре сценарных скилла для автономной установки. Их
+semi-automated сценарии и fake MCP находятся в `packages/mcp/src/scenarios/`;
+тесты setup-скилла находятся рядом с его dependency-free helper. Всё запускается
+через обычный `npm test`.
 
 ### Имена артефактов сценарных скиллов
 
@@ -137,10 +140,12 @@ claude plugin marketplace add ./
 claude plugin install a1-yandex-kit@a1-yandex-kit-skills
 ```
 
-После установки в Claude Code появляются шесть сгенерированных доменных навыков и
-четыре сценарных: `a1-yandex-kit-operator`, `a1-yandex-kit-catalog-doctor`,
-`a1-yandex-kit-promo-launcher` и `a1-yandex-kit-launch-check`. MCP-сервер подключается
-автоматически через `.mcp.json` (нужен `YANDEX_KIT_TOKEN` в окружении).
+После установки в Claude Code появляются шесть сгенерированных доменных навыков,
+четыре сценарных (`a1-yandex-kit-operator`, `a1-yandex-kit-catalog-doctor`,
+`a1-yandex-kit-promo-launcher`, `a1-yandex-kit-launch-check`) и
+`a1-yandex-kit-setup`. MCP-сервер из `.mcp.json` использует
+`YANDEX_KIT_TOKEN` из окружения; setup-скилл вместо этого может записать токен
+непосредственно в пользовательский конфиг клиента.
 
 Можно подключить только MCP-сервер, без плагина:
 
