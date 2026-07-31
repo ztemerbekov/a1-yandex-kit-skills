@@ -1,0 +1,171 @@
+#!/usr/bin/env node
+
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import {
+  SetupError,
+  assertNode20,
+  checkPrerequisites,
+  clientCheck,
+  configureAdapter,
+  inspectAdapter,
+  resolveAdapter,
+  rollbackChange,
+  smokeAdapter,
+} from "./setup-lib.mjs";
+
+function parseArgs(argv) {
+  const [command, ...rest] = argv;
+  const options = {};
+  for (let index = 0; index < rest.length; index += 1) {
+    const item = rest[index];
+    if (!item.startsWith("--")) {
+      throw new SetupError(`Unexpected argument "${item}".`, "USAGE");
+    }
+    const key = item.slice(2);
+    if (["json", "keep-token", "token-stdin", "created"].includes(key)) {
+      options[key] = true;
+      continue;
+    }
+    const value = rest[index + 1];
+    if (value === undefined || value.startsWith("--")) {
+      throw new SetupError(`Missing value for --${key}.`, "USAGE");
+    }
+    options[key] = value;
+    index += 1;
+  }
+  return { command, options };
+}
+
+function adapterFrom(options) {
+  if (!options.client) {
+    throw new SetupError("--client is required.", "USAGE");
+  }
+  return resolveAdapter({
+    client: options.client,
+    format: options.format,
+    configPath: options.config,
+  });
+}
+
+async function readTokenStdin() {
+  let value = "";
+  process.stdin.setEncoding("utf8");
+  for await (const chunk of process.stdin) value += chunk;
+  const token = value.trim();
+  if (!token) {
+    throw new SetupError("A Yandex KIT token is required on stdin.", "TOKEN_REQUIRED");
+  }
+  if (/[\r\n]/.test(token)) {
+    throw new SetupError(
+      "Send exactly one Yandex KIT token on stdin.",
+      "TOKEN_REQUIRED",
+    );
+  }
+  return token;
+}
+
+function publicStatus(state) {
+  const { token: _token, ...safe } = state;
+  return safe;
+}
+
+function printResult(result, asJson) {
+  if (asJson) {
+    process.stdout.write(`${JSON.stringify(result)}\n`);
+    return;
+  }
+  for (const [key, value] of Object.entries(result)) {
+    if (value !== null && value !== undefined) {
+      process.stdout.write(`${key}: ${String(value)}\n`);
+    }
+  }
+}
+
+function usage() {
+  return [
+    "Usage:",
+    "  setup.mjs status --client <id> [--format <capability> --config <path>] [--json]",
+    "  setup.mjs configure --client <id> (--token-stdin|--keep-token) [--format <capability> --config <path>] [--json]",
+    "  setup.mjs client-check --client <id> [--format <capability> --config <path>] [--json]",
+    "  setup.mjs smoke --client <id> [--format <capability> --config <path>] [--json]",
+    "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
+    "",
+    "Capabilities: mcp-json, vscode-json, codex-toml, hermes-yaml, openclaw-json",
+  ].join("\n");
+}
+
+export async function main(argv = process.argv.slice(2)) {
+  assertNode20();
+  const { command, options } = parseArgs(argv);
+  if (!command || command === "help" || command === "--help") {
+    process.stdout.write(`${usage()}\n`);
+    return;
+  }
+
+  if (command === "rollback") {
+    if (!options.config) {
+      throw new SetupError("--config is required for rollback.", "USAGE");
+    }
+    const result = await rollbackChange({
+      configPath: options.config,
+      backupPath: options.backup,
+      backupHash: options["backup-hash"],
+      created: Boolean(options.created),
+      expectedHash: options["expected-hash"],
+    });
+    printResult(result, options.json);
+    return;
+  }
+
+  const adapter = adapterFrom(options);
+  if (command === "status") {
+    const prerequisites = await checkPrerequisites();
+    const state = publicStatus(await inspectAdapter(adapter));
+    printResult({ ...prerequisites, ...state }, options.json);
+    return;
+  }
+  if (command === "configure") {
+    if (Boolean(options["token-stdin"]) === Boolean(options["keep-token"])) {
+      throw new SetupError(
+        "Choose exactly one of --token-stdin or --keep-token.",
+        "USAGE",
+      );
+    }
+    await checkPrerequisites();
+    const token = options["token-stdin"] ? await readTokenStdin() : undefined;
+    const result = await configureAdapter(adapter, {
+      token,
+      keepToken: Boolean(options["keep-token"]),
+    });
+    printResult(result, options.json);
+    return;
+  }
+  if (command === "client-check") {
+    printResult(await clientCheck(adapter), options.json);
+    return;
+  }
+  if (command === "smoke") {
+    printResult(await smokeAdapter(adapter), options.json);
+    return;
+  }
+  throw new SetupError(`Unknown command "${command}".\n${usage()}`, "USAGE");
+}
+
+const isDirectRun =
+  process.argv[1] &&
+  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+
+if (isDirectRun) {
+  main().catch((error) => {
+    const code = error instanceof SetupError ? error.code : "UNEXPECTED";
+    process.stderr.write(
+      `${JSON.stringify({
+        ok: false,
+        code,
+        error: error instanceof Error ? error.message : String(error),
+      })}\n`,
+    );
+    process.exitCode = 1;
+  });
+}
