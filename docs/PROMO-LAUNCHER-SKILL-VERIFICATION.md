@@ -80,7 +80,7 @@ reference model и не сравнивает ответ посимвольно.
 
 | User story / критерий | Evidence | Result |
 | --- | --- | --- |
-| Один Exact Write Plan Protocol покрывает одношаговые и зависимые записи без выбора второго контракта | `packages/codegen/src/skill-src/references/exact-write-protocol.md`; identical-copy test для четырёх manual skills | автоматизировано |
+| Один Exact Write Plan Protocol покрывает одношаговые и зависимые записи без выбора второго контракта | `packages/codegen/src/skill-src/references/exact-write-protocol.md`; dynamic identical-copy test для всех `SKILL.md`, объявивших зависимость | автоматизировано |
 | Активная selected-скидка создаётся `INACTIVE`, проверяется, привязывается, снова проверяется и только затем активируется | `an exact category discount reads the target, writes once per step, and re-reads the result` | автоматизировано |
 | Failed/ambiguous binding блокирует зависимую активацию и возвращает фактическое partial state | `an ambiguous discount binding leaves the created discount inactive and skips activation`; `an ambiguous binding stops dependent promocode activation and reports partial state` | автоматизировано |
 | Состав подарка подтверждается до зависимой активации | Порядок `GetGiftById` → `GetGiftVariants` → `UpdateGift` в active gift tracer; `an unverified gift composition blocks dependent activation` | автоматизировано |

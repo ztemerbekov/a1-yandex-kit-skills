@@ -6,7 +6,7 @@
  *   skills/<name>/data/kit_v1.json.gz     — gzipped OpenAPI spec (shared by the scripts)
  *   skills/<name>/scripts/search_docs.mjs — dep-free search/inspect (node builtins only)
  *   skills/<name>/scripts/validate.mjs    — esbuild bundle vendoring Ajv (offline validation)
- *   skills/<manual>/references/exact-write-protocol.md — shared write-plan safety core
+ *   skills/<consumer>/references/exact-write-protocol.md — shared write-plan safety core
  *
  * All six skills ship identical scripts + data, so each is standalone-installable.
  * Output is deterministic: prose lives in template constants here, tables come from
@@ -20,6 +20,8 @@ import { gzip } from "pako";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { syncGeneratedSkillReference } from "./sync-generated-skill-reference.js";
+
 const SPEC_PATH = fileURLToPath(new URL("../../../specs/kit-swagger.openapi.json", import.meta.url));
 const REGISTRY_PATH = fileURLToPath(new URL("../../core/src/generated/registry.json", import.meta.url));
 const TOOLS_MD_PATH = fileURLToPath(new URL("../../../docs/TOOLS.md", import.meta.url));
@@ -30,12 +32,9 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const SKILL_VERSION = "0.1.0";
 const SKILL_AUTHOR = "gistrec";
 const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVariant", "UpdateWarehouse"];
-const MANUAL_WRITE_PLAN_SKILLS = [
-  "a1-yandex-kit-operator",
-  "a1-yandex-kit-catalog-doctor",
-  "a1-yandex-kit-promo-launcher",
-  "a1-yandex-kit-launch-check",
-] as const;
+const EXACT_WRITE_PLAN_RELATIVE_PATH = "references/exact-write-protocol.md";
+const EXACT_WRITE_PLAN_GENERATED_HEADER =
+  "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n";
 
 // ---------------------------------------------------------------------------
 // Inputs
@@ -563,18 +562,21 @@ for (const skill of SKILLS) {
   writeFileSync(dir + "scripts/validate.mjs", validateScript);
 }
 
-for (const skillName of MANUAL_WRITE_PLAN_SKILLS) {
-  const referencesDir = OUT_DIR + skillName + "/references/";
-  mkdirSync(referencesDir, { recursive: true });
-  writeFileSync(
-    referencesDir + "exact-write-protocol.md",
-    "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n" +
-      exactWritePlanProtocol,
+const exactWritePlanConsumers = syncGeneratedSkillReference({
+  skillsDir: OUT_DIR,
+  relativePath: EXACT_WRITE_PLAN_RELATIVE_PATH,
+  generatedHeader: EXACT_WRITE_PLAN_GENERATED_HEADER,
+  source: exactWritePlanProtocol,
+});
+if (exactWritePlanConsumers.length === 0) {
+  throw new Error(
+    `No SKILL.md declares a Markdown link to ${EXACT_WRITE_PLAN_RELATIVE_PATH}`,
   );
 }
 
 console.log(
   `gen-skills: ${SKILLS.length} skills (${SKILLS.map((s) => s.name).join(", ")}), ` +
     `data ${specGz.length} bytes gz, validate.mjs ${validateScript.length} bytes, ` +
-    `shared exact write-plan protocol for ${MANUAL_WRITE_PLAN_SKILLS.length} manual skills`,
+    `shared exact write-plan protocol for ${exactWritePlanConsumers.length} declared skills ` +
+    `(${exactWritePlanConsumers.join(", ")})`,
 );

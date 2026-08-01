@@ -58,9 +58,14 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 `skills/a1-yandex-kit-launch-check/`; `npm run gen` не удаляет и не перезаписывает
 их, кроме общего write-plan контракта `references/exact-write-protocol.md`. Его
 единственный исходник —
-`packages/codegen/src/skill-src/references/exact-write-protocol.md`, а `npm run gen`
-копирует его во все четыре сценарных скилла для автономной установки. Их
-semi-automated сценарии и fake MCP находятся в `packages/mcp/src/scenarios/`;
+`packages/codegen/src/skill-src/references/exact-write-protocol.md`. Ссылка
+``[`references/exact-write-protocol.md`](references/exact-write-protocol.md)`` в
+`SKILL.md` объявляет зависимость: `npm run gen` автоматически находит все такие
+скиллы и кладёт в каждый идентичную generated-копию для автономной установки.
+Отдельный список получателей не поддерживается. Если ссылку удалить, генератор
+удалит осиротевшую копию только со своим generated-заголовком; вручную созданный
+файл он не перезаписывает и не удаляет. Semi-automated сценарии и fake MCP находятся
+в `packages/mcp/src/scenarios/`;
 тесты setup-скилла находятся рядом с его dependency-free helper. Всё запускается
 через обычный `npm test`.
 
