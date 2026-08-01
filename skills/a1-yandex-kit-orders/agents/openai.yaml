@@ -1,0 +1,4 @@
+interface:
+  display_name: "A1 Яндекс KIT — заказы"
+  short_description: "Проверка, подтверждение и отмена заказов"
+  default_prompt: "Используй $a1-yandex-kit-orders, чтобы проверить или обработать заказы магазина."

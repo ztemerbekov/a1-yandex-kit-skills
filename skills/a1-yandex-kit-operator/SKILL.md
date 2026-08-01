@@ -2,7 +2,7 @@
 name: a1-yandex-kit-operator
 description: "Use for an operational review or an exact owner-authorized change in a Yandex KIT store: «Как дела в магазине?», «Что срочного?», «Подтверди заказ 123», «Поставь цену 4 990 для SKU-42» or another command with an unambiguous target, action and value. Treat short «Как дела?» as a store request only when Yandex KIT context is already established."
 metadata:
-  author: ztemerbekov
+  author: Zinnur Temerbekov
   version: "0.1.0"
 ---
 

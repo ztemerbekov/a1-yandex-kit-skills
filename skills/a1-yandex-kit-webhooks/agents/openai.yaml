@@ -1,0 +1,4 @@
+interface:
+  display_name: "A1 Яндекс KIT — вебхуки"
+  short_description: "Уведомления о заказах через вебхуки"
+  default_prompt: "Используй $a1-yandex-kit-webhooks, чтобы проверить или настроить вебхуки магазина."

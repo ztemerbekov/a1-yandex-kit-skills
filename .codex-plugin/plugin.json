@@ -1,0 +1,52 @@
+{
+  "name": "a1-yandex-kit-skills",
+  "version": "0.1.0",
+  "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
+  "author": {
+    "name": "Aleksandr Kovalko & Zinnur Temerbekov",
+    "url": "https://t.me/a1_yandex_kit_skills"
+  },
+  "homepage": "https://t.me/a1_yandex_kit_skills",
+  "repository": "https://github.com/ztemerbekov/a1-yandex-kit-skills",
+  "license": "MIT",
+  "keywords": [
+    "yandex",
+    "яндекс",
+    "yandex-kit",
+    "яндекс-кит",
+    "кит",
+    "интернет-магазин",
+    "управление-магазином",
+    "каталог",
+    "заказы",
+    "скидки",
+    "промокоды",
+    "ecommerce",
+    "ecom",
+    "иком",
+    "икомерс",
+    "mcp",
+    "mcp-server",
+    "api"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "A1 Яндекс KIT",
+    "shortDescription": "Управляйте магазином на Яндекс KIT словами",
+    "longDescription": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
+    "developerName": "Aleksandr Kovalko & Zinnur Temerbekov",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://t.me/a1_yandex_kit_skills",
+    "defaultPrompt": [
+      "Как дела в магазине?",
+      "Проведи полный аудит каталога.",
+      "Помоги запустить скидку или промокод."
+    ],
+    "composerIcon": "./assets/marketplaces/codex/composer-icon.svg",
+    "logo": "./assets/marketplaces/codex/logo.svg"
+  }
+}

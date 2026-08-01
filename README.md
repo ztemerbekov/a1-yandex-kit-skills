@@ -50,6 +50,7 @@
 ## Содержание
 
 - [Быстрый старт](#быстрый-старт)
+- [Другие способы установки](#другие-способы-установки)
 - [Подробнее о четырёх сценариях](#подробнее-о-четырёх-сценариях)
 - [Как ассистент взаимодействует с магазином](#как-ассистент-взаимодействует-с-магазином)
 - [Обратите внимание](#обратите-внимание)
@@ -86,6 +87,49 @@
    > Как дела в магазине?
 
 Установщик работает с Claude Code, Claude Desktop, Cursor, OpenAI Codex и другими приложениями. Если подключение не завершилось, откройте [подробную инструкцию](docs/INSTALLATION.md): там есть полный список платформ, ручная настройка и способы устранения ошибок.
+
+## Другие способы установки
+
+### Marketplace Codex
+
+Добавьте маркетплейс и установите полный пакет:
+
+```bash
+codex plugin marketplace add ztemerbekov/a1-yandex-kit-skills
+codex plugin add a1-yandex-kit-skills@a1-yandex-kit-skills
+```
+
+Начните новую задачу Codex, чтобы он загрузил установленные навыки. Затем явно вызовите `$a1-yandex-kit-skills:a1-yandex-kit-setup` и следуйте вопросам подключения.
+
+### Marketplace Cursor
+
+Добавьте маркетплейс:
+
+```bash
+cursor-agent plugin marketplace add https://github.com/ztemerbekov/a1-yandex-kit-skills
+```
+
+Запустите Cursor Agent, откройте `/plugin`, выберите маркетплейс **A1 Яндекс KIT** и установите плагин **A1 Яндекс KIT**. Затем явно выберите и запустите навык `a1-yandex-kit-setup`.
+
+### Marketplace Claude Code
+
+Добавьте маркетплейс и установите полный пакет:
+
+```text
+/plugin marketplace add ztemerbekov/a1-yandex-kit-skills
+/plugin install a1-yandex-kit-skills@a1-yandex-kit-skills
+```
+
+Полный пакет включает подключение и API-навыки, а также четыре готовых сценария.
+
+Можно установить только нужную часть:
+
+```text
+/plugin install a1-yandex-kit-core@a1-yandex-kit-skills
+/plugin install a1-yandex-kit-jobs@a1-yandex-kit-skills
+```
+
+Пакет сценариев автоматически установит `a1-yandex-kit-core`. После установки выполните `/reload-plugins`, затем явно вызовите `/a1-yandex-kit-core:a1-yandex-kit-setup` и следуйте вопросам подключения.
 
 ## Подробнее о четырёх сценариях
 

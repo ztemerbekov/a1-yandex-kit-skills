@@ -1,0 +1,4 @@
+interface:
+  display_name: "A1 Яндекс KIT — магазин"
+  short_description: "Склады, файлы и данные магазина"
+  default_prompt: "Используй $a1-yandex-kit-store, чтобы проверить или изменить данные магазина, складов и публикаций."

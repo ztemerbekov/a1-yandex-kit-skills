@@ -1,0 +1,16 @@
+{
+  "name": "a1-yandex-kit-skills",
+  "owner": {
+    "name": "Aleksandr Kovalko & Zinnur Temerbekov"
+  },
+  "metadata": {
+    "description": "Управляйте магазином на Яндекс KIT словами"
+  },
+  "plugins": [
+    {
+      "name": "a1-yandex-kit-skills",
+      "source": "./",
+      "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды."
+    }
+  ]
+}

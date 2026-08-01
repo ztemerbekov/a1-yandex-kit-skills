@@ -3,7 +3,7 @@ name: a1-yandex-kit-store
 description: "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, geo regions, file uploads, redirects and blog/news posts. Use when reading store metadata, managing warehouses or redirects, uploading files or publishing news in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
-  author: gistrec
+  author: Aleksandr Kovalko
   version: "0.1.0"
 ---
 

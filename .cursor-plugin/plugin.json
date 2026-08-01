@@ -1,0 +1,42 @@
+{
+  "name": "a1-yandex-kit-skills",
+  "displayName": "A1 Яндекс KIT",
+  "version": "0.1.0",
+  "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
+  "author": {
+    "name": "Aleksandr Kovalko & Zinnur Temerbekov"
+  },
+  "homepage": "https://t.me/a1_yandex_kit_skills",
+  "repository": "https://github.com/ztemerbekov/a1-yandex-kit-skills",
+  "license": "MIT",
+  "logo": "assets/marketplaces/cursor/logo.png",
+  "keywords": [
+    "yandex",
+    "яндекс",
+    "yandex-kit",
+    "яндекс-кит",
+    "кит",
+    "интернет-магазин",
+    "управление-магазином",
+    "каталог",
+    "заказы",
+    "скидки",
+    "промокоды",
+    "ecommerce",
+    "ecom",
+    "иком",
+    "икомерс",
+    "mcp",
+    "mcp-server",
+    "api"
+  ],
+  "category": "productivity",
+  "tags": [
+    "yandex-kit",
+    "яндекс-кит",
+    "интернет-магазин",
+    "ecommerce",
+    "mcp"
+  ],
+  "skills": "./skills/"
+}

@@ -3,7 +3,7 @@ name: a1-yandex-kit-webhooks
 description: "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, payment and delivery events and handle the one-time signing secret. Use when creating, updating, validating or deleting KIT webhooks, or when verifying incoming webhook calls."
 compatibility: "Requires Node.js >= 20"
 metadata:
-  author: gistrec
+  author: Aleksandr Kovalko
   version: "0.1.0"
 ---
 

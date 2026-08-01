@@ -30,7 +30,7 @@ const CODEGEN_DIR = fileURLToPath(new URL("../", import.meta.url));
 const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 
 const SKILL_VERSION = "0.1.0";
-const SKILL_AUTHOR = "gistrec";
+const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVariant", "UpdateWarehouse"];
 const EXACT_WRITE_PLAN_RELATIVE_PATH = "references/exact-write-protocol.md";
 const EXACT_WRITE_PLAN_GENERATED_HEADER =

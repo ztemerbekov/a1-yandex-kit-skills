@@ -1,0 +1,4 @@
+interface:
+  display_name: "A1 Яндекс KIT — API"
+  short_description: "Общие правила работы с API Яндекс KIT"
+  default_prompt: "Используй $a1-yandex-kit, чтобы помочь мне выполнить задачу через API Яндекс KIT."

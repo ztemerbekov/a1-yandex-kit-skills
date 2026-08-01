@@ -1,0 +1,4 @@
+interface:
+  display_name: "A1 Яндекс KIT — оператор"
+  short_description: "Проверяет магазин и выполняет точные команды"
+  default_prompt: "Используй $a1-yandex-kit-operator, чтобы проверить, как дела в магазине, и показать, что требует внимания."

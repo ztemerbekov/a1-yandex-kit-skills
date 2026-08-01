@@ -1,0 +1,4 @@
+interface:
+  display_name: "A1 Яндекс KIT — каталог"
+  short_description: "Товары, цены, остатки и категории магазина"
+  default_prompt: "Используй $a1-yandex-kit-catalog, чтобы проверить или изменить каталог магазина."
