@@ -152,7 +152,7 @@ same scripts and data, plus the endpoint tables of its tags:
 - \`a1-yandex-kit-catalog\` — products, variants (SKUs, prices, stocks), categories,
   characteristics, collections, context collections, badges.
 - \`a1-yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
-- \`a1-yandex-kit-marketing\` — discounts, promo codes, gifts.
+- \`a1-yandex-kit-promotions\` — discounts, promo codes, gifts.
 - \`a1-yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects, blog/news.
 - \`a1-yandex-kit-webhooks\` — webhooks: order events, HTTPS callbacks, signing secret.`;
 
@@ -182,7 +182,7 @@ const SKILLS: SkillDef[] = [
     description:
       "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, " +
       "base URL, rate limits, error contract, pagination and offline spec search/validation scripts. " +
-      "Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, marketing, " +
+      "Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, promotions, " +
       "store, webhooks) clearly fits, or when you need auth, limits or error-handling basics.",
     overview: ROUTER_OVERVIEW,
     tags: null,
@@ -250,12 +250,12 @@ ${DOMAIN_TRAILER}`,
       "(e.g. `list_orders`, `confirm_order`);",
   },
   {
-    name: "a1-yandex-kit-marketing",
+    name: "a1-yandex-kit-promotions",
     description:
-      "Manage marketing promotions in a Yandex KIT store over its REST API: discounts, promo codes " +
+      "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes " +
       "and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding " +
       "them to products, categories or collections.",
-    overview: `Covers the marketing domain of the Yandex KIT e-commerce API — tags: Скидки,
+    overview: `Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Подарки. All three promotion kinds are created first and then bound to
 objects: discounts and promocodes to variants, categories or collections via the
 \`.../objects/add\` and \`.../objects/remove\` endpoints, gifts to variants via
@@ -364,11 +364,11 @@ ${DOMAIN_TRAILER}`,
   }
   const statusEnum = (schema: string) => (specSchemas[schema]?.enum ?? []).join(",");
   if (!(specSchemas.DiscountStatus?.enum ?? []).includes("ARCHIVED")) {
-    throw new Error("DiscountStatus lost ARCHIVED — update the marketing lifecycle prose in gen-skills.ts");
+    throw new Error("DiscountStatus lost ARCHIVED — update the promotion lifecycle prose in gen-skills.ts");
   }
   for (const schema of ["PromocodeStatus", "GiftStatus"]) {
     if (statusEnum(schema) !== "ACTIVE,INACTIVE") {
-      throw new Error(`${schema} enum changed — update the marketing lifecycle prose in gen-skills.ts`);
+      throw new Error(`${schema} enum changed — update the promotion lifecycle prose in gen-skills.ts`);
     }
   }
 }
@@ -470,7 +470,7 @@ function relatedToolsSection(skill: SkillDef): string {
   if (skill.tags === null) {
     lines.push(
       `The bundled \`mcp-yandex-kit\` MCP server exposes **${toolCount} tools**. Curated tools`,
-      "cover the everyday catalog/orders/marketing/store/webhooks workflows (they are listed",
+      "cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed",
       `in the domain skills); the meta trio below reaches **all ${registry.opsCount} operations**:`,
       "",
     );
@@ -497,7 +497,7 @@ const SKILL_TITLES: Record<string, string> = {
   "a1-yandex-kit": "A1 Yandex KIT Skills",
   "a1-yandex-kit-catalog": "A1 Yandex KIT — Catalog",
   "a1-yandex-kit-orders": "A1 Yandex KIT — Orders",
-  "a1-yandex-kit-marketing": "A1 Yandex KIT — Marketing",
+  "a1-yandex-kit-promotions": "A1 Yandex KIT — Promotions",
   "a1-yandex-kit-store": "A1 Yandex KIT — Store",
   "a1-yandex-kit-webhooks": "A1 Yandex KIT — Webhooks",
 };
@@ -550,6 +550,10 @@ const bundle = await build({
   absWorkingDir: CODEGEN_DIR,
 });
 const validateScript = bundle.outputFiles[0]!.text;
+
+// Rename migration: remove the former generated directory so regeneration cannot
+// leave two installable skills for the same promotions domain.
+rmSync(OUT_DIR + "a1-yandex-kit-marketing/", { recursive: true, force: true });
 
 for (const skill of SKILLS) {
   const dir = OUT_DIR + skill.name + "/";

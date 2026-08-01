@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit
-description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, base URL, rate limits, error contract, pagination and offline spec search/validation scripts. Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, marketing, store, webhooks) clearly fits, or when you need auth, limits or error-handling basics."
+description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, base URL, rate limits, error contract, pagination and offline spec search/validation scripts. Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, promotions, store, webhooks) clearly fits, or when you need auth, limits or error-handling basics."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: gistrec
@@ -86,14 +86,14 @@ same scripts and data, plus the endpoint tables of its tags:
 - `a1-yandex-kit-catalog` — products, variants (SKUs, prices, stocks), categories,
   characteristics, collections, context collections, badges.
 - `a1-yandex-kit-orders` — orders, customers, gift cards, additional services (addons).
-- `a1-yandex-kit-marketing` — discounts, promo codes, gifts.
+- `a1-yandex-kit-promotions` — discounts, promo codes, gifts.
 - `a1-yandex-kit-store` — store profile, warehouses, users, geo, files, redirects, blog/news.
 - `a1-yandex-kit-webhooks` — webhooks: order events, HTTPS callbacks, signing secret.
 
 ## Related MCP tools
 
 The bundled `mcp-yandex-kit` MCP server exposes **61 tools**. Curated tools
-cover the everyday catalog/orders/marketing/store/webhooks workflows (they are listed
+cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
 in the domain skills); the meta trio below reaches **all 133 operations**:
 
 - `search_operations` — Search the full catalog of all 133 Yandex KIT API operations by keyword.

@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and marketing workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 133 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 133 API operations, including those without a dedicated tool.
 
 ## Categories (`categories.ts`)
 
