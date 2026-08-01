@@ -64,6 +64,13 @@
 | Web-adapter поддерживает available/unavailable/absent без host-specific API | `FakeLaunchWebAdapter` и три ветви scenario evals | автоматизировано |
 | Ясность итогового launch verdict | Прогон unavailable/conditional/READY формулировок в model host | manual acceptance pending |
 
+## Issue #33
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| Launch Check применяет общий Exact Write Plan Protocol как одношаговый план для каждого точного исправления | `skills/a1-yandex-kit-launch-check/references/exact-write-protocol.md`; identical-copy test | автоматизировано |
+| Successful stock response с несовпадающим полным `stocks` reread остаётся `ambiguous` и не повторяет запись | `a successful stock response with a mismatching reread is ambiguous` | автоматизировано |
+
 Запуск:
 
 ```bash

@@ -352,6 +352,14 @@ function mutationFailure(
   };
 }
 
+function verificationMismatch(id: string, report: string): ItemOutcome {
+  return {
+    id,
+    kind: "ambiguous",
+    report: `${report}; результат неизвестен, нужна проверка`,
+  };
+}
+
 async function discountOverlapRisk(
   mcp: FakeP1Mcp,
   targetId: string,
@@ -423,11 +431,10 @@ async function mutateDiscountStatus({
         ? "INACTIVE"
         : status;
   if (actual.status !== expected) {
-    return {
+    return verificationMismatch(
       id,
-      kind: "failed",
-      report: `${id}: ожидался статус ${expected}, после записи получен ${actual.status}`,
-    };
+      `${id}: ожидался статус ${expected}, после записи получен ${actual.status}`,
+    );
   }
   const risk =
     expected === "ACTIVE" ? await discountOverlapRisk(mcp, id) : "";
@@ -476,11 +483,10 @@ async function mutatePromocodeStatus(
         kind: "completed",
         report: `Промокод ${before.code} (${id}): ${before.status} → ${actual.status}.`,
       }
-    : {
+    : verificationMismatch(
         id,
-        kind: "failed",
-        report: `${id}: ожидался статус ${status}, после записи получен ${actual.status}`,
-      };
+        `${id}: ожидался статус ${status}, после записи получен ${actual.status}`,
+      );
 }
 
 async function getGift(mcp: FakeP1Mcp, id: string): Promise<PromoGift> {
@@ -543,11 +549,10 @@ async function mutateGiftStatus(
         kind: "completed",
         report: `Подарок ${before.title} (${id}): ${before.status} → ${actual.status}.`,
       }
-    : {
+    : verificationMismatch(
         id,
-        kind: "failed",
-        report: `${id}: ожидался статус ${status}, после записи получен ${actual.status}`,
-      };
+        `${id}: ожидался статус ${status}, после записи получен ${actual.status}`,
+      );
 }
 
 async function deleteGiftPermanently(
@@ -685,11 +690,10 @@ async function extendPromotion({
         kind: "completed",
         report: `${id}: срок продлён до ${dates.end_date}; прочие условия сохранены.`,
       }
-    : {
+    : verificationMismatch(
         id,
-        kind: "failed",
-        report: `${id}: проверочная дата ${actualDates.end_date ?? "не задана"} не совпала с ${dates.end_date}`,
-      };
+        `${id}: проверочная дата ${actualDates.end_date ?? "не задана"} не совпала с ${dates.end_date}`,
+      );
 }
 
 function bindingObjects(
@@ -821,11 +825,10 @@ async function mutateBinding({
         kind: "completed",
         report: `${promotionId}: ${action === "add" ? "добавлена" : "удалена"} привязка ${objectId}; привязок: ${ids.length}.`,
       }
-    : {
-        id: promotionId,
-        kind: "failed",
-        report: `${promotionId}: проверка привязки ${objectId} не подтвердила действие ${action}`,
-      };
+    : verificationMismatch(
+        promotionId,
+        `${promotionId}: проверка привязки ${objectId} не подтвердила действие ${action}`,
+      );
 }
 
 async function mutateGiftBinding({
@@ -922,11 +925,10 @@ async function mutateGiftBinding({
         kind: "completed",
         report: `${promotionId}: ${action === "add" ? "добавлен" : "удалён"} вариант ${objectId}; привязок: ${ids.length}.`,
       }
-    : {
-        id: promotionId,
-        kind: "failed",
-        report: `${promotionId}: проверка состава не подтвердила действие ${action}`,
-      };
+    : verificationMismatch(
+        promotionId,
+        `${promotionId}: проверка состава не подтвердила действие ${action}`,
+      );
 }
 
 async function mutatePromocodeConditions({
@@ -1001,11 +1003,10 @@ async function mutatePromocodeConditions({
           `Промокод ${before.code} (${id}): изменены только ${Object.keys(patch).join(", ")}; ` +
           "остальные условия сохранены.",
       }
-    : {
+    : verificationMismatch(
         id,
-        kind: "failed",
-        report: `${id}: повторное чтение не подтвердило все перечисленные условия`,
-      };
+        `${id}: повторное чтение не подтвердило все перечисленные условия`,
+      );
 }
 
 export async function runPromoLifecycleScenario({

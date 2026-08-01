@@ -45,6 +45,10 @@ test("an exact category discount reads the target, writes once per step, and re-
   const skill = await readFile(PROMO_LAUNCHER_SKILL_URL, "utf8");
   assert.match(skill, /^---\nname: a1-yandex-kit-promo-launcher\n/m);
   assert.match(skill, /Запусти скидку/u);
+  assert.match(
+    skill,
+    /\[`references\/exact-write-protocol\.md`\]\(references\/exact-write-protocol\.md\)/u,
+  );
 
   const mcp = new FakeP1Mcp({ categories: [category()] });
   const result = await runPromoLauncherScenario({
@@ -61,9 +65,12 @@ test("an exact category discount reads the target, writes once per step, and re-
       "get_category",
       "list_discounts",
       "create_discount",
+      "get_discount",
       "manage_discount_objects",
       "get_discount",
       "kit_request",
+      "update_discount",
+      "get_discount",
     ],
   );
   assert.deepEqual(mcp.calls[2]?.arguments, {
@@ -74,16 +81,20 @@ test("an exact category discount reads the target, writes once per step, and re-
         start_date: "2026-07-30T07:00:00.000Z",
         end_date: "2026-08-02T20:59:00.000Z",
       },
-      status: "ACTIVE",
+      status: "INACTIVE",
       binding_mode: "SELECTED_VARIANTS",
     },
   });
-  assert.deepEqual(mcp.calls[3]?.arguments, {
+  assert.deepEqual(mcp.calls[4]?.arguments, {
     id: "discount-1",
     action: "add",
     objects: { category_ids: [CATEGORY_ID] },
   });
-  assert.equal(mcp.writeCalls.length, 2);
+  assert.deepEqual(mcp.calls[7]?.arguments, {
+    id: "discount-1",
+    discount: { status: "ACTIVE" },
+  });
+  assert.equal(mcp.writeCalls.length, 3);
   assert.equal(result.kind, "completed");
   assert.match(result.report, /discount-1/);
   assert.match(result.report, /ACTIVE/);
@@ -269,6 +280,35 @@ test("a create timeout is attempted once and remains ambiguous", async () => {
   assert.equal(mcp.calls.filter((call) => call.name === "manage_discount_objects").length, 0);
 });
 
+test("an ambiguous discount binding leaves the created discount inactive and skips activation", async () => {
+  const timeout = new Error("network timeout");
+  timeout.name = "TimeoutError";
+  const mcp = new FakeP1Mcp({
+    categories: [category()],
+    writeErrors: { manage_discount_objects: timeout },
+  });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Запусти скидку «Лето» 15% на категорию ${CATEGORY_ID} ` +
+      "с завтра 10:00 до воскресенья 23:59 по Москве",
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "partial");
+  assert.equal(result.promotionId, "discount-1");
+  assert.equal(
+    (mcp.calls.find((call) => call.name === "create_discount")?.arguments.discount as {
+      status: string;
+    }).status,
+    "INACTIVE",
+  );
+  assert.equal(mcp.calls.filter((call) => call.name === "manage_discount_objects").length, 1);
+  assert.equal(mcp.calls.filter((call) => call.name === "update_discount").length, 0);
+  assert.match(result.report, /привязка.*ambiguous/iu);
+  assert.match(result.report, /активация.*не выполнялась/iu);
+});
+
 test("an exact limited ORDER promocode is created, activated once, and re-read", async () => {
   const mcp = new FakeP1Mcp();
   const result = await runPromoLauncherScenario({
@@ -339,6 +379,7 @@ test("a PRODUCTS promocode validates and binds a category without an activation 
       "list_promocodes",
       "list_promocodes",
       "create_promocode",
+      "get_promocode",
       "manage_promocode_objects",
       "get_promocode",
       "kit_request",
@@ -359,7 +400,7 @@ test("a PRODUCTS promocode validates and binds a category without an activation 
       show_in_pdp: true,
     },
   });
-  assert.deepEqual(mcp.calls[4]?.arguments, {
+  assert.deepEqual(mcp.calls[5]?.arguments, {
     id: "promocode-1",
     action: "add",
     objects: { category_ids: [CATEGORY_ID] },
@@ -368,6 +409,35 @@ test("a PRODUCTS promocode validates and binds a category without an activation 
   assert.equal(result.kind, "completed");
   assert.match(result.report, /show_in_pdp=true/u);
   assert.match(result.report, /1 объектов/u);
+});
+
+test("an ambiguous binding stops dependent promocode activation and reports partial state", async () => {
+  const timeout = new Error("network timeout");
+  timeout.name = "TimeoutError";
+  const mcp = new FakeP1Mcp({
+    categories: [category()],
+    writeErrors: { manage_promocode_objects: timeout },
+  });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Запусти промокод SUMMER «Лето» 500 рублей на категорию ${CATEGORY_ID} ` +
+      "с 1 августа 2026 00:00 по Москве бессрочно, лимит 50",
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "partial");
+  assert.equal(result.promotionId, "promocode-1");
+  assert.equal(mcp.calls.filter((call) => call.name === "create_promocode").length, 1);
+  assert.equal(
+    mcp.calls.filter((call) => call.name === "manage_promocode_objects").length,
+    1,
+  );
+  assert.equal(mcp.calls.filter((call) => call.name === "update_promocode").length, 0);
+  assert.match(result.report, /создание.*completed/iu);
+  assert.match(result.report, /привязка.*ambiguous/iu);
+  assert.match(result.report, /активация.*не выполнялась/iu);
+  assert.match(result.report, /результат неизвестен, нужна проверка/iu);
 });
 
 test("a promocode without a usage limit or explicit unlimited choice performs no read or write", async () => {
@@ -500,8 +570,8 @@ test("an exact active gift validates variants and schema, creates once, activate
       "get_operation_schema",
       "kit_request",
       "kit_request",
-      "get_operation_schema",
       "kit_request",
+      "get_operation_schema",
       "kit_request",
       "kit_request",
     ],
@@ -517,9 +587,14 @@ test("an exact active gift validates variants and schema, creates once, activate
     },
   });
   assert.deepEqual(mcp.calls[5]?.arguments, {
-    operation_id: "UpdateGift",
+    operation_id: "GetGiftVariants",
+    path_params: { id: "gift-1" },
+    query: { page: 1, per_page: 100 },
   });
   assert.deepEqual(mcp.calls[6]?.arguments, {
+    operation_id: "UpdateGift",
+  });
+  assert.deepEqual(mcp.calls[7]?.arguments, {
     operation_id: "UpdateGift",
     path_params: { id: "gift-1" },
     body: { status: "ACTIVE" },
@@ -562,6 +637,34 @@ test("an inactive gift draft keeps the documented POPULARITY default and skips a
   assert.equal(result.kind, "completed");
   assert.match(result.report, /INACTIVE/);
   assert.match(result.report, /POPULARITY/);
+});
+
+test("an unverified gift composition blocks dependent activation", async () => {
+  const mcp = new FakeP1Mcp({
+    variants: [variant(VARIANT_ID_1)],
+    readErrors: {
+      "kit_request:GetGiftVariants": new Error("gift variants unavailable"),
+    },
+  });
+  const result = await runPromoLauncherScenario({
+    request:
+      `Создай и запусти подарок «Кружка» при корзине от 3000 рублей, ` +
+      `варианты ${VARIANT_ID_1}`,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(result.kind, "ambiguous");
+  assert.equal(result.promotionId, "gift-1");
+  assert.equal(
+    mcp.calls.some(
+      (call) =>
+        call.name === "kit_request" && call.arguments.operation_id === "UpdateGift",
+    ),
+    false,
+  );
+  assert.match(result.report, /активация не выполнялась/iu);
+  assert.match(result.report, /результат неизвестен, нужна проверка/iu);
 });
 
 test("a gift with more than 50 variants is rejected before target reads", async () => {

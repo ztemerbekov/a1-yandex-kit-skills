@@ -56,7 +56,8 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 `skills/a1-yandex-kit-setup/`, `skills/a1-yandex-kit-operator/`,
 `skills/a1-yandex-kit-catalog-doctor/`, `skills/a1-yandex-kit-promo-launcher/` и
 `skills/a1-yandex-kit-launch-check/`; `npm run gen` не удаляет и не перезаписывает
-их, кроме общего `references/exact-write-protocol.md`. Его единственный исходник —
+их, кроме общего write-plan контракта `references/exact-write-protocol.md`. Его
+единственный исходник —
 `packages/codegen/src/skill-src/references/exact-write-protocol.md`, а `npm run gen`
 копирует его во все четыре сценарных скилла для автономной установки. Их
 semi-automated сценарии и fake MCP находятся в `packages/mcp/src/scenarios/`;

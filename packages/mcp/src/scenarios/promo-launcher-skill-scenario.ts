@@ -10,7 +10,11 @@ import {
   type OperatorWebhook,
   type RecordedToolCall,
 } from "./operator-skill-scenario.js";
-import { mutationResultIsAmbiguous } from "./skill-mutation-protocol.js";
+import {
+  executeVerifiedMutation,
+  mutationResultIsAmbiguous,
+  type MutationOutcome,
+} from "./skill-mutation-protocol.js";
 
 export interface PromoCategory {
   id: string;
@@ -400,6 +404,13 @@ export class FakeP1Mcp {
       if (operationId === "AddGiftVariants" || operationId === "RemoveGiftVariants") {
         const requested = (arguments_.body as components["schemas"]["GiftVariantsRequest"])
           .variant_ids;
+        if (
+          this.#writeNoops.has(`kit_request:${operationId}:${id}`) ||
+          this.#writeNoops.has(`kit_request:${operationId}`) ||
+          this.#writeNoops.has(operationId)
+        ) {
+          return { ok: true };
+        }
         const key = `GetGiftVariants:${id}`;
         const current = this.#bindings[key] ?? [];
         this.#bindings[key] =
@@ -590,7 +601,7 @@ interface GiftPlan {
 }
 
 export interface PromoLauncherResult {
-  kind: "completed" | "needs_input" | "failed" | "ambiguous";
+  kind: "completed" | "needs_input" | "failed" | "ambiguous" | "partial";
   report: string;
   promotionId?: string;
 }
@@ -1095,6 +1106,80 @@ function sameOptionalMoney(left: string | undefined, right: string | undefined):
   return Number(left ?? "0") === Number(right ?? "0");
 }
 
+function stagedFailureReport({
+  entity,
+  id,
+  completedStages,
+  blockedStage,
+  outcome,
+  skippedStages = [],
+  factualState,
+}: {
+  entity: string;
+  id: string;
+  completedStages: string[];
+  blockedStage: string;
+  outcome: MutationOutcome;
+  skippedStages?: string[];
+  factualState: string;
+}): string {
+  const completed = completedStages
+    .map((stage) => `${stage} completed`)
+    .join("; ");
+  const skipped = skippedStages
+    .map((stage) => `${stage} не выполнялась`)
+    .join("; ");
+  return (
+    `${entity} ${id}: ${completed}; ${blockedStage} ${outcome.kind} — ${outcome.message}. ` +
+    `${skipped ? `${skipped}. ` : ""}${factualState}`
+  );
+}
+
+function discountCreateMatches(
+  actual: OperatorDiscount,
+  plan: DiscountPlan,
+  status: OperatorDiscount["status"],
+): boolean {
+  return (
+    actual.title === plan.title &&
+    actual.status === status &&
+    sameValue(actual.discount_value, plan.value) &&
+    sameDates(actual.discount_dates, plan.dates) &&
+    actual.binding_mode === bindingModeForCreate(plan.scope)
+  );
+}
+
+function promocodeCreateMatches(
+  actual: OperatorPromocode,
+  plan: PromocodePlan,
+): boolean {
+  const expected = promocodeCreateRequest(plan);
+  return (
+    actual.code === expected.code &&
+    actual.title === expected.title &&
+    actual.status === "INACTIVE" &&
+    actual.type === expected.type &&
+    sameValue(actual.discount_value, expected.discount_value) &&
+    sameDates(actual.promocode_dates, expected.promocode_dates) &&
+    sameOptionalMoney(actual.minimum_order_amount, expected.minimum_order_amount) &&
+    actual.max_usage === expected.max_usage &&
+    sameOptionalMoney(actual.max_discount_amount, expected.max_discount_amount) &&
+    (actual.one_time_use ?? false) === (expected.one_time_use ?? false) &&
+    (actual.first_order_only ?? false) === (expected.first_order_only ?? false) &&
+    (actual.show_in_pdp ?? false) === (expected.show_in_pdp ?? false) &&
+    actual.binding_mode === expected.binding_mode
+  );
+}
+
+function giftCreateMatches(actual: PromoGift, plan: GiftPlan): boolean {
+  return (
+    actual.title === plan.title &&
+    Number(actual.min_cart_total) === Number(plan.minCartTotal) &&
+    actual.status === "INACTIVE" &&
+    actual.default_sort === plan.defaultSort
+  );
+}
+
 async function promocodeIsEquivalent(
   mcp: FakeP1Mcp,
   existing: OperatorPromocode,
@@ -1250,19 +1335,6 @@ async function runPromocodeScenario({
     });
   }
 
-  let bindingError: unknown;
-  if (plan.type === "PRODUCTS" && plan.scope && plan.scope.kind !== "all") {
-    try {
-      await mcp.call("manage_promocode_objects", {
-        id: created.id,
-        action: "add",
-        objects: promocodeBindingObjects(plan.scope),
-      });
-    } catch (error) {
-      bindingError = error;
-    }
-  }
-
   let actual: OperatorPromocode;
   try {
     actual = (await mcp.call("get_promocode", { id: created.id })) as OperatorPromocode;
@@ -1272,62 +1344,119 @@ async function runPromocodeScenario({
       promotionId: created.id,
       report: `Промокод ${created.id} создан, но первое проверочное чтение не удалось: ${
         error instanceof Error ? error.message : String(error)
-      }`,
+      }; зависимые стадии не выполнялись; результат неизвестен, нужна проверка`,
+    });
+  }
+  if (!promocodeCreateMatches(actual, plan)) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: actual.id,
+      report:
+        `Промокод ${actual.id}: повторное чтение не подтвердило полное состояние стадии создания; ` +
+        "привязка и активация не выполнялись; результат неизвестен, нужна проверка",
     });
   }
 
-  let statusError: unknown;
-  if (plan.status === "ACTIVE" && actual.status !== "ACTIVE") {
-    try {
-      await mcp.call("update_promocode", {
-        id: actual.id,
-        promocode: { status: "ACTIVE" },
-      });
-    } catch (error) {
-      statusError = error;
-    }
-    try {
-      actual = (await mcp.call("get_promocode", { id: created.id })) as OperatorPromocode;
-    } catch (error) {
+  const requiresBinding =
+    plan.type === "PRODUCTS" && plan.scope !== undefined && plan.scope.kind !== "all";
+  let actualIds: string[] = [];
+  if (requiresBinding) {
+    const scope = plan.scope!;
+    let latest = actual;
+    const bindingOutcome = await executeVerifiedMutation({
+      subject: `Привязка промокода ${actual.id}`,
+      initialBefore: { promotion: actual, ids: [] as string[] },
+      read: async () => {
+        const promotion = (await mcp.call("get_promocode", {
+          id: created.id,
+        })) as OperatorPromocode;
+        const ids = await readScopeIds(mcp, promotion.id, scope, "Promocode");
+        latest = promotion;
+        actualIds = ids;
+        return { promotion, ids };
+      },
+      write: () =>
+        mcp.call("manage_promocode_objects", {
+          id: created.id,
+          action: "add",
+          objects: promocodeBindingObjects(scope),
+        }),
+      verifyAfter: ({ promotion, ids }) => {
+        const expectedMode =
+          scope.kind === "variants"
+            ? "SELECTED_VARIANTS"
+            : "SELECTED_CATEGORIES_COLLECTIONS";
+        const valid =
+          promotion.binding_mode === expectedMode &&
+          ids.length === scope.ids.length &&
+          scope.ids.every((id) => ids.includes(id));
+        return {
+          valid,
+          message: valid
+            ? `Промокод ${promotion.id}: привязка подтверждена`
+            : `Промокод ${promotion.id}: полная привязка не подтверждена`,
+        };
+      },
+    });
+    actual = latest;
+    if (bindingOutcome.kind !== "completed") {
       return finish(mcp, {
-        kind: "ambiguous",
-        promotionId: created.id,
-        report: `Активация промокода вызвана один раз, но повторное чтение не удалось: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        kind: "partial",
+        promotionId: actual.id,
+        report: stagedFailureReport({
+          entity: "Промокод",
+          id: actual.id,
+          completedStages: ["создание"],
+          blockedStage: "привязка",
+          outcome: bindingOutcome,
+          skippedStages: plan.status === "ACTIVE" ? ["активация"] : [],
+          factualState: `Последний подтверждённый статус ${actual.status}; привязок прочитано: ${actualIds.length}.`,
+        }),
       });
     }
   }
 
-  let actualIds: string[] = [];
-  if (plan.type === "PRODUCTS" && plan.scope && plan.scope.kind !== "all") {
-    try {
-      actualIds = await readScopeIds(mcp, actual.id, plan.scope, "Promocode");
-    } catch (error) {
+  if (plan.status === "ACTIVE") {
+    let latest = actual;
+    const activationOutcome = await executeVerifiedMutation({
+      subject: `Активация промокода ${actual.id}`,
+      initialBefore: actual,
+      read: async () => {
+        latest = (await mcp.call("get_promocode", {
+          id: created.id,
+        })) as OperatorPromocode;
+        return latest;
+      },
+      write: () =>
+        mcp.call("update_promocode", {
+          id: created.id,
+          promocode: { status: "ACTIVE" },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.status === "ACTIVE",
+        message:
+          after.status === "ACTIVE"
+            ? `Промокод ${after.id}: активация подтверждена`
+            : `Промокод ${after.id}: после активации получен статус ${after.status}`,
+      }),
+    });
+    actual = latest;
+    if (activationOutcome.kind !== "completed") {
       return finish(mcp, {
-        kind: "ambiguous",
+        kind: "partial",
         promotionId: actual.id,
-        report: `Промокод ${actual.id} создан, но фактические привязки не прочитаны: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        report: stagedFailureReport({
+          entity: "Промокод",
+          id: actual.id,
+          completedStages: ["создание", ...(requiresBinding ? ["привязка"] : [])],
+          blockedStage: "активация",
+          outcome: activationOutcome,
+          factualState: `Последний подтверждённый статус ${actual.status}.`,
+        }),
       });
     }
   }
-  const bindingComplete =
-    plan.type === "ORDER" ||
-    plan.scope?.kind === "all" ||
-    (plan.scope !== undefined &&
-      actualIds.length === plan.scope.ids.length &&
-      plan.scope.ids.every((id) => actualIds.includes(id)));
-  const statusComplete = actual.status === plan.status;
-  const ambiguous =
-    (bindingError !== undefined && mutationResultIsAmbiguous(bindingError)) ||
-    (statusError !== undefined && mutationResultIsAmbiguous(statusError));
-  const kind = ambiguous
-    ? "ambiguous"
-    : bindingError || statusError || !bindingComplete || !statusComplete
-      ? "failed"
-      : "completed";
+
   const report =
     `Промокод ${actual.code} (${actual.id}): статус ${actual.status}; тип ${actual.type}; ` +
     `значение ${actual.discount_value?.value} ${actual.discount_value?.type}; ` +
@@ -1344,14 +1473,8 @@ async function runPromocodeScenario({
         : plan.scope?.kind === "all"
           ? "весь каталог"
           : `${actualIds.length} объектов`
-    }.` +
-    (bindingError
-      ? ` Ошибка привязки: ${bindingError instanceof Error ? bindingError.message : String(bindingError)}.`
-      : "") +
-    (statusError
-      ? ` Ошибка активации: ${statusError instanceof Error ? statusError.message : String(statusError)}.`
-      : "");
-  return finish(mcp, { kind, promotionId: actual.id, report });
+    }.`;
+  return finish(mcp, { kind: "completed", promotionId: actual.id, report });
 }
 
 async function runGiftScenario({
@@ -1427,45 +1550,14 @@ async function runGiftScenario({
       }`,
     });
   }
-
-  let activationError: unknown;
-  if (plan.status === "ACTIVE" && actual.status !== "ACTIVE") {
-    try {
-      await mcp.call("get_operation_schema", {
-        operation_id: "UpdateGift",
-      });
-    } catch (error) {
-      return finish(mcp, {
-        kind: "failed",
-        promotionId: actual.id,
-        report: `Подарок ${actual.id} создан INACTIVE, но схема UpdateGift не прочитана; активация не вызывалась: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      });
-    }
-    try {
-      await mcp.call("kit_request", {
-        operation_id: "UpdateGift",
-        path_params: { id: actual.id },
-        body: { status: "ACTIVE" },
-      });
-    } catch (error) {
-      activationError = error;
-    }
-    try {
-      actual = (await mcp.call("kit_request", {
-        operation_id: "GetGiftById",
-        path_params: { id: actual.id },
-      })) as PromoGift;
-    } catch (error) {
-      return finish(mcp, {
-        kind: "ambiguous",
-        promotionId: created.id,
-        report: `Активация подарка вызвана один раз, но повторное чтение не удалось: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      });
-    }
+  if (!giftCreateMatches(actual, plan)) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: actual.id,
+      report:
+        `Подарок ${actual.id}: повторное чтение не подтвердило полное состояние стадии создания; ` +
+        "активация не выполнялась; результат неизвестен, нужна проверка",
+    });
   }
 
   let variantIds: string[];
@@ -1480,31 +1572,87 @@ async function runGiftScenario({
     return finish(mcp, {
       kind: "ambiguous",
       promotionId: actual.id,
-      report: `Подарок ${actual.id} перечитан, но состав товаров не проверен: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
+      report:
+        `Подарок ${actual.id}: состав стадии создания не прочитан; активация не выполнялась ` +
+        `(${error instanceof Error ? error.message : String(error)}); ` +
+        "результат неизвестен, нужна проверка",
     });
   }
   const variantsComplete =
     variantIds.length === plan.variantIds.length &&
     plan.variantIds.every((id) => variantIds.includes(id));
-  const statusComplete = actual.status === plan.status;
-  const kind =
-    activationError && mutationResultIsAmbiguous(activationError)
-      ? "ambiguous"
-      : activationError || !variantsComplete || !statusComplete
-        ? "failed"
-        : "completed";
+  if (!variantsComplete) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: actual.id,
+      report:
+        `Подарок ${actual.id}: повторное чтение не подтвердило полный состав стадии создания; ` +
+        "активация не выполнялась; результат неизвестен, нужна проверка",
+    });
+  }
+
+  if (plan.status === "ACTIVE") {
+    try {
+      await mcp.call("get_operation_schema", {
+        operation_id: "UpdateGift",
+      });
+    } catch (error) {
+      return finish(mcp, {
+        kind: "partial",
+        promotionId: actual.id,
+        report:
+          `Подарок ${actual.id}: создание completed; активация failed — схема UpdateGift ` +
+          `не прочитана, запись не выполнялась (${error instanceof Error ? error.message : String(error)}). ` +
+          `Последний подтверждённый статус ${actual.status}.`,
+      });
+    }
+    let latest = actual;
+    const activationOutcome = await executeVerifiedMutation({
+      subject: `Активация подарка ${actual.id}`,
+      initialBefore: actual,
+      read: async () => {
+        latest = (await mcp.call("kit_request", {
+          operation_id: "GetGiftById",
+          path_params: { id: created.id },
+        })) as PromoGift;
+        return latest;
+      },
+      write: () =>
+        mcp.call("kit_request", {
+          operation_id: "UpdateGift",
+          path_params: { id: created.id },
+          body: { status: "ACTIVE" },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.status === "ACTIVE",
+        message:
+          after.status === "ACTIVE"
+            ? `Подарок ${after.id}: активация подтверждена`
+            : `Подарок ${after.id}: после активации получен статус ${after.status}`,
+      }),
+    });
+    actual = latest;
+    if (activationOutcome.kind !== "completed") {
+      return finish(mcp, {
+        kind: "partial",
+        promotionId: actual.id,
+        report: stagedFailureReport({
+          entity: "Подарок",
+          id: actual.id,
+          completedStages: ["создание"],
+          blockedStage: "активация",
+          outcome: activationOutcome,
+          factualState: `Последний подтверждённый статус ${actual.status}.`,
+        }),
+      });
+    }
+  }
+
   const report =
     `Подарок ${actual.title} (${actual.id}): минимальная корзина ${actual.min_cart_total}; ` +
     `статус ${actual.status}; сортировка ${actual.default_sort}; ` +
-    `товаров-подарков: ${variantIds.length}. Даты действия KIT API не поддерживает.` +
-    (activationError
-      ? ` Активация завершилась ошибкой: ${
-          activationError instanceof Error ? activationError.message : String(activationError)
-        }; повторной записи не было.`
-      : "");
-  return finish(mcp, { kind, promotionId: actual.id, report });
+    `товаров-подарков: ${variantIds.length}. Даты действия KIT API не поддерживает.`;
+  return finish(mcp, { kind: "completed", promotionId: actual.id, report });
 }
 
 export async function runPromoLauncherScenario({
@@ -1575,6 +1723,9 @@ export async function runPromoLauncherScenario({
     });
   }
   const overlapRisk = listed.items.some((discount) => discount.status === "ACTIVE");
+  const requiresBinding = plan.scope.kind !== "all";
+  const createStatus =
+    requiresBinding && plan.status === "ACTIVE" ? "INACTIVE" : plan.status;
 
   let created: OperatorDiscount;
   try {
@@ -1583,7 +1734,7 @@ export async function runPromoLauncherScenario({
         title: plan.title,
         discount_value: plan.value,
         discount_dates: plan.dates,
-        status: plan.status,
+        status: createStatus,
         binding_mode: bindingModeForCreate(plan.scope),
       },
     })) as OperatorDiscount;
@@ -1600,24 +1751,10 @@ export async function runPromoLauncherScenario({
     });
   }
 
-  let bindingError: unknown;
-  if (plan.scope.kind !== "all") {
-    try {
-      await mcp.call("manage_discount_objects", {
-        id: created.id,
-        action: "add",
-        objects: bindingObjects(plan.scope),
-      });
-    } catch (error) {
-      bindingError = error;
-    }
-  }
-
   let actual: OperatorDiscount;
   let actualIds: string[] = [];
   try {
     actual = (await mcp.call("get_discount", { id: created.id })) as OperatorDiscount;
-    actualIds = await readScopeIds(mcp, created.id, plan.scope);
   } catch (error) {
     return finish(mcp, {
       kind: "ambiguous",
@@ -1625,20 +1762,116 @@ export async function runPromoLauncherScenario({
       report:
         `Скидка ${created.id} создана, но повторное чтение не завершено: ${
           error instanceof Error ? error.message : String(error)
-        }. Результат нужно проверить.`,
+        }. Зависимые стадии не выполнялись; результат неизвестен, нужна проверка.`,
+    });
+  }
+  if (!discountCreateMatches(actual, plan, createStatus)) {
+    return finish(mcp, {
+      kind: "ambiguous",
+      promotionId: actual.id,
+      report:
+        `Скидка ${actual.id}: повторное чтение не подтвердило полное состояние стадии создания; ` +
+        "привязка и активация не выполнялись; результат неизвестен, нужна проверка",
     });
   }
 
-  const bindingComplete =
-    plan.scope.kind === "all" ||
-    (actualIds.length === plan.scope.ids.length &&
-      plan.scope.ids.every((id) => actualIds.includes(id)));
-  const kind =
-    bindingError && mutationResultIsAmbiguous(bindingError)
-      ? "ambiguous"
-      : bindingError || !bindingComplete
-        ? "failed"
-        : "completed";
+  if (requiresBinding) {
+    const scope = plan.scope;
+    let latest = actual;
+    const bindingOutcome = await executeVerifiedMutation({
+      subject: `Привязка скидки ${actual.id}`,
+      initialBefore: { promotion: actual, ids: [] as string[] },
+      read: async () => {
+        const promotion = (await mcp.call("get_discount", {
+          id: created.id,
+        })) as OperatorDiscount;
+        const ids = await readScopeIds(mcp, promotion.id, scope);
+        latest = promotion;
+        actualIds = ids;
+        return { promotion, ids };
+      },
+      write: () =>
+        mcp.call("manage_discount_objects", {
+          id: created.id,
+          action: "add",
+          objects: bindingObjects(scope),
+        }),
+      verifyAfter: ({ promotion, ids }) => {
+        const expectedMode =
+          scope.kind === "variants"
+            ? "SELECTED_VARIANTS"
+            : "SELECTED_CATEGORIES_COLLECTIONS";
+        const valid =
+          promotion.binding_mode === expectedMode &&
+          ids.length === scope.ids.length &&
+          scope.ids.every((id) => ids.includes(id));
+        return {
+          valid,
+          message: valid
+            ? `Скидка ${promotion.id}: привязка подтверждена`
+            : `Скидка ${promotion.id}: полная привязка не подтверждена`,
+        };
+      },
+    });
+    actual = latest;
+    if (bindingOutcome.kind !== "completed") {
+      return finish(mcp, {
+        kind: "partial",
+        promotionId: actual.id,
+        report: stagedFailureReport({
+          entity: "Скидка",
+          id: actual.id,
+          completedStages: ["создание"],
+          blockedStage: "привязка",
+          outcome: bindingOutcome,
+          skippedStages: plan.status === "ACTIVE" ? ["активация"] : [],
+          factualState: `Последний подтверждённый статус ${actual.status}; привязок прочитано: ${actualIds.length}.`,
+        }),
+      });
+    }
+  }
+
+  if (requiresBinding && plan.status === "ACTIVE") {
+    let latest = actual;
+    const activationOutcome = await executeVerifiedMutation({
+      subject: `Активация скидки ${actual.id}`,
+      initialBefore: actual,
+      read: async () => {
+        latest = (await mcp.call("get_discount", {
+          id: created.id,
+        })) as OperatorDiscount;
+        return latest;
+      },
+      write: () =>
+        mcp.call("update_discount", {
+          id: created.id,
+          discount: { status: "ACTIVE" },
+        }),
+      verifyAfter: (after) => ({
+        valid: after.status === "ACTIVE",
+        message:
+          after.status === "ACTIVE"
+            ? `Скидка ${after.id}: активация подтверждена`
+            : `Скидка ${after.id}: после активации получен статус ${after.status}`,
+      }),
+    });
+    actual = latest;
+    if (activationOutcome.kind !== "completed") {
+      return finish(mcp, {
+        kind: "partial",
+        promotionId: actual.id,
+        report: stagedFailureReport({
+          entity: "Скидка",
+          id: actual.id,
+          completedStages: ["создание", "привязка"],
+          blockedStage: "активация",
+          outcome: activationOutcome,
+          factualState: `Последний подтверждённый статус ${actual.status}.`,
+        }),
+      });
+    }
+  }
+
   const risk = overlapRisk
     ? "Риск: есть другое активное промо; совместимость не задана владельцем."
     : "Пересечения с активными промо не обнаружены.";
@@ -1646,11 +1879,6 @@ export async function runPromoLauncherScenario({
     `Скидка ${actual.id}: статус ${actual.status}; значение ${actual.discount_value?.value} ` +
     `${actual.discount_value?.type}; даты ${actual.discount_dates.start_date} — ` +
     `${actual.discount_dates.end_date ?? "бессрочно"}; режим ${actual.binding_mode}; ` +
-    `объектов: ${plan.scope.kind === "all" ? "весь каталог" : actualIds.length}. ${risk}` +
-    (bindingError
-      ? ` Привязка завершилась ошибкой: ${
-          bindingError instanceof Error ? bindingError.message : String(bindingError)
-        }; повторной записи не было.`
-      : "");
-  return finish(mcp, { kind, promotionId: actual.id, report });
+    `объектов: ${plan.scope.kind === "all" ? "весь каталог" : actualIds.length}. ${risk}`;
+  return finish(mcp, { kind: "completed", promotionId: actual.id, report });
 }
