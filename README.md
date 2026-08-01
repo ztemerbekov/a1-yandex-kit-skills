@@ -175,9 +175,9 @@
 
 ## Документация
 
-- [Установка и подключение](docs/INSTALLATION.md) — явный вызов setup, токен, поддерживаемые приложения, ручной путь и диагностика.
-- [Техническое устройство](docs/TECHNICAL.md) — внутренние компоненты, покрытие API, лимиты и связанные серверы.
-- [Официальная документация Яндекс KIT](https://yandex.ru/dev/kit/ru/) — API, авторизация, лимиты и ошибки.
+- [Как установить и подключить магазин](https://github.com/ztemerbekov/a1-yandex-kit-skills/blob/codex/readme-for-store-managers/docs/INSTALLATION.md) — пошаговая настройка, поддерживаемые AI-приложения и помощь, если подключение не заработало.
+- [Как устроен Yandex KIT Skills](https://github.com/ztemerbekov/a1-yandex-kit-skills/blob/codex/readme-for-store-managers/docs/TECHNICAL.md) — к чему подключается ассистент, какие действия ему доступны и какие есть ограничения.
+- [Документация API Яндекс KIT](https://yandex.ru/dev/kit/ru/) — официальный справочник Яндекса для разработчиков.
 
 ---
 
