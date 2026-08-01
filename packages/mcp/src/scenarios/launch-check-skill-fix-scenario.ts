@@ -153,9 +153,10 @@ async function executeStockFix(
   if (JSON.stringify(after.stocks) !== JSON.stringify(stocks)) {
     return {
       id: fix.variantId,
-      kind: "failed",
+      kind: "ambiguous",
       message:
-        `SKU ${fix.variantId}: повторное чтение не подтвердило полный сохранённый массив stocks`,
+        `SKU ${fix.variantId}: повторное чтение не подтвердило полный сохранённый массив stocks; ` +
+        "результат неизвестен, нужна проверка",
     };
   }
   return {

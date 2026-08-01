@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-promo-launcher
-description: "Use for natural-language creation and lifecycle management of Yandex KIT automatic discounts, promocodes and gifts: «Запусти скидку», «Создай промокод», «Добавь подарок», «Продли акцию», «Останови промо». Model-invoked; exact write commands are authorization, while incomplete business conditions require one grouped question and no write."
+description: "Launch and manage Yandex KIT promotions. Use when the user asks «Запусти скидку», «Создай промокод» or «Добавь подарок»; wants to inspect promotions («Покажи акции»); or change dates, conditions, bindings or status («Продли акцию», «Останови промо»)."
 metadata:
   author: ztemerbekov
   version: "0.1.0"
@@ -28,7 +28,9 @@ Requires the `a1-yandex-kit` MCP server and Node.js 20 or newer.
 
 For every write request, read and apply
 [`references/exact-write-protocol.md`](references/exact-write-protocol.md) completely
-before resolving a target or calling a tool.
+before resolving a target or calling a tool. Treat an existing-promotion change as a
+one-stage plan. Treat create, bind and activate as dependent stages when the requested
+outcome needs them; run a dependent stage only after the previous stage is verified.
 
 ## Automatic-discount launch
 
@@ -52,16 +54,17 @@ value, dates, status and factual bindings is a duplicate: return its ID and do n
 create another. A possible overlap with another active promotion is a risk, not a
 blocker unless the owner supplied a compatibility rule.
 
-Create `ALL_VARIANTS` directly. For selected variants create `SELECTED_VARIANTS`, then
-attach `product_variant_ids`. For categories or collections, create
-`SELECTED_VARIANTS`, then attach category/collection objects so KIT changes the factual
-mode to `SELECTED_CATEGORIES_COLLECTIONS`. Never mix variants with
-categories/collections in one object request.
+Create `ALL_VARIANTS` directly. For a selected scope that must end `ACTIVE`, first
+create the discount `INACTIVE` and verify it. For selected variants, then attach
+`product_variant_ids`; for categories or collections, attach category/collection
+objects so KIT changes the factual mode to `SELECTED_CATEGORIES_COLLECTIONS`. Never mix
+variants with categories/collections in one object request. Verify the exact discount
+and the relevant `GetDiscountVariantIDs`, `GetDiscountCategoryIDs` or
+`GetDiscountCollectionIDs` relation before activating it.
 
-Call each required write at most once. Afterward read the exact discount and the
-relevant `GetDiscountVariantIDs`, `GetDiscountCategoryIDs` or
-`GetDiscountCollectionIDs` relation. Report the factual ID, status, value, UTC dates,
-binding mode, bound-object count, overlap risks and any partial or ambiguous result.
+Call each required write at most once and verify it before the next dependent write.
+Report the factual ID, status, value, UTC dates, binding mode, bound-object count,
+overlap risks and every completed, blocked or skipped stage of a partial result.
 
 ## Promocode launch
 
@@ -84,11 +87,12 @@ against all material conditions and factual bindings. Return an equivalent exist
 promocode without a write. If the same code has different conditions, ask exactly
 whether to change the existing promocode or use a new code; do not write until answered.
 
-Create the entity once, attach the validated product scope when applicable, then read
-the exact promocode. KIT creates a promocode inactive; when the owner said «запусти»,
-perform one `update_promocode` to `ACTIVE` and read it again. Report ID, code, factual
-status, type, value, UTC dates, usage and discount limits, all documented boolean
-defaults and factual coverage.
+Create the entity once and read the exact promocode before any dependent write. KIT
+creates a promocode inactive. When a product scope applies, attach it once and verify
+the exact object relation. Only after creation and binding are confirmed may an exact
+«запусти» plan perform one `update_promocode` to `ACTIVE` and read it again. Report ID,
+code, factual status, type, value, UTC dates, usage and discount limits, all documented
+boolean defaults, factual coverage and every partial stage outcome.
 
 ## Gift launch
 
@@ -105,9 +109,10 @@ now without dates.
 Gifts have no dedicated curator tool. Before a gift mutation, use
 `get_operation_schema` for the exact operation, validate the body, then call
 `kit_request` once. `CreateGift` includes the validated variant IDs and always creates
-an `INACTIVE` gift. Read it with `GetGiftById`; for an exact «запусти» command, call
-`UpdateGift` to `ACTIVE` once and read it again. Finally read `GetGiftVariants` and
-report ID, minimum cart, factual status, default sort and the factual gift-item count.
+an `INACTIVE` gift. Verify it with `GetGiftById` and verify its complete composition
+with `GetGiftVariants`. Only then may an exact «запусти» plan call `UpdateGift` to
+`ACTIVE` once and read it again. Report ID, minimum cart, factual status, default sort,
+the factual gift-item count and every partial stage outcome.
 
 ## Existing-promotion lifecycle
 

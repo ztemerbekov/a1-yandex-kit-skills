@@ -102,6 +102,7 @@ function healthyFixture(overrides: {
   products?: OperatorProduct[];
   promocodes?: OperatorPromocode[];
   writeErrors?: Record<string, Error>;
+  writeNoops?: string[];
 } = {}) {
   return {
     store: store(),
@@ -111,6 +112,7 @@ function healthyFixture(overrides: {
     warehouses: warehouses(),
     promocodes: overrides.promocodes ?? [],
     writeErrors: overrides.writeErrors,
+    writeNoops: overrides.writeNoops,
   };
 }
 
@@ -183,6 +185,33 @@ test("an exact stock fix preserves sibling arrays and recomputes launch readines
   assert.match(result.report, /оплат/iu);
   assert.match(result.report, /checkout/iu);
   assertNoBackupTools(mcp);
+});
+
+test("a successful stock response with a mismatching reread is ambiguous", async () => {
+  const mcp = new FakeP1Mcp(
+    healthyFixture({
+      variants: [
+        variant({
+          stocks: [
+            { warehouse_id: WAREHOUSE_ID, quantity: 0, reserved: 0 },
+            { warehouse_id: SECOND_WAREHOUSE_ID, quantity: 7, reserved: 1 },
+          ],
+        }),
+      ],
+      writeNoops: [`update_variant:${VARIANT_ID}`],
+    }),
+  );
+  const result = await runLaunchCheckFixScenario({
+    request: `Поставь остаток 5 для ${VARIANT_ID} на складе ${WAREHOUSE_ID}`,
+    now: NOW,
+    externalOrderProcessing: false,
+    mcp,
+  });
+
+  assert.equal(result.kind, "ambiguous");
+  assert.deepEqual(result.ambiguous, [VARIANT_ID]);
+  assert.equal(mcp.calls.filter((call) => call.name === "update_variant").length, 1);
+  assert.match(result.report, /результат неизвестен, нужна проверка/iu);
 });
 
 test("an exact promotion fix reuses lifecycle semantics and removes the factual risk", async () => {
