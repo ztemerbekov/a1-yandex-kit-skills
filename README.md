@@ -183,5 +183,4 @@
 
 ## Помощь и обратная связь
 
-Есть вопрос, идея или что-то сработало не так?<br>
-Напишите в <img src="./assets/logos/a1-logo-warm.svg" alt="A1" width="22">&nbsp;[**Yandex KIT Skills** <sup>β</sup>](https://t.me/a1_yandex_kit_skills).
+Нужна помощь, что-то не работает или есть идея? Напишите нам в Telegram — [**Yandex KIT Skills** <sup>β</sup>](https://t.me/a1_yandex_kit_skills).
