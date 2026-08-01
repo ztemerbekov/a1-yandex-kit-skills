@@ -162,7 +162,7 @@ lines.push(`# ${serverTitle} — Tool Reference`);
 lines.push("");
 lines.push(
   `The \`${serverName}\` MCP server exposes **${toolCount} tools** for the Yandex KIT ` +
-    "e-commerce API. Curated tools cover the everyday catalog, order and marketing " +
+    "e-commerce API. Curated tools cover the everyday catalog, order and promotions " +
     "workflows; the meta trio — `search_operations`, `get_operation_schema` and " +
     `\`kit_request\` — reaches all ${registry.opsCount} API operations, including those ` +
     "without a dedicated tool.",

@@ -135,6 +135,12 @@ env: YANDEX_KIT_TOKEN=<токен магазина>
 
 Новые версии и изменения публикуются в [GitHub Releases](https://github.com/ztemerbekov/a1-yandex-kit-skills/releases).
 
+Доменный навык `a1-yandex-kit-marketing` переименован в
+`a1-yandex-kit-promotions`. Если вы вызывали его явно через
+`$a1-yandex-kit-marketing` или `/a1-yandex-kit-marketing`, замените имя на
+`$a1-yandex-kit-promotions` или `/a1-yandex-kit-promotions`: старое имя больше не
+поставляется.
+
 ## Если подключение не завершилось
 
 - **Нет Node.js 20+ или `npx`.** Setup-навык не устанавливает Node.js. Установите актуальную LTS-версию [Node.js](https://nodejs.org/), перезапустите AI-приложение и снова явно вызовите `a1-yandex-kit-setup`.
