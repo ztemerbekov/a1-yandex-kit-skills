@@ -6,7 +6,7 @@
  *   skills/<name>/data/kit_v1.json.gz     — gzipped OpenAPI spec (shared by the scripts)
  *   skills/<name>/scripts/search_docs.mjs — dep-free search/inspect (node builtins only)
  *   skills/<name>/scripts/validate.mjs    — esbuild bundle vendoring Ajv (offline validation)
- *   skills/<manual>/references/exact-write-protocol.md — shared exact-write safety core
+ *   skills/<manual>/references/exact-write-protocol.md — shared write-plan safety core
  *
  * All six skills ship identical scripts + data, so each is standalone-installable.
  * Output is deterministic: prose lives in template constants here, tables come from
@@ -30,7 +30,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const SKILL_VERSION = "0.1.0";
 const SKILL_AUTHOR = "gistrec";
 const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVariant", "UpdateWarehouse"];
-const MANUAL_EXACT_WRITE_SKILLS = [
+const MANUAL_WRITE_PLAN_SKILLS = [
   "a1-yandex-kit-operator",
   "a1-yandex-kit-catalog-doctor",
   "a1-yandex-kit-promo-launcher",
@@ -533,7 +533,7 @@ function renderSkillMd(skill: SkillDef): string {
 const specGz = gzip(specBytes, { level: 9 });
 
 const searchDocsScript = readFileSync(SKILL_SRC_DIR + "search_docs.mjs", "utf8");
-const exactWriteProtocol = readFileSync(
+const exactWritePlanProtocol = readFileSync(
   SKILL_SRC_DIR + "references/exact-write-protocol.md",
   "utf8",
 );
@@ -563,18 +563,18 @@ for (const skill of SKILLS) {
   writeFileSync(dir + "scripts/validate.mjs", validateScript);
 }
 
-for (const skillName of MANUAL_EXACT_WRITE_SKILLS) {
+for (const skillName of MANUAL_WRITE_PLAN_SKILLS) {
   const referencesDir = OUT_DIR + skillName + "/references/";
   mkdirSync(referencesDir, { recursive: true });
   writeFileSync(
     referencesDir + "exact-write-protocol.md",
     "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n" +
-      exactWriteProtocol,
+      exactWritePlanProtocol,
   );
 }
 
 console.log(
   `gen-skills: ${SKILLS.length} skills (${SKILLS.map((s) => s.name).join(", ")}), ` +
     `data ${specGz.length} bytes gz, validate.mjs ${validateScript.length} bytes, ` +
-    `shared exact-write protocol for ${MANUAL_EXACT_WRITE_SKILLS.length} manual skills`,
+    `shared exact write-plan protocol for ${MANUAL_WRITE_PLAN_SKILLS.length} manual skills`,
 );

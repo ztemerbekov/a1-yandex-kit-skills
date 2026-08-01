@@ -281,6 +281,101 @@ test("an exact multi-condition change sends only named promocode fields", async 
   assert.equal(actual.show_in_pdp, true);
 });
 
+test("a successful lifecycle write with a mismatching reread is ambiguous", async () => {
+  const cases: Array<{
+    name: string;
+    request: string;
+    mcp: FakeP1Mcp;
+    id: string;
+  }> = [
+    {
+      name: "discount status",
+      request: "Останови скидку discount-1",
+      mcp: new FakeP1Mcp({
+        discounts: [discount({ status: "ACTIVE" })],
+        writeNoops: ["update_discount:discount-1"],
+      }),
+      id: "discount-1",
+    },
+    {
+      name: "promocode status",
+      request: "Останови промокод promocode-1",
+      mcp: new FakeP1Mcp({
+        promocodes: [promocode({ status: "ACTIVE" })],
+        writeNoops: ["update_promocode:promocode-1"],
+      }),
+      id: "promocode-1",
+    },
+    {
+      name: "gift status",
+      request: "Останови подарок gift-1",
+      mcp: new FakeP1Mcp({
+        gifts: [gift({ status: "ACTIVE" })],
+        writeNoops: ["kit_request:UpdateGift"],
+      }),
+      id: "gift-1",
+    },
+    {
+      name: "extension",
+      request: "Продли скидку discount-1 до 31 августа 2026 23:59 по Москве",
+      mcp: new FakeP1Mcp({
+        discounts: [discount()],
+        writeNoops: ["update_discount:discount-1"],
+      }),
+      id: "discount-1",
+    },
+    {
+      name: "discount binding",
+      request: `Добавь вариант ${VARIANT_ID} в скидку discount-1`,
+      mcp: new FakeP1Mcp({
+        variants: [variant()],
+        discounts: [discount()],
+        bindings: { "GetDiscountVariantIDs:discount-1": [] },
+        writeNoops: ["manage_discount_objects"],
+      }),
+      id: "discount-1",
+    },
+    {
+      name: "gift binding",
+      request: `Добавь вариант ${VARIANT_ID} в подарок gift-1`,
+      mcp: new FakeP1Mcp({
+        variants: [variant()],
+        gifts: [gift()],
+        bindings: { "GetGiftVariants:gift-1": [] },
+        writeNoops: ["kit_request:AddGiftVariants"],
+      }),
+      id: "gift-1",
+    },
+    {
+      name: "promocode conditions",
+      request:
+        "Измени промокод promocode-1: лимит использований 200, минимальная сумма заказа 1500 рублей",
+      mcp: new FakeP1Mcp({
+        promocodes: [promocode()],
+        writeNoops: ["update_promocode:promocode-1"],
+      }),
+      id: "promocode-1",
+    },
+  ];
+
+  for (const scenario of cases) {
+    const result = await runPromoLifecycleScenario({
+      request: scenario.request,
+      now: NOW,
+      mcp: scenario.mcp,
+    });
+
+    assert.equal(result.kind, "ambiguous", scenario.name);
+    assert.deepEqual(result.ambiguous, [scenario.id], scenario.name);
+    assert.equal(scenario.mcp.writeCalls.length, 1, scenario.name);
+    assert.match(
+      result.report,
+      /результат неизвестен, нужна проверка/iu,
+      scenario.name,
+    );
+  }
+});
+
 test("stop and archive commands use the mechanism of each promotion type", async () => {
   const discountMcp = new FakeP1Mcp({ discounts: [discount({ status: "ACTIVE" })] });
   const stoppedDiscount = await runPromoLifecycleScenario({

@@ -76,6 +76,16 @@ reference model и не сравнивает ответ посимвольно.
 | Пересечение после изменения остаётся риском и не блокирует точную команду | `an overlap after restart is reported as a risk without blocking the exact command` | автоматизировано |
 | Ясность lifecycle-отчёта | Прогон read-only, single mutation и partial batch в model host | manual acceptance pending |
 
+## Issue #33
+
+| User story / критерий | Evidence | Result |
+| --- | --- | --- |
+| Один Exact Write Plan Protocol покрывает одношаговые и зависимые записи без выбора второго контракта | `packages/codegen/src/skill-src/references/exact-write-protocol.md`; identical-copy test для четырёх manual skills | автоматизировано |
+| Активная selected-скидка создаётся `INACTIVE`, проверяется, привязывается, снова проверяется и только затем активируется | `an exact category discount reads the target, writes once per step, and re-reads the result` | автоматизировано |
+| Failed/ambiguous binding блокирует зависимую активацию и возвращает фактическое partial state | `an ambiguous discount binding leaves the created discount inactive and skips activation`; `an ambiguous binding stops dependent promocode activation and reports partial state` | автоматизировано |
+| Состав подарка подтверждается до зависимой активации | Порядок `GetGiftById` → `GetGiftVariants` → `UpdateGift` в active gift tracer; `an unverified gift composition blocks dependent activation` | автоматизировано |
+| Successful write с несовпадающим повторным чтением классифицируется как `ambiguous`, а не `failed` | `a successful lifecycle write with a mismatching reread is ambiguous` | автоматизировано |
+
 Запуск:
 
 ```bash
