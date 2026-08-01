@@ -1,15 +1,15 @@
 ---
-name: a1-yandex-kit-marketing
-description: "Manage marketing promotions in a Yandex KIT store over its REST API: discounts, promo codes and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding them to products, categories or collections."
+name: a1-yandex-kit-promotions
+description: "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding them to products, categories or collections."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: gistrec
   version: "0.1.0"
 ---
 
-# A1 Yandex KIT — Marketing
+# A1 Yandex KIT — Promotions
 
-Covers the marketing domain of the Yandex KIT e-commerce API — tags: Скидки,
+Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Подарки. All three promotion kinds are created first and then bound to
 objects: discounts and promocodes to variants, categories or collections via the
 `.../objects/add` and `.../objects/remove` endpoints, gifts to variants via

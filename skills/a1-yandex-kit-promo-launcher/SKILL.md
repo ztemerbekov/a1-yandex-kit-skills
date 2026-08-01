@@ -9,7 +9,7 @@ metadata:
 # A1 Yandex KIT Promo Launcher
 
 Launch and manage promotions without inventing a discount, scope, duration, limit or
-activation state. This scenario skill orchestrates `a1-yandex-kit-marketing`, the
+activation state. This scenario skill orchestrates `a1-yandex-kit-promotions`, the
 catalog skills and the `a1-yandex-kit` MCP server; use those skills for the exact API
 contracts instead of copying the API reference here.
 

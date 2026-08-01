@@ -44,7 +44,7 @@ docs/TOOLS.md                    # справочник тулов (СГЕНЕР
 
 - `packages/core/src/generated/registry.json` и `.../generated/types.ts`;
 - `docs/TOOLS.md`;
-- шесть доменных `skills/a1-yandex-kit{,-catalog,-orders,-marketing,-store,-webhooks}/`
+- шесть доменных `skills/a1-yandex-kit{,-catalog,-orders,-promotions,-store,-webhooks}/`
   целиком (включая `SKILL.md`, `scripts/`, `data/*.json.gz`).
 
 Любые правки этих файлов вносите в генераторы (`packages/codegen/src/gen-*.ts`),
