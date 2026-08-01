@@ -59,9 +59,7 @@ Setup-навык работает на Node.js и сам его не устан�
 - OpenAI Codex;
 - VS Code;
 - Kimi Code;
-- Kimi Desktop;
-- Hermes Agent;
-- OpenClaw.
+- Kimi Desktop.
 
 Конкретные пути и ограничения по операционным системам перечислены в [профилях клиентов](../skills/a1-yandex-kit-setup/references/client-profiles.md).
 
