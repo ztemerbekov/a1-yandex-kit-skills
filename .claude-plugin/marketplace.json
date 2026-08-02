@@ -17,6 +17,9 @@
         "name": "Aleksandr Kovalko & Zinnur Temerbekov",
         "url": "https://t.me/a1_yandex_kit_skills"
       },
+      "homepage": "https://t.me/a1_yandex_kit_skills",
+      "repository": "https://github.com/ztemerbekov/a1-yandex-kit-skills",
+      "license": "MIT",
       "category": "productivity",
       "keywords": [
         "yandex",
