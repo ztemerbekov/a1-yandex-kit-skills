@@ -2,11 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { DESTRUCTIVE, fail, ok, READ_ONLY } from "../util.js";
-
-function validationFailure(errors: string[]) {
-  return fail(new Error(`Request body failed schema validation: ${errors.join("; ")}`));
-}
+import { DESTRUCTIVE, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
 
 export function registerWebhookTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -96,7 +92,7 @@ export function registerWebhookTools(server: McpServer, client: KitClient): void
     },
     async ({ id, webhook }) => {
       if (Object.keys(webhook).length === 0) {
-        return fail(new Error("Update body must not be empty: provide at least one field to change."));
+        return emptyUpdateFailure();
       }
       const check = validateRequestBody("UpdateWebhook", webhook);
       if (!check.valid) return validationFailure(check.errors);

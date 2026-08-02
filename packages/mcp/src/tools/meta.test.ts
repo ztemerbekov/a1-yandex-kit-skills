@@ -130,7 +130,7 @@ test("kit_request blocks invalid CreateWebhook body before any network call", as
     arguments: { operation_id: "CreateWebhook", body: {} }, // missing required url/events
   });
   assert.equal((res as any).isError, true);
-  assert.ok(text(res).toLowerCase().includes("validation"), text(res));
+  assert.equal(parse(res).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0, "must not hit the API on invalid body");
 });
 
@@ -154,7 +154,7 @@ test("kit_request rejects multipart UploadFile", async () => {
     arguments: { operation_id: "UploadFile" },
   });
   assert.equal((res as any).isError, true);
-  assert.ok(text(res).includes("multipart"), text(res));
+  assert.equal(parse(res).code, "MULTIPART_NOT_SUPPORTED");
   assert.equal(calls.length, 0);
 });
 
@@ -165,7 +165,8 @@ test("kit_request unknown operation fails with suggestions", async () => {
     arguments: { operation_id: "CreateWebhok" },
   });
   assert.equal((res as any).isError, true);
-  assert.ok(text(res).includes("Unknown operation_id"), text(res));
+  assert.equal(parse(res).code, "UNKNOWN_OPERATION");
+  // The suggestion list is the feature under test; its wording is the contract.
   assert.ok(text(res).includes("Did you mean"), text(res));
   assert.equal(calls.length, 0);
 });

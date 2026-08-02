@@ -73,7 +73,7 @@ test("create_product with invalid body fails without any network call", async ()
   // CreateProductRequest requires category_ids.
   const res = await mcp.callTool({ name: "create_product", arguments: { product: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /category_ids/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -94,7 +94,7 @@ test("update_product with an empty body fails without any network call", async (
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "update_product", arguments: { id: "p1", product: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

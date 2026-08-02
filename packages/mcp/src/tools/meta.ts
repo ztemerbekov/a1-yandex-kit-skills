@@ -7,6 +7,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   KitClient,
+  KitValidationError,
   getRegistry,
   resolveOperationSchema,
   validateRequestBody,
@@ -86,8 +87,10 @@ function unknownOperationError(operationId: string): Error {
     suggestions.length > 0
       ? ` Did you mean: ${suggestions.join(", ")}?`
       : "";
-  return new Error(
+  return new KitValidationError(
     `Unknown operation_id "${operationId}".${hint} Use search_operations to find the right operation.`,
+    [],
+    "UNKNOWN_OPERATION",
   );
 }
 
@@ -227,9 +230,11 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
         if (!op) return fail(unknownOperationError(operation_id));
         if (op.requestContentType === "multipart/form-data") {
           return fail(
-            new Error(
+            new KitValidationError(
               "multipart operations are not supported by kit_request; " +
                 "UploadFile needs the dedicated upload_file tool (planned)",
+              [],
+              "MULTIPART_NOT_SUPPORTED",
             ),
           );
         }
@@ -237,8 +242,9 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
           const result = validateRequestBody(operation_id, body);
           if (!result.valid) {
             return fail(
-              new Error(
+              new KitValidationError(
                 `Request body failed schema validation (nothing was sent): ${result.errors.join("; ")}`,
+                result.errors,
               ),
             );
           }

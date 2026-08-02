@@ -3,7 +3,7 @@ import { basename } from "node:path";
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { KitClient } from "yandex-kit-core";
+import { KitValidationError, type KitClient } from "yandex-kit-core";
 
 import { fail, ok, READ_ONLY } from "../util.js";
 
@@ -39,22 +39,34 @@ export function registerFileTools(server: McpServer, client: KitClient): void {
     async ({ file_path, content_base64, filename }) => {
       if ((file_path === undefined) === (content_base64 === undefined)) {
         return fail(
-          new Error("Provide exactly one of file_path or content_base64, not both and not neither."),
+          new KitValidationError(
+            "Provide exactly one of file_path or content_base64, not both and not neither.",
+            [],
+            "FILE_SOURCE_REQUIRED",
+          ),
         );
       }
       let bytes: Buffer;
       let name: string;
       if (content_base64 !== undefined) {
         if (!filename) {
-          return fail(new Error("filename is required when uploading via content_base64."));
+          return fail(
+            new KitValidationError(
+              "filename is required when uploading via content_base64.",
+              [],
+              "FILENAME_REQUIRED",
+            ),
+          );
         }
         // Buffer.from(..., "base64") silently skips invalid characters and drops
         // trailing bits, so a lenient decode would upload corrupt bytes; validate first.
         const compact = content_base64.replace(/\s+/g, "");
         if (compact.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
           return fail(
-            new Error(
+            new KitValidationError(
               "content_base64 is not valid base64 (check for truncation or invalid characters).",
+              [],
+              "INVALID_BASE64",
             ),
           );
         }

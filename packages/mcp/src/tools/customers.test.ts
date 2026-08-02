@@ -95,7 +95,7 @@ test("update_customer with an empty body fails without any network call", async 
     arguments: { id: "cust-42", customer: {} },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 
@@ -107,7 +107,7 @@ test("update_customer with a spec-invalid body fails without any network call", 
     arguments: { id: "cust-42", customer: { first_name: 123 } },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /validation/i);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 

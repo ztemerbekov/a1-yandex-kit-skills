@@ -70,7 +70,7 @@ test("create_variant with invalid body fails without any network call", async ()
     arguments: { variant: { name: "T-shirt" } },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /product_id/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -91,7 +91,7 @@ test("update_variant with an empty body fails without any network call", async (
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "update_variant", arguments: { id: "v1", variant: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

@@ -50,6 +50,15 @@ interface RawRequest {
 const DEFAULT_BASE_URL = "https://api.kit.yandex.net";
 const LIST_ALL_PER_PAGE = 100;
 
+/**
+ * Per-operation per_page caps enforced by the live API that are stricter than
+ * the published OpenAPI spec (the spec allows up to 100 everywhere, but these
+ * endpoints reject larger values with HTTP 400 VALIDATION_ERROR).
+ */
+export const SERVER_PER_PAGE_LIMITS = {
+  GetPromocodes: 25,
+} as const;
+
 /** Codes of a parsed KIT error body. LIMIT_EXCEEDED arrives with HTTP 400. */
 const RETRYABLE_400_CODE = "LIMIT_EXCEEDED";
 
@@ -171,6 +180,8 @@ export class KitClient {
       if (value === undefined || value === null) {
         throw new KitValidationError(
           `Missing path parameter "${name}" for operation ${operationId}`,
+          [],
+          "MISSING_PATH_PARAM",
         );
       }
       path = path.replace(`{${name}}`, encodeURIComponent(String(value)));
@@ -274,7 +285,8 @@ export class KitClient {
   }
 
   /**
-   * Fetch all pages of a paginated list operation (per_page=100).
+   * Fetch all pages of a paginated list operation (per_page=100, or the
+   * operation's SERVER_PER_PAGE_LIMITS cap when the live API enforces less).
    * Stops on a short page or once maxItems is reached (truncated=true).
    */
   async listAll<T = unknown>(
@@ -286,10 +298,16 @@ export class KitClient {
     if (!op.paginated || !op.itemsProp) {
       throw new KitValidationError(
         `Operation ${operationId} is not a paginated list operation`,
+        [],
+        "NOT_PAGINATED",
       );
     }
     const itemsProp = op.itemsProp;
     const maxItems = opts.maxItems ?? 500;
+    const perPage = Math.min(
+      LIST_ALL_PER_PAGE,
+      (SERVER_PER_PAGE_LIMITS as Record<string, number>)[operationId] ?? LIST_ALL_PER_PAGE,
+    );
     const items: T[] = [];
     let pages = 0;
     let truncated = false;
@@ -297,7 +315,7 @@ export class KitClient {
     for (let page = 1; ; page++) {
       const res = await this.call<Record<string, unknown>>(operationId, {
         ...params,
-        query: { ...params.query, page, per_page: LIST_ALL_PER_PAGE },
+        query: { ...params.query, page, per_page: perPage },
       });
       pages++;
       const raw = res?.[itemsProp];
@@ -310,7 +328,7 @@ export class KitClient {
         break;
       }
       items.push(...pageItems);
-      if (pageItems.length < LIST_ALL_PER_PAGE) break; // last page
+      if (pageItems.length < perPage) break; // last page
       if (items.length >= maxItems) {
         truncated = true; // cap hit exactly on a full page — more may exist
         break;

@@ -31,10 +31,13 @@ export class KitApiError extends Error {
 /** Client-side validation error raised before any network call. */
 export class KitValidationError extends Error {
   errors: string[];
+  /** Stable machine-readable reason; safe to assert on (messages are not). */
+  code: string;
 
-  constructor(message: string, errors: string[] = []) {
+  constructor(message: string, errors: string[] = [], code = "LOCAL_VALIDATION_ERROR") {
     super(message);
     this.name = "KitValidationError";
     this.errors = errors.length > 0 ? errors : [message];
+    this.code = code;
   }
 }
