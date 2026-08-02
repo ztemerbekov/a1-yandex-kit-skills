@@ -1,4 +1,4 @@
-import { KitApiError } from "yandex-kit-core";
+import { KitApiError, KitValidationError } from "yandex-kit-core";
 
 export const READ_ONLY = { readOnlyHint: true } as const;
 export const DESTRUCTIVE = { destructiveHint: true } as const;
@@ -24,12 +24,34 @@ export function fail(err: unknown): ToolResult {
     payload.code = err.code;
     payload.status = err.status;
     if (err.traceId) payload.traceId = err.traceId;
+  } else if (err instanceof KitValidationError) {
+    // Local (pre-network) failure: code but no HTTP status/traceId.
+    payload.error = err.message;
+    payload.code = err.code;
   } else if (err instanceof Error) {
     payload.error = err.message;
   } else {
     payload.error = String(err);
   }
   return { isError: true, content: [{ type: "text", text: JSON.stringify(payload) }] };
+}
+
+/** Request body failed the local OpenAPI schema check; nothing was sent. */
+export function validationFailure(errors: string[]): ToolResult {
+  return fail(
+    new KitValidationError(`Request body failed schema validation: ${errors.join("; ")}`, errors),
+  );
+}
+
+/** Empty update body rejected before any network call. */
+export function emptyUpdateFailure(): ToolResult {
+  return fail(
+    new KitValidationError(
+      "Update body must not be empty: provide at least one field to change.",
+      [],
+      "EMPTY_UPDATE_BODY",
+    ),
+  );
 }
 
 export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): number {

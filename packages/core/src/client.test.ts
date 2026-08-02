@@ -310,7 +310,7 @@ test("missing path param -> KitValidationError before any network call", async (
 
   await assert.rejects(client.call("UpdateVariant", { body: { name: "x" } }), (err: unknown) => {
     assert.ok(err instanceof KitValidationError);
-    assert.match(err.message, /path parameter/);
+    assert.equal(err.code, "MISSING_PATH_PARAM");
     return true;
   });
   assert.equal(calls.length, 0);

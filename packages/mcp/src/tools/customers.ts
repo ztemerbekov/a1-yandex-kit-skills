@@ -2,11 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, fail, ok, READ_ONLY } from "../util.js";
-
-function validationFailure(errors: string[]) {
-  return fail(new Error(`Request body failed schema validation: ${errors.join("; ")}`));
-}
+import { clampPerPage, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
 
 export function registerCustomerTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -80,7 +76,7 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     },
     async ({ id, customer }) => {
       if (Object.keys(customer).length === 0) {
-        return fail(new Error("Update body must not be empty: provide at least one field to change."));
+        return emptyUpdateFailure();
       }
       const check = validateRequestBody("UpdateCustomer", customer);
       if (!check.valid) return validationFailure(check.errors);

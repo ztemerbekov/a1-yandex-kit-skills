@@ -85,7 +85,7 @@ test("create_webhook with invalid body fails without any network call", async ()
     arguments: { webhook: { url: "https://example.com/hook" } },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /events/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -106,7 +106,7 @@ test("update_webhook with an empty body fails without any network call", async (
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "update_webhook", arguments: { id: "wh-1", webhook: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

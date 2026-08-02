@@ -71,7 +71,7 @@ test("create_category with invalid body fails without any network call", async (
   // CreateCategoryRequest requires title.
   const res = await mcp.callTool({ name: "create_category", arguments: { category: { slug: "phones" } } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /title/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -92,7 +92,7 @@ test("update_category with an empty body fails without any network call", async 
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "update_category", arguments: { id: "c1", category: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

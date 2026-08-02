@@ -103,7 +103,7 @@ test("create_discount with invalid body fails without any network call", async (
   // CreateDiscountRequest requires title, discount_value, discount_dates, status, binding_mode.
   const res = await mcp.callTool({ name: "create_discount", arguments: { discount: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /title/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -126,7 +126,7 @@ test("update_discount with an empty body fails without any network call", async 
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "update_discount", arguments: { id: "d1", discount: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

@@ -180,6 +180,8 @@ export class KitClient {
       if (value === undefined || value === null) {
         throw new KitValidationError(
           `Missing path parameter "${name}" for operation ${operationId}`,
+          [],
+          "MISSING_PATH_PARAM",
         );
       }
       path = path.replace(`{${name}}`, encodeURIComponent(String(value)));
@@ -296,6 +298,8 @@ export class KitClient {
     if (!op.paginated || !op.itemsProp) {
       throw new KitValidationError(
         `Operation ${operationId} is not a paginated list operation`,
+        [],
+        "NOT_PAGINATED",
       );
     }
     const itemsProp = op.itemsProp;

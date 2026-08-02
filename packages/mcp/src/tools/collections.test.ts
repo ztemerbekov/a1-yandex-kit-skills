@@ -95,7 +95,7 @@ test("create_collection with invalid body fails without any network call", async
     arguments: { collection: { title: "Summer" } },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /status/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -119,7 +119,7 @@ test("update_collection with an empty body fails without any network call", asyn
     arguments: { id: "c1", collection: {} },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 
@@ -131,7 +131,7 @@ test("update_collection with a spec-invalid body fails without any network call"
     arguments: { id: "c1", collection: { title: 123 } },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /title/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -169,7 +169,7 @@ test("manage_collection_cards with invalid body fails without any network call",
     arguments: { id: "c1", action: "add", cards: {} },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /product_card_ids/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 

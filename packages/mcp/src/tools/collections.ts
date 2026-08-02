@@ -2,11 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, fail, ok, READ_ONLY, DESTRUCTIVE } from "../util.js";
-
-function validationFailure(errors: string[]) {
-  return fail(new Error(`Request body failed schema validation: ${errors.join("; ")}`));
-}
+import { clampPerPage, DESTRUCTIVE, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
 
 // The API requires the status filter on GetCollections; default to all statuses.
 const ALL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
@@ -125,7 +121,7 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
     },
     async ({ id, collection }) => {
       if (Object.keys(collection).length === 0) {
-        return fail(new Error("Update body must not be empty: provide at least one field to change."));
+        return emptyUpdateFailure();
       }
       const check = validateRequestBody("UpdateCollection", collection);
       if (!check.valid) return validationFailure(check.errors);

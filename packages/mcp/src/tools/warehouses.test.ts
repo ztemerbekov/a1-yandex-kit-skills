@@ -90,7 +90,7 @@ test("create_warehouse with invalid body fails without any network call", async 
   // CreateWarehouseRequest requires title.
   const res = await mcp.callTool({ name: "create_warehouse", arguments: { warehouse: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /title/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -114,7 +114,7 @@ test("update_warehouse with an empty body fails without any network call", async
     arguments: { id: "w1", warehouse: {} },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

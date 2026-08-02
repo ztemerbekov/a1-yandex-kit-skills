@@ -103,7 +103,7 @@ test("create_promocode with invalid body fails without any network call", async 
   // CreatePromocodeRequest requires code, title, discount_value, promocode_dates, type.
   const res = await mcp.callTool({ name: "create_promocode", arguments: { promocode: {} } });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /code/);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 
@@ -129,7 +129,7 @@ test("update_promocode with an empty body fails without any network call", async
     arguments: { id: "pc1", promocode: {} },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /empty/i);
+  assert.equal(JSON.parse(resultText(res)).code, "EMPTY_UPDATE_BODY");
   assert.equal(calls.length, 0);
 });
 

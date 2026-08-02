@@ -57,7 +57,7 @@ test("upload_file with both file_path and content_base64 fails without any netwo
     arguments: { file_path: "/tmp/x.png", content_base64: "aGk=", filename: "x.png" },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /exactly one/i);
+  assert.equal(JSON.parse(resultText(res)).code, "FILE_SOURCE_REQUIRED");
   assert.equal(calls.length, 0);
 });
 
@@ -65,7 +65,7 @@ test("upload_file with neither source fails without any network call", async () 
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "upload_file", arguments: {} });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /exactly one/i);
+  assert.equal(JSON.parse(resultText(res)).code, "FILE_SOURCE_REQUIRED");
   assert.equal(calls.length, 0);
 });
 
@@ -76,7 +76,7 @@ test("upload_file with content_base64 but no filename fails without any network 
     arguments: { content_base64: "aGk=" },
   });
   assert.equal((res as { isError?: boolean }).isError, true);
-  assert.match(resultText(res), /filename/);
+  assert.equal(JSON.parse(resultText(res)).code, "FILENAME_REQUIRED");
   assert.equal(calls.length, 0);
 });
 
@@ -89,7 +89,7 @@ test("upload_file with malformed base64 fails without any network call", async (
       arguments: { content_base64, filename: "x.bin" },
     });
     assert.equal((res as { isError?: boolean }).isError, true);
-    assert.match(resultText(res), /base64/);
+    assert.equal(JSON.parse(resultText(res)).code, "INVALID_BASE64");
   }
   assert.equal(calls.length, 0);
 });
