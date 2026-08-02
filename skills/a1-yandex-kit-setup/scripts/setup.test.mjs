@@ -936,17 +936,29 @@ test("skill validates candidate tokens before configuration without a retry limi
   );
 });
 
-test("setup skill requires explicit invocation across supported hosts", async () => {
+test("setup skill supports implicit Russian text and voice invocation", async () => {
   const skill = await readFile(path.join(scriptDir, "..", "SKILL.md"), "utf8");
   const openAiMetadata = await readFile(
     path.join(scriptDir, "..", "agents", "openai.yaml"),
     "utf8",
   );
 
-  assert.match(skill, /^disable-model-invocation: true$/m);
+  assert.doesNotMatch(skill, /^disable-model-invocation:/m);
+  const description = skill.match(/^description: "([^"]+)"$/m)?.[1];
+  assert.ok(description, "setup skill must have a model-facing description");
+  for (const phrase of [
+    "Связь с магазином",
+    "Переустановим связь с магазином",
+    "Поменяем токен",
+    "Переподключим магазин",
+    "Подключим магазин",
+  ]) {
+    assert.ok(description.includes(phrase), `description must include: ${phrase}`);
+  }
+  assert.doesNotMatch(skill, /Treat invoking this skill as authorization/);
   assert.match(
     openAiMetadata,
-    /^policy:\n  allow_implicit_invocation: false$/m,
+    /^policy:\n  allow_implicit_invocation: true$/m,
   );
 });
 
