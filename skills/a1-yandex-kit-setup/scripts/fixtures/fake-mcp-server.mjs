@@ -1,9 +1,19 @@
 #!/usr/bin/env node
 
+import { writeFileSync } from "node:fs";
+
+const delayMs = Number(process.env.FAKE_MCP_DELAY_MS || 0);
+const authStatus = Number(process.env.FAKE_MCP_AUTH_STATUS || 0);
+if (process.env.FAKE_MCP_PID_FILE) {
+  writeFileSync(process.env.FAKE_MCP_PID_FILE, String(process.pid));
+}
+
 let buffer = "";
 
 function send(message) {
-  process.stdout.write(`${JSON.stringify(message)}\n`);
+  const write = () => process.stdout.write(`${JSON.stringify(message)}\n`);
+  if (delayMs > 0) setTimeout(write, delayMs);
+  else write();
 }
 
 process.stdin.setEncoding("utf8");
@@ -46,6 +56,26 @@ process.stdin.on("data", (chunk) => {
       continue;
     }
     if (message.method === "tools/call") {
+      if (authStatus > 0) {
+        send({
+          jsonrpc: "2.0",
+          id: message.id,
+          result: {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  error: "Invalid Authorization token",
+                  code: "UNAUTHENTICATED",
+                  status: authStatus,
+                }),
+              },
+            ],
+          },
+        });
+        continue;
+      }
       send({
         jsonrpc: "2.0",
         id: message.id,

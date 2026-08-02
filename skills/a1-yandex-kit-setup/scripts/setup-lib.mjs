@@ -35,4 +35,4 @@ export {
   clientCheck,
   configureNative,
 } from "./lib/process.mjs";
-export { smokeAdapter, smokeMcp } from "./lib/smoke.mjs";
+export { probeNetwork, smokeAdapter, smokeMcp } from "./lib/smoke.mjs";
