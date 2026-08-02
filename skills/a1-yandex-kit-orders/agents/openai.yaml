@@ -1,0 +1,3 @@
+interface:
+  display_name: "A1 Yandex KIT Orders"
+  short_description: "Проверяет и обрабатывает заказы магазина"

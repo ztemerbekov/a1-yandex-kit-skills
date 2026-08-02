@@ -2,6 +2,8 @@
 name: a1-yandex-kit-setup
 description: "Connect the Yandex KIT MCP server to the user's current AI client. Use when the user asks «подключи Яндекс KIT» or «настрой Yandex KIT», or explicitly wants to replace its Yandex KIT token. Handles Claude Code, Claude Desktop, Cursor, OpenAI Codex, VS Code, Kimi Code, Kimi Desktop, Hermes Agent, OpenClaw and new clients through a compatibility ladder."
 disable-model-invocation: true
+metadata:
+  author: Zinnur Temerbekov
 ---
 
 # A1 Yandex KIT Setup

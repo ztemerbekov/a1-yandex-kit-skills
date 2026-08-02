@@ -3,7 +3,7 @@ name: a1-yandex-kit-catalog
 description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), categories, characteristics, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
-  author: gistrec
+  author: Aleksandr Kovalko
   version: "0.1.0"
 ---
 

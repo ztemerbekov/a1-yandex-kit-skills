@@ -3,7 +3,7 @@ name: a1-yandex-kit-orders
 description: "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, gift cards and additional services (addons). Use when listing, confirming or cancelling KIT orders, or when looking up customers, their orders or gift cards."
 compatibility: "Requires Node.js >= 20"
 metadata:
-  author: gistrec
+  author: Aleksandr Kovalko
   version: "0.1.0"
 ---
 

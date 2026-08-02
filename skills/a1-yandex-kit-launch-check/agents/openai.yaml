@@ -1,4 +1,4 @@
 interface:
   display_name: "A1 Yandex KIT Launch Check"
-  short_description: "Read-only проверка готовности запуска"
-  default_prompt: "Use $a1-yandex-kit-launch-check to assess whether this Yandex KIT store is ready for its first sale and separate blockers from unverified checkout links."
+  short_description: "Показывает, готов ли магазин к запуску и что ему мешает"
+  default_prompt: "$a1-yandex-kit-launch-check можно ли уже запускать мой магазин?"

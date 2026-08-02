@@ -1,20 +1,61 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "a1-yandex-kit-skills",
-  "description": "Marketplace for A1 Yandex KIT Skills: agent skills and the A1 Yandex KIT MCP server for the Yandex KIT e-commerce platform API.",
   "owner": {
-    "name": "gistrec",
-    "url": "https://github.com/gistrec"
+    "name": "Aleksandr Kovalko & Zinnur Temerbekov",
+    "url": "https://t.me/a1_yandex_kit_skills"
+  },
+  "metadata": {
+    "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды."
   },
   "plugins": [
     {
-      "name": "a1-yandex-kit",
-      "source": "./",
-      "description": "A1 Yandex KIT Skills for the Yandex KIT e-commerce platform: six domain skills, four operational workflows, guided MCP setup, and a server covering all 133 API operations.",
-      "license": "MIT",
+      "name": "a1-yandex-kit-skills",
+      "displayName": "A1 Яндекс KIT",
+      "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
       "author": {
-        "name": "gistrec"
-      }
+        "name": "Aleksandr Kovalko & Zinnur Temerbekov",
+        "url": "https://t.me/a1_yandex_kit_skills"
+      },
+      "homepage": "https://t.me/a1_yandex_kit_skills",
+      "repository": "https://github.com/ztemerbekov/a1-yandex-kit-skills",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "yandex",
+        "яндекс",
+        "yandex-kit",
+        "яндекс-кит",
+        "кит",
+        "интернет-магазин",
+        "управление-магазином",
+        "каталог",
+        "заказы",
+        "скидки",
+        "промокоды",
+        "ecommerce",
+        "ecom",
+        "иком",
+        "икомерс",
+        "mcp",
+        "mcp-server",
+        "api"
+      ],
+      "source": "./skills",
+      "strict": false,
+      "skills": [
+        "./a1-yandex-kit-setup",
+        "./a1-yandex-kit",
+        "./a1-yandex-kit-catalog",
+        "./a1-yandex-kit-orders",
+        "./a1-yandex-kit-promotions",
+        "./a1-yandex-kit-store",
+        "./a1-yandex-kit-webhooks",
+        "./a1-yandex-kit-operator",
+        "./a1-yandex-kit-catalog-doctor",
+        "./a1-yandex-kit-promo-launcher",
+        "./a1-yandex-kit-launch-check"
+      ]
     }
   ]
 }

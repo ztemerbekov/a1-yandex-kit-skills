@@ -16,11 +16,12 @@ GitHub Release → Glama → awesome-mcp-servers.
 | `packages/core/package.json` | `version` |
 | `packages/mcp/package.json` | `version` **и** версия зависимости `yandex-kit-core` (она точная, без `^`) |
 | `server.json` (корень репозитория) | `version` в корне **и** в `packages[].version` |
-| `.claude-plugin/plugin.json` | `version` |
+| `.codex-plugin/plugin.json` | `version` |
+| `.cursor-plugin/plugin.json` | `version` |
 | `packages/codegen/src/gen-skills.ts` | константа `SKILL_VERSION`, затем `npm run gen` — обновит метаданные всех 6 скиллов |
 
 После bump: `git diff` — убедиться, что нигде не осталось старой версии
-(в помощь: `grep -rn "<старая версия>" packages/*/package.json server.json .claude-plugin/plugin.json skills/*/SKILL.md`).
+(в помощь: `grep -rn "<старая версия>" packages/*/package.json server.json .codex-plugin/plugin.json .cursor-plugin/plugin.json skills/*/SKILL.md`).
 
 ## 1. Предпубликационные проверки
 

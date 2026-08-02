@@ -3,7 +3,7 @@ name: a1-yandex-kit
 description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, base URL, rate limits, error contract, pagination and offline spec search/validation scripts. Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, promotions, store, webhooks) clearly fits, or when you need auth, limits or error-handling basics."
 compatibility: "Requires Node.js >= 20"
 metadata:
-  author: gistrec
+  author: Aleksandr Kovalko
   version: "0.1.0"
 ---
 

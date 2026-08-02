@@ -3,7 +3,7 @@ name: a1-yandex-kit-promotions
 description: "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding them to products, categories or collections."
 compatibility: "Requires Node.js >= 20"
 metadata:
-  author: gistrec
+  author: Aleksandr Kovalko
   version: "0.1.0"
 ---
 

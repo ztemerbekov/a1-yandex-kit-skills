@@ -1,0 +1,3 @@
+interface:
+  display_name: "A1 Yandex KIT Webhooks"
+  short_description: "Подключает уведомления об изменениях заказов через вебхуки"

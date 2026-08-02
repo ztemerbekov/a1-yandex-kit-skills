@@ -29,7 +29,7 @@ Setup-навык работает на Node.js и сам его не устан�
 2. Откройте терминал. На Windows используйте Windows Terminal, PowerShell или Command Prompt; на macOS и Linux — обычный терминал. Одна и та же команда работает во всех этих оболочках:
 
    ```bash
-   npx skills@latest add ztemerbekov/a1-yandex-kit-skills -g -y
+   npx skills@latest add ztemerbekov/a1-yandex-kit-skills -y
    ```
 
 3. Явно вызовите навык `a1-yandex-kit-setup`. В Codex используйте:

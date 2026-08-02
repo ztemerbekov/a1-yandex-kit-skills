@@ -1,0 +1,3 @@
+interface:
+  display_name: "A1 Yandex KIT Catalog"
+  short_description: "Управляет товарами, ценами, остатками и категориями магазина"

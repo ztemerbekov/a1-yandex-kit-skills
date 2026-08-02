@@ -1,0 +1,20 @@
+{
+  "name": "a1-yandex-kit-skills",
+  "interface": {
+    "displayName": "A1 Яндекс KIT"
+  },
+  "plugins": [
+    {
+      "name": "a1-yandex-kit-skills",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/ztemerbekov/a1-yandex-kit-skills.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
