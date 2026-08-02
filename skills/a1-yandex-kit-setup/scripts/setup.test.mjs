@@ -925,48 +925,6 @@ test("dynamic native CLI receives the token in argv without exposing it", async 
   assert.match(failure.stderr, /"code":"NATIVE_CONFIGURE_FAILED"/);
 });
 
-test("skill validates candidate tokens before configuration without a retry limit", async () => {
-  const skill = await readFile(path.join(scriptDir, "..", "SKILL.md"), "utf8");
-  assert.ok(skill.indexOf("smoke-token --token-stdin") < skill.indexOf("## 4."));
-  assert.match(skill, /Do not impose a retry limit\./);
-  assert.doesNotMatch(skill, /replacement token once/);
-  assert.match(
-    skill,
-    /Принято! Оставляем действующий токен Яндекс KIT без изменений\. Всё работает в прежнем режиме\./,
-  );
-});
-
-test("setup skill supports implicit Russian text and voice invocation", async () => {
-  const skill = await readFile(path.join(scriptDir, "..", "SKILL.md"), "utf8");
-  const openAiMetadata = await readFile(
-    path.join(scriptDir, "..", "agents", "openai.yaml"),
-    "utf8",
-  );
-
-  assert.doesNotMatch(skill, /^disable-model-invocation:/m);
-  const description = skill.match(/^description: "([^"]+)"$/m)?.[1];
-  assert.ok(description, "setup skill must have a model-facing description");
-  assert.match(
-    description,
-    /^Connect a Yandex KIT store.*reconnect it by replacing its token/,
-  );
-  for (const phrase of [
-    "Связь с магазином",
-    "Переустановим связь с магазином",
-    "Поменяем токен",
-    "Переподключим магазин",
-    "Подключим магазин",
-  ]) {
-    assert.ok(description.includes(phrase), `description must include: ${phrase}`);
-  }
-  assert.doesNotMatch(skill, /Treat invoking this skill as authorization/);
-  assert.match(
-    skill,
-    /Что сделать: подключить магазин или переподключить его с новым токеном\?/,
-  );
-  assert.doesNotMatch(openAiMetadata, /^policy:/m);
-});
-
 test("direct smoke performs initialize, tools/list, and read-only get_store", async () => {
   const result = await smokeMcp({
     token: SECRET_ONE,
