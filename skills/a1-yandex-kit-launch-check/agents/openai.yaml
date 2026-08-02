@@ -1,4 +1,4 @@
 interface:
-  display_name: "A1 Яндекс KIT — проверка запуска"
-  short_description: "Проверяет готовность магазина к запуску"
-  default_prompt: "Используй $a1-yandex-kit-launch-check, чтобы проверить готовность магазина к запуску."
+  display_name: "A1 Yandex KIT Launch Check"
+  short_description: "Показывает, готов ли магазин к запуску и что ему мешает"
+  default_prompt: "$a1-yandex-kit-launch-check можно ли уже запускать мой магазин?"

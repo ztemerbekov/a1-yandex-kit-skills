@@ -117,14 +117,7 @@ cursor-agent plugin marketplace add https://github.com/ztemerbekov/a1-yandex-kit
 
 Полный пакет включает подключение и API-навыки, а также четыре готовых сценария.
 
-Можно установить только нужную часть:
-
-```text
-/plugin install a1-yandex-kit-core@a1-yandex-kit-skills
-/plugin install a1-yandex-kit-jobs@a1-yandex-kit-skills
-```
-
-Пакет сценариев автоматически установит `a1-yandex-kit-core`. После установки выполните `/reload-plugins`, затем явно вызовите `/a1-yandex-kit-core:a1-yandex-kit-setup` и следуйте вопросам подключения.
+После установки выполните `/reload-plugins`, затем явно вызовите `/a1-yandex-kit-skills:a1-yandex-kit-setup` и следуйте вопросам подключения.
 
 ## Подробнее о четырёх сценариях
 

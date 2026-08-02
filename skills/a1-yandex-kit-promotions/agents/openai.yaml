@@ -1,4 +1,3 @@
 interface:
-  display_name: "A1 Яндекс KIT — акции"
-  short_description: "Скидки, промокоды и подарки магазина"
-  default_prompt: "Используй $a1-yandex-kit-promotions, чтобы проверить или изменить скидки, промокоды и подарки."
+  display_name: "A1 Yandex KIT Promotions"
+  short_description: "Управляет скидками, промокодами и подарками магазина"

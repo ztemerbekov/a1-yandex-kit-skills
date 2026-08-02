@@ -1,4 +1,4 @@
 interface:
-  display_name: "A1 Яндекс KIT — запуск промо"
-  short_description: "Запускает скидки, промокоды и подарки"
-  default_prompt: "Используй $a1-yandex-kit-promo-launcher, чтобы помочь мне запустить скидку или промокод."
+  display_name: "A1 Yandex KIT Promo Launcher"
+  short_description: "Запускает скидки, промокоды и подарки по вашим условиям"
+  default_prompt: "$a1-yandex-kit-promo-launcher давай запустим новое промо в моём магазине!"

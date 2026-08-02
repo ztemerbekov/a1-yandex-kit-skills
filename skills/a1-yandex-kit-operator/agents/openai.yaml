@@ -1,4 +1,4 @@
 interface:
-  display_name: "A1 Яндекс KIT — оператор"
-  short_description: "Проверяет магазин и выполняет точные команды"
-  default_prompt: "Используй $a1-yandex-kit-operator, чтобы проверить, как дела в магазине, и показать, что требует внимания."
+  display_name: "A1 Yandex KIT Operator"
+  short_description: "Показывает состояние магазина и выполняет точные команды"
+  default_prompt: "$a1-yandex-kit-operator как дела в моём магазине? Что требует моего внимания?"

@@ -10,9 +10,9 @@
   },
   "plugins": [
     {
-      "name": "a1-yandex-kit-core",
-      "displayName": "A1 Яндекс KIT — подключение и API",
-      "description": "Подключите Яндекс KIT к AI-приложению и работайте словами с основными данными магазина: каталогом, заказами, акциями, складами и вебхуками.",
+      "name": "a1-yandex-kit-skills",
+      "displayName": "A1 Яндекс KIT",
+      "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
       "author": {
         "name": "Aleksandr Kovalko & Zinnur Temerbekov",
         "url": "https://t.me/a1_yandex_kit_skills"
@@ -47,84 +47,11 @@
         "./a1-yandex-kit-orders",
         "./a1-yandex-kit-promotions",
         "./a1-yandex-kit-store",
-        "./a1-yandex-kit-webhooks"
-      ]
-    },
-    {
-      "name": "a1-yandex-kit-jobs",
-      "displayName": "A1 Яндекс KIT — сценарии",
-      "description": "Четыре готовых сценария для Яндекс KIT: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
-      "author": {
-        "name": "Aleksandr Kovalko & Zinnur Temerbekov",
-        "url": "https://t.me/a1_yandex_kit_skills"
-      },
-      "category": "productivity",
-      "keywords": [
-        "yandex",
-        "яндекс",
-        "yandex-kit",
-        "яндекс-кит",
-        "кит",
-        "интернет-магазин",
-        "управление-магазином",
-        "каталог",
-        "заказы",
-        "скидки",
-        "промокоды",
-        "ecommerce",
-        "ecom",
-        "иком",
-        "икомерс",
-        "mcp",
-        "mcp-server",
-        "api"
-      ],
-      "source": "./skills",
-      "strict": false,
-      "dependencies": [
-        "a1-yandex-kit-core"
-      ],
-      "skills": [
+        "./a1-yandex-kit-webhooks",
         "./a1-yandex-kit-operator",
         "./a1-yandex-kit-catalog-doctor",
         "./a1-yandex-kit-promo-launcher",
         "./a1-yandex-kit-launch-check"
-      ]
-    },
-    {
-      "name": "a1-yandex-kit-skills",
-      "displayName": "A1 Яндекс KIT",
-      "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
-      "author": {
-        "name": "Aleksandr Kovalko & Zinnur Temerbekov",
-        "url": "https://t.me/a1_yandex_kit_skills"
-      },
-      "category": "productivity",
-      "keywords": [
-        "yandex",
-        "яндекс",
-        "yandex-kit",
-        "яндекс-кит",
-        "кит",
-        "интернет-магазин",
-        "управление-магазином",
-        "каталог",
-        "заказы",
-        "скидки",
-        "промокоды",
-        "ecommerce",
-        "ecom",
-        "иком",
-        "икомерс",
-        "mcp",
-        "mcp-server",
-        "api"
-      ],
-      "source": "./plugins/a1-yandex-kit-skills",
-      "strict": false,
-      "dependencies": [
-        "a1-yandex-kit-core",
-        "a1-yandex-kit-jobs"
       ]
     }
   ]
