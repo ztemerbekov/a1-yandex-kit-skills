@@ -19,8 +19,8 @@ jobs:
       matrix:
         node: [20, 22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -59,9 +59,9 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "YANDEX_KIT_TOKEN secret is not set - skipping the live e2e check."
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.token.outputs.present == 'true'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.token.outputs.present == 'true'
         with:
           node-version: 22
