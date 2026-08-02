@@ -61,7 +61,7 @@
 1. Откройте терминал и установите пакет навыков:
 
    ```bash
-   npx skills@latest add ztemerbekov/a1-yandex-kit-skills -g -y
+   npx skills@latest add ztemerbekov/a1-yandex-kit-skills -y
    ```
 
    Чтобы позже получить свежие обновления, выполните `npx skills update`.
