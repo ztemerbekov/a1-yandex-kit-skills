@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 133 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 151 API operations, including those without a dedicated tool.
 
 ## Categories (`categories.ts`)
 
@@ -63,9 +63,9 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 133 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 151 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 133 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 151 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -137,7 +137,7 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**65 of 133 operations** have dedicated tools. The remaining 68 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**65 of 151 operations** have dedicated tools. The remaining 86 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 
@@ -154,11 +154,29 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 | `RemoveBadgeObjects` | POST | `/v1/badges/{badge_id}/objects/remove` | Удаление объектов из бейджа |
 | `UpdateBadge` | PATCH | `/v1/badges/{badge_id}` | Обновление бейджа |
 
+### Группы промокодов
+
+| Operation | Method | Path | Summary (RU) |
+| --- | --- | --- | --- |
+| `AddPromocodeGroupCode` | POST | `/v1/promocode_groups/{group_id}/codes` | Добавление кода в группу промокодов |
+| `AddPromocodeGroupObjects` | POST | `/v1/promocode_groups/{id}/objects/add` | Привязка объектов к группе промокодов |
+| `CreatePromocodeGroup` | POST | `/v1/promocode_groups` | Создание группы промокодов |
+| `DeletePromocodeGroup` | DELETE | `/v1/promocode_groups/{id}` | Удаление группы промокодов |
+| `DeletePromocodeGroupCode` | DELETE | `/v1/promocode_groups/{group_id}/codes/{code_id}` | Удаление кода из группы промокодов |
+| `GetPromocodeGroupByID` | GET | `/v1/promocode_groups/{id}` | Получение группы промокодов по идентификатору |
+| `GetPromocodeGroupCodes` | GET | `/v1/promocode_groups/{group_id}/codes` | Получение списка кодов в группе промокодов |
+| `GetPromocodeGroups` | GET | `/v1/promocode_groups` | Получение списка групп промокодов |
+| `RemovePromocodeGroupObjects` | POST | `/v1/promocode_groups/{id}/objects/remove` | Отвязка объектов от группы промокодов |
+| `UpdatePromocodeGroup` | PUT | `/v1/promocode_groups/{id}` | Обновление группы промокодов |
+| `UpdatePromocodeGroupCode` | PATCH | `/v1/promocode_groups/{group_id}/codes/{code_id}` | Обновление кода в группе промокодов |
+
 ### Коллекции
 
 | Operation | Method | Path | Summary (RU) |
 | --- | --- | --- | --- |
+| `GetCollectionCardsManualOrder` | GET | `/v1/collections/{collection_id}/cards/manual-order` | Получение ручного порядка карточек коллекции |
 | `GetVariantsByCollectionId` | GET | `/v1/collections/{collection_id}/variants` | Получение ID товаров коллекции по ID |
+| `MoveCollectionCards` | POST | `/v1/collections/{collection_id}/cards/move` | Перемещение карточек в статической коллекции |
 
 ### Контекстные коллекции
 
@@ -197,7 +215,7 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 
 | Operation | Method | Path | Summary (RU) |
 | --- | --- | --- | --- |
-| `GetPromocodeCategoryIDs` | GET | `/v1/promocodes/{id}/categories` | Получение идентификаторов категорий |
+| `GetPromocodeCategoryIDs` | GET | `/v1/promocodes/{id}/categories` | Получение идентификаторов категорий, к которым применяется промокод |
 | `GetPromocodeCollectionIDs` | GET | `/v1/promocodes/{id}/collections` | Получение идентификаторов коллекций, к которым применяется промокод |
 | `GetPromocodeVariantIDs` | GET | `/v1/promocodes/{id}/variants` | Получение уникальных идентификаторов товаров промокода |
 
@@ -224,12 +242,17 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 | Operation | Method | Path | Summary (RU) |
 | --- | --- | --- | --- |
 | `AddSimilarProductCards` | POST | `/v1/products/cards/{product_card_id}/similar/add` | Добавление похожих карточек товара |
+| `BulkUpdateStocks` | POST | `/v1/variants/stocks/bulk_update` | Массовое обновление остатков |
+| `CreateVariantAttachment` | POST | `/v1/variants/{id}/attachments` | Прикрепление документа к товару |
 | `DeleteSimilarProductCards` | POST | `/v1/products/cards/{product_card_id}/similar/remove` | Удаление похожих карточек товара |
 | `DeleteVariant` | DELETE | `/v1/variants/{id}` | Безвозвратное удаление архивного товара |
+| `DeleteVariantAttachment` | DELETE | `/v1/variants/{id}/attachments/{file_id}` | Открепление документа от товара |
 | `DeleteVariantExternalID` | DELETE | `/v1/variants/{id}/external_ids/{system_type}` | Удаление внешнего идентификатора |
 | `GetSimilarProductCardIDs` | GET | `/v1/products/cards/{product_card_id}/similar` | Получение списка похожих карточек товара. |
+| `GetVariantAttachments` | GET | `/v1/variants/{id}/attachments` | Получение документов товара |
 | `GetVariantExternalIDs` | GET | `/v1/variants/{id}/external_ids` | Получение внешних идентификаторов товара |
 | `SetVariantExternalID` | PUT | `/v1/variants/{id}/external_ids/{system_type}` | Установка внешнего идентификатора |
+| `UpdateVariantAttachment` | PATCH | `/v1/variants/{id}/attachments/{file_id}` | Обновление документа товара |
 
 ### Услуги
 

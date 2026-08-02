@@ -92,12 +92,14 @@ function unknownOperationError(operationId: string): Error {
 }
 
 export function registerMetaTools(server: McpServer, client: KitClient): void {
+  const opsCount = getRegistry().opsCount;
+
   server.registerTool(
     "search_operations",
     {
       title: "Search KIT API operations",
       description:
-        "Search the full catalog of all 133 Yandex KIT API operations by keyword. " +
+        `Search the full catalog of all ${opsCount} Yandex KIT API operations by keyword. ` +
         "Matches operationId, URL path, tag and Russian summary/description " +
         "(the API docs are in Russian, so Russian keywords like \"категории\" work too). " +
         "Any operation found here can be executed with kit_request; " +
@@ -189,7 +191,7 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
     {
       title: "Execute any KIT API operation",
       description:
-        "Escape hatch that executes ANY of the 133 Yandex KIT API operations by operationId, " +
+        `Escape hatch that executes ANY of the ${opsCount} Yandex KIT API operations by operationId, ` +
         "including operations without a dedicated tool. " +
         "WARNING: this performs REAL calls against the live store — write operations " +
         "(create/update/delete/archive) take effect immediately and there is no sandbox. " +

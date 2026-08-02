@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-catalog
-description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), categories, characteristics, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store."
+description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), variant documents (attachments), categories, characteristics, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
@@ -23,10 +23,15 @@ and per-warehouse stocks, and a product (`/v1/products`) groups variants, so mos
 `product_id` and `product_card_id` (карточка товара) — the card-scoped endpoints
 (`/v1/products/cards/{product_card_id}/similar...` and collection card management,
 «Добавление/Удаление карточек») take `product_card_id`, never a product id; read it
-from the variant first. Mind the content types: `UpdateVariant`, `UpdateCategory` and
-`UpdateCharacteristic` use JSON Merge Patch (`application/merge-patch+json` — send
-only the fields to change; `null` clears only the fields the schema marks nullable,
-see the `a1-yandex-kit` skill), while the other updates are plain `application/json`.
+from the variant first. Variant documents (инструкции, сертификаты, паспорта) live under
+`/v1/variants/{id}/attachments`: upload the file via `POST /v1/files` first, then
+attach it by `file_id`; the title must not contain `:` or `/`, and
+`display_sequence` must be unique per variant (an occupied value returns 409 — nothing
+is reordered automatically). Mind the content types: `UpdateVariant`, `UpdateCategory`,
+`UpdateCharacteristic` and `UpdateVariantAttachment` use JSON Merge Patch
+(`application/merge-patch+json` — send only the fields to change; `null` clears only
+the fields the schema marks nullable, see the `a1-yandex-kit` skill), while the other
+updates are plain `application/json`.
 
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
@@ -69,7 +74,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (57 operations)
+## Endpoints (64 operations)
 
 ### Товары
 
@@ -92,6 +97,11 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | GET | `/v1/variants/{id}/external_ids` | `GetVariantExternalIDs` | Получение внешних идентификаторов товара |
 | PUT | `/v1/variants/{id}/external_ids/{system_type}` | `SetVariantExternalID` | Установка внешнего идентификатора |
 | DELETE | `/v1/variants/{id}/external_ids/{system_type}` | `DeleteVariantExternalID` | Удаление внешнего идентификатора |
+| GET | `/v1/variants/{id}/attachments` | `GetVariantAttachments` | Получение документов товара |
+| POST | `/v1/variants/{id}/attachments` | `CreateVariantAttachment` | Прикрепление документа к товару |
+| PATCH | `/v1/variants/{id}/attachments/{file_id}` | `UpdateVariantAttachment` | Обновление документа товара |
+| DELETE | `/v1/variants/{id}/attachments/{file_id}` | `DeleteVariantAttachment` | Открепление документа от товара |
+| POST | `/v1/variants/stocks/bulk_update` | `BulkUpdateStocks` | Массовое обновление остатков |
 
 ### Категории товаров
 
@@ -129,6 +139,8 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | DELETE | `/v1/collections/{collection_id}` | `DeleteCollectionById` | Удаление коллекции |
 | POST | `/v1/collections/{collection_id}/cards/add` | `AddCardsToCollection` | Добавление карточек в статическую коллекцию |
 | POST | `/v1/collections/{collection_id}/cards/remove` | `RemoveCardsFromCollection` | Удаление карточек из статической коллекции |
+| GET | `/v1/collections/{collection_id}/cards/manual-order` | `GetCollectionCardsManualOrder` | Получение ручного порядка карточек коллекции |
+| POST | `/v1/collections/{collection_id}/cards/move` | `MoveCollectionCards` | Перемещение карточек в статической коллекции |
 | GET | `/v1/collections` | `GetCollections` | Получение списка коллекций |
 | POST | `/v1/collections` | `CreateCollection` | Создание коллекции |
 | GET | `/v1/collections/{collection_id}/variants` | `GetVariantsByCollectionId` | Получение ID товаров коллекции по ID |
@@ -162,7 +174,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-133 operations):
+151 operations):
 
 - `list_products` — List products of the store (paginated).
 - `get_product` — Get a single product by its ID, including its category bindings.
