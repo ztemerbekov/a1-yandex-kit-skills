@@ -53,7 +53,7 @@
 - [Подробнее о четырёх сценариях](#подробнее-о-четырёх-сценариях)
 - [Как ассистент взаимодействует с магазином](#как-ассистент-взаимодействует-с-магазином)
 - [Обратите внимание](#обратите-внимание)
-- [Другие способы установки](#другие-способы-установки)
+- [Установка через маркетплейсы](#установка-через-маркетплейсы)
 - [Документация](#документация)
 - [Помощь и обратная связь](#помощь-и-обратная-связь)
 
@@ -171,54 +171,78 @@
 
 **После ошибки связи команда не повторяется автоматически.** Сначала ассистент попробует проверить, выполнилось ли изменение. Если подтвердить результат не получится, он сообщит об этом и остановится, чтобы случайно не выполнить действие дважды.
 
-## Другие способы установки
+## Установка через маркетплейсы
+
+Выберите AI-приложение, в котором хотите управлять магазином. Каждый вариант устанавливает полный комплект: подключение Яндекс KIT, API-навыки и четыре готовых сценария.
+
+Если способ установки не важен, используйте [быстрый старт](#быстрый-старт) — там достаточно одной команды.
 
 <details>
-<summary><strong>Marketplace Codex</strong></summary>
+<summary><strong>Codex — установить через Marketplace</strong></summary>
 
 <br>
 
-Добавьте маркетплейс и установите полный пакет:
+1. Добавьте маркетплейс и установите полный комплект:
 
-```bash
-codex plugin marketplace add ztemerbekov/a1-yandex-kit-skills
-codex plugin add a1-yandex-kit-skills@a1-yandex-kit-skills
-```
+   ```bash
+   codex plugin marketplace add ztemerbekov/a1-yandex-kit-skills
+   codex plugin add a1-yandex-kit-skills@a1-yandex-kit-skills
+   ```
 
-Начните новую задачу Codex, чтобы он загрузил установленные навыки. Затем явно вызовите `$a1-yandex-kit-skills:a1-yandex-kit-setup` и следуйте вопросам подключения.
+2. Начните новую задачу Codex, чтобы загрузились установленные навыки.
+
+3. Подключите магазин:
+
+   ```text
+   $a1-yandex-kit-skills:a1-yandex-kit-setup
+   ```
+
+Следуйте вопросам установщика — он проверит окружение, подключит магазин и выполнит первый вызов.
 
 </details>
 
 <details>
-<summary><strong>Marketplace Cursor</strong></summary>
+<summary><strong>Cursor — установить через Marketplace</strong></summary>
 
 <br>
 
-Добавьте маркетплейс:
+1. Добавьте маркетплейс:
 
-```bash
-cursor-agent plugin marketplace add https://github.com/ztemerbekov/a1-yandex-kit-skills
-```
+   ```bash
+   cursor-agent plugin marketplace add https://github.com/ztemerbekov/a1-yandex-kit-skills
+   ```
 
-Запустите Cursor Agent, откройте `/plugin`, выберите маркетплейс **A1 Яндекс KIT** и установите плагин **A1 Яндекс KIT**. Затем явно выберите и запустите навык `a1-yandex-kit-setup`.
+2. Запустите Cursor Agent, откройте `/plugin` и выберите маркетплейс **A1 Яндекс KIT**.
+
+3. Установите плагин **A1 Яндекс KIT**, затем выберите навык `a1-yandex-kit-setup` и следуйте вопросам подключения.
 
 </details>
 
 <details>
-<summary><strong>Marketplace Claude Code</strong></summary>
+<summary><strong>Claude Code — установить через Marketplace</strong></summary>
 
 <br>
 
-Добавьте маркетплейс и установите полный пакет:
+1. Добавьте маркетплейс и установите полный комплект:
 
-```text
-/plugin marketplace add ztemerbekov/a1-yandex-kit-skills
-/plugin install a1-yandex-kit-skills@a1-yandex-kit-skills
-```
+   ```text
+   /plugin marketplace add ztemerbekov/a1-yandex-kit-skills
+   /plugin install a1-yandex-kit-skills@a1-yandex-kit-skills
+   ```
 
-Полный пакет включает подключение и API-навыки, а также четыре готовых сценария.
+2. Загрузите установленные навыки:
 
-После установки выполните `/reload-plugins`, затем явно вызовите `/a1-yandex-kit-skills:a1-yandex-kit-setup` и следуйте вопросам подключения.
+   ```text
+   /reload-plugins
+   ```
+
+3. Подключите магазин:
+
+   ```text
+   /a1-yandex-kit-skills:a1-yandex-kit-setup
+   ```
+
+Следуйте вопросам установщика — он проверит окружение, подключит магазин и выполнит первый вызов.
 
 </details>
 
