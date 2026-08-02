@@ -1,6 +1,6 @@
 # AI-ассистент для Яндекс KIT
 
-<img src="./assets/logos/a1-logo-warm.svg" alt="A1" width="22">&nbsp;**Yandex KIT Skills** <sup>β</sup> позволяет управлять магазином из привычного приложения (Claude, Cursor, Codex и других). Вы ставите задачи обычными словами, а ассистент проверяет текущее состояние магазина, находит то, что требует внимания, и выполняет команды.
+<img src="./assets/images/a1-logo-warm.svg" alt="A1" width="22">&nbsp;**Yandex KIT Skills** <sup>β</sup> позволяет управлять магазином из привычного приложения (Claude, Cursor, Codex и других). Вы ставите задачи обычными словами, а ассистент проверяет текущее состояние магазина, находит то, что требует внимания, и выполняет команды.
 
 - **Четыре готовых сценария.** Операционные риски и приоритеты, ошибки каталога, запуск акций и готовность магазина к открытию.
 - **Голосом или текстом.** Формулируйте рабочие задачи естественным языком. Пишите или диктуйте, если приложение поддерживает голосовой ввод. При желании можно вызвать нужный навык напрямую.
@@ -13,7 +13,7 @@
 3. **Запуск промо** (`a1-yandex-kit-promo-launcher`) превращает заданные условия в готовую акцию: создаёт, изменяет и запускает скидки, промокоды и подарки в магазине.
 4. **Проверка запуска** (`a1-yandex-kit-launch-check`) определяет, готов ли магазин к открытию и приёму заказов: находит блокеры и перечисляет всё, что ещё нужно подтвердить.
 5. **Специализированные навыки.** `a1-yandex-kit-orders`, `a1-yandex-kit-catalog`, `a1-yandex-kit-promotions`, `a1-yandex-kit-store` и `a1-yandex-kit-webhooks` — для отдельных задач по заказам, каталогу, акциям, ресурсам магазина и вебхукам.
-6. <img src="./assets/yandex-kit/binoculars.png" alt="Бинокль" width="30"> Не нашли нужного сценария? [Расскажите, какой задачи вам не хватает, и следите за новыми возможностями.](https://t.me/a1_yandex_kit_skills)
+6. <img src="./assets/images/binoculars.png" alt="Бинокль" width="30"> Не нашли нужного сценария? [Расскажите, какой задачи вам не хватает, и следите за новыми возможностями.](https://t.me/a1_yandex_kit_skills)
 
 ## Увидеть работу за минуту
 
@@ -285,12 +285,12 @@ npx skills update
 
 ## Помощь и обратная связь
 
-Нужна помощь, что-то не работает или есть идея? Напишите нам в Telegram — <img src="./assets/logos/a1-logo-warm.svg" alt="A1" width="22">&nbsp;[**Yandex KIT Skills** <sup>β</sup>](https://t.me/a1_yandex_kit_skills).
+Нужна помощь, что-то не работает или есть идея? Напишите нам в Telegram — <img src="./assets/images/a1-logo-warm.svg" alt="A1" width="22">&nbsp;[**Yandex KIT Skills** <sup>β</sup>](https://t.me/a1_yandex_kit_skills).
 
 <br>
 
 <p align="center">
-  <img src="./assets/readme/mona-hifive-yandex-kit-warm.gif" alt="Две Моны дают пять" width="256">
+  <img src="./assets/images/mona-hifive-yandex-kit-warm.gif" alt="Две Моны дают пять" width="256">
 </p>
 
 <p align="center">
