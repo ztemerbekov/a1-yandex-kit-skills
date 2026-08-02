@@ -6,15 +6,3 @@ dist/
 # Local secrets — YANDEX_KIT_TOKEN grants full store access (isSecret in server.json)
 .env
 .env*.local
-
-# Local Next Move Theory installation
-/.nmt-version
-/AGENTS.md
-/NextMoveTheory-README.md
-/Next-Move-Theory-Canon/
-/.agents/skills/PRODUCER-CONTRACT.md
-/.agents/skills/READABILITY-CONTRACT.md
-/.agents/skills/nmt-*/
-/.claude/skills/PRODUCER-CONTRACT.md
-/.claude/skills/READABILITY-CONTRACT.md
-/.claude/skills/nmt-*/
