@@ -104,7 +104,10 @@ token.
     - For `да`, use the reconnection prompt above.
 
 Accept the token in chat. Do not echo, summarize, quote, log or interpolate it
-into a shell command. Pass a new token only through stdin to `setup.mjs`.
+into a shell command. Pass a new token only through stdin to `setup.mjs`: write
+the token followed by one newline. The first newline terminates the input, so
+the helper starts immediately and never waits for the stdin pipe to close;
+closing stdin after the newline is also safe.
 
 Before writing any new or replacement token, validate it with the direct
 read-only MCP smoke test:
@@ -113,9 +116,20 @@ read-only MCP smoke test:
 node "<skill-directory>/scripts/setup.mjs" smoke-token --token-stdin --json
 ```
 
-If authentication fails, ask for another token with the replacement-token
-prompt and repeat this validation until it succeeds or the user explicitly
-cancels. Do not impose a retry limit. Because configuration has not started,
+`smoke-token` and `smoke` require external network access: the helper reaches
+the npm registry to start `mcp-yandex-kit@latest` and the Yandex KIT API for
+`get_store`. In a host that sandboxes shell commands, such as Codex, run these
+commands with network access granted on the first attempt — request the
+network-enabled or escalated execution mode instead of trying an isolated
+sandbox first. The helper probes connectivity before starting the server and
+fails fast with `code: "NETWORK_UNAVAILABLE"` when the network is blocked;
+re-run the same command with network access instead of treating it as a token
+problem. The whole smoke run shares one wall-clock deadline, so it either
+finishes or fails within about a minute.
+
+If authentication fails (`code: "SMOKE_AUTH"`), ask for another token with the
+replacement-token prompt and repeat this validation until it succeeds or the
+user explicitly cancels. Do not impose a retry limit. Because configuration has not started,
 cancellation leaves the current client settings unchanged. Treat other smoke
 failures as their own diagnostics instead of asking for a different token.
 
@@ -126,7 +140,8 @@ without reaching this point.
 ## 4. Configure the user-level client
 
 For a new or replacement token, run the helper in an interactive process and
-write the token followed by a newline to its stdin:
+write the token followed by a newline to its stdin; the newline completes the
+input, so the helper does not wait for the pipe to close:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" configure --client <client> --token-stdin --json
