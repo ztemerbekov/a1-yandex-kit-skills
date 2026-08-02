@@ -8,10 +8,13 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { readTokenStdin } from "./setup.mjs";
 import {
   BACKUP_SUFFIX,
   FALLBACK_SERVER_NAME,
@@ -30,6 +33,7 @@ import {
   mergeJson,
   mergeToml,
   mergeYaml,
+  probeNetwork,
   resolveAdapter,
   rollbackChange,
   selectManagedAdapter,
@@ -48,6 +52,32 @@ async function withTempDir(run) {
     return await run(tempDir);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function withEnv(entries, run) {
+  const previous = {};
+  for (const [key, value] of Object.entries(entries)) {
+    previous[key] = process.env[key];
+    process.env[key] = value;
+  }
+  try {
+    return await run();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+async function waitFor(check, { timeoutMs = 5_000, intervalMs = 50 } = {}) {
+  const startedAt = Date.now();
+  while (!check()) {
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error("condition was not met in time");
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 }
 
@@ -940,5 +970,198 @@ test("direct smoke performs initialize, tools/list, and read-only get_store", as
     name: null,
     url: "https://test.example",
   });
+  assert.ok(Number.isInteger(result.elapsedMs) && result.elapsedMs >= 0);
   assert.equal(JSON.stringify(result).includes(SECRET_ONE), false);
+});
+
+test("token stdin treats the first newline as the terminator, not EOF", async () => {
+  const open = new PassThrough();
+  open.write(`${SECRET_ONE}\n`);
+  assert.equal(await readTokenStdin(open), SECRET_ONE);
+
+  const carriage = new PassThrough();
+  carriage.write(`${SECRET_ONE}\r\n`);
+  assert.equal(await readTokenStdin(carriage), SECRET_ONE);
+
+  const eofOnly = new PassThrough();
+  eofOnly.end(SECRET_ONE);
+  assert.equal(await readTokenStdin(eofOnly), SECRET_ONE);
+
+  const empty = new PassThrough();
+  empty.write("\n");
+  await assert.rejects(
+    readTokenStdin(empty),
+    (error) => error instanceof SetupError && error.code === "TOKEN_REQUIRED",
+  );
+
+  const multiline = new PassThrough();
+  multiline.write(`${SECRET_ONE}\n${SECRET_TWO}\n`);
+  await assert.rejects(
+    readTokenStdin(multiline),
+    (error) => error instanceof SetupError && error.code === "TOKEN_REQUIRED",
+  );
+});
+
+test(
+  "CLI configure completes while stdin stays open after the token line",
+  { timeout: 30_000 },
+  async () => {
+    await withTempDir(async (tempDir) => {
+      const configPath = path.join(tempDir, "mcp.json");
+      const result = await new Promise((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [
+            setupScript,
+            "configure",
+            "--client",
+            "cursor",
+            "--config",
+            configPath,
+            "--token-stdin",
+            "--json",
+          ],
+          { stdio: ["pipe", "pipe", "pipe"] },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => {
+          stdout += chunk;
+        });
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk;
+        });
+        child.on("error", reject);
+        child.on("close", (code) => resolve({ code, stdout, stderr }));
+        child.stdin.on("error", () => {});
+        child.stdin.write(`${SECRET_ONE}\n`);
+      });
+      assert.equal(result.code, 0, result.stderr);
+      assert.equal(result.stdout.includes(SECRET_ONE), false);
+      assert.equal(
+        inspectJson(await readFile(configPath, "utf8"), "mcp-json").token,
+        SECRET_ONE,
+      );
+    });
+  },
+);
+
+test("network probe connects locally and reports NETWORK_UNAVAILABLE fast", async () => {
+  const server = net.createServer();
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const { port } = server.address();
+  try {
+    assert.deepEqual(
+      await probeNetwork({
+        targets: [{ host: "127.0.0.1", port }],
+        timeoutMs: 2_000,
+      }),
+      { networkOk: true },
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+
+  const startedAt = Date.now();
+  await assert.rejects(
+    probeNetwork({ targets: [{ host: "127.0.0.1", port }], timeoutMs: 2_000 }),
+    (error) =>
+      error instanceof SetupError && error.code === "NETWORK_UNAVAILABLE",
+  );
+  assert.ok(Date.now() - startedAt < 3_000);
+});
+
+test("direct smoke fails fast without spawning when the network probe fails", async () => {
+  await withTempDir(async (tempDir) => {
+    const pidFile = path.join(tempDir, "server.pid");
+    await withEnv({ FAKE_MCP_PID_FILE: pidFile }, async () => {
+      const startedAt = Date.now();
+      await assert.rejects(
+        smokeMcp({
+          token: SECRET_ONE,
+          command: process.execPath,
+          args: [fakeServer],
+          timeoutMs: 30_000,
+          probe: async () => {
+            throw new SetupError("blocked", "NETWORK_UNAVAILABLE");
+          },
+        }),
+        (error) =>
+          error instanceof SetupError &&
+          error.code === "NETWORK_UNAVAILABLE" &&
+          !error.message.includes(SECRET_ONE),
+      );
+      assert.ok(Date.now() - startedAt < 5_000);
+      await assert.rejects(readFile(pidFile, "utf8"), { code: "ENOENT" });
+    });
+  });
+});
+
+test("direct smoke enforces one wall-clock budget across all MCP steps", async () => {
+  await withEnv({ FAKE_MCP_DELAY_MS: "700" }, async () => {
+    const startedAt = Date.now();
+    await assert.rejects(
+      smokeMcp({
+        token: SECRET_ONE,
+        command: process.execPath,
+        args: [fakeServer],
+        timeoutMs: 1_500,
+      }),
+      (error) =>
+        error instanceof SetupError &&
+        error.code === "SMOKE_TIMEOUT" &&
+        !error.message.includes(SECRET_ONE),
+    );
+    const elapsed = Date.now() - startedAt;
+    assert.ok(elapsed >= 1_400, `rejected too early: ${elapsed}ms`);
+    assert.ok(elapsed < 3_000, `budget did not cap the run: ${elapsed}ms`);
+  });
+});
+
+test("direct smoke kills the MCP child after the deadline", async () => {
+  await withTempDir(async (tempDir) => {
+    const pidFile = path.join(tempDir, "server.pid");
+    await withEnv(
+      { FAKE_MCP_PID_FILE: pidFile, FAKE_MCP_DELAY_MS: "60000" },
+      async () => {
+        await assert.rejects(
+          smokeMcp({
+            token: SECRET_ONE,
+            command: process.execPath,
+            args: [fakeServer],
+            timeoutMs: 1_000,
+          }),
+          (error) =>
+            error instanceof SetupError && error.code === "SMOKE_TIMEOUT",
+        );
+        const pid = Number(await readFile(pidFile, "utf8"));
+        assert.ok(Number.isInteger(pid) && pid > 0);
+        await waitFor(() => {
+          try {
+            process.kill(pid, 0);
+            return false;
+          } catch {
+            return true;
+          }
+        });
+      },
+    );
+  });
+});
+
+test("direct smoke reports an authentication failure as SMOKE_AUTH", async () => {
+  await withEnv({ FAKE_MCP_AUTH_STATUS: "401" }, async () => {
+    await assert.rejects(
+      smokeMcp({
+        token: SECRET_ONE,
+        command: process.execPath,
+        args: [fakeServer],
+        timeoutMs: 5_000,
+      }),
+      (error) =>
+        error instanceof SetupError &&
+        error.code === "SMOKE_AUTH" &&
+        !error.message.includes(SECRET_ONE),
+    );
+  });
 });

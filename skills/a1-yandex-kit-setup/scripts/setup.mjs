@@ -53,15 +53,22 @@ function adapterFrom(options) {
   });
 }
 
-async function readTokenStdin() {
+// The first newline terminates the token, so an interactive caller may keep
+// the stdin pipe open — the helper must never block on a distant EOF.
+export async function readTokenStdin(stream = process.stdin) {
   let value = "";
-  process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) value += chunk;
-  const token = value.trim();
+  stream.setEncoding("utf8");
+  for await (const chunk of stream) {
+    value += chunk;
+    if (value.includes("\n")) break;
+  }
+  const newline = value.indexOf("\n");
+  const rest = newline === -1 ? "" : value.slice(newline + 1);
+  const token = (newline === -1 ? value : value.slice(0, newline)).trim();
   if (!token) {
     throw new SetupError("A Yandex KIT token is required on stdin.", "TOKEN_REQUIRED");
   }
-  if (/[\r\n]/.test(token)) {
+  if (rest.trim() || /\r/.test(token)) {
     throw new SetupError(
       "Send exactly one Yandex KIT token on stdin.",
       "TOKEN_REQUIRED",
