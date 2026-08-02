@@ -158,6 +158,37 @@ test("kit_request rejects multipart UploadFile", async () => {
   assert.equal(calls.length, 0);
 });
 
+// Issue #54 guardrail: the live API silently strips ARCHIVED from the
+// GetVariants status filter and falls back to the default listing.
+
+test("kit_request rejects a list response with statuses outside the requested filter", async () => {
+  const { calls, mcpClient } = await setup({
+    variants: [{ id: "v1", status: "PUBLISHED" }],
+    total_count: 1,
+  });
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: {
+      operation_id: "GetVariants",
+      query: { status: ["ARCHIVED"], page: 1, per_page: 100 },
+    },
+  });
+  assert.equal((res as any).isError, true);
+  assert.equal(parse(res).code, "STATUS_FILTER_IGNORED");
+  assert.equal(calls.length, 1);
+});
+
+test("kit_request passes an honored status filter through unchanged", async () => {
+  const payload = { variants: [{ id: "v1", status: "ARCHIVED" }], total_count: 1 };
+  const { mcpClient } = await setup(payload);
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: { operation_id: "GetVariants", query: { status: ["ARCHIVED"] } },
+  });
+  assert.equal((res as any).isError ?? false, false);
+  assert.deepEqual(parse(res), payload);
+});
+
 test("kit_request unknown operation fails with suggestions", async () => {
   const { calls, mcpClient } = await setup();
   const res = await mcpClient.callTool({

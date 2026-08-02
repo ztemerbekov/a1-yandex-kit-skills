@@ -58,3 +58,55 @@ export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): numb
   if (perPage === undefined) return Math.min(DEFAULT_PER_PAGE, max);
   return Math.max(1, Math.min(max, Math.trunc(perPage)));
 }
+
+/**
+ * Distinct `status` values found in `items` that lie outside the requested
+ * status filter. A non-empty result proves the server ignored the filter and
+ * fell back to a different listing (issue #54: the KIT API silently strips
+ * `ARCHIVED` from the GetVariants status filter and returns the default
+ * non-archived catalog instead).
+ */
+export function statusesOutsideFilter(requested: readonly string[], items: unknown[]): string[] {
+  const allowed = new Set(requested);
+  const outside = new Set<string>();
+  for (const item of items) {
+    const status = (item as { status?: unknown } | null)?.status;
+    if (typeof status === "string" && !allowed.has(status)) outside.add(status);
+  }
+  return [...outside].sort();
+}
+
+/** The server returned items outside the requested status filter (issue #54). */
+export function statusFilterIgnoredFailure(
+  requested: readonly string[],
+  outside: readonly string[],
+): ToolResult {
+  return fail(
+    new KitValidationError(
+      `The KIT API ignored the requested status filter [${requested.join(", ")}]: ` +
+        `the response contains statuses [${outside.join(", ")}] outside the filter ` +
+        "(known KIT API defect: ARCHIVED is silently stripped from the GetVariants " +
+        "status filter and the listing falls back to the default non-archived catalog). " +
+        "The response was discarded so the default listing cannot be mistaken for the " +
+        "filtered view. Archived variants cannot be listed via the API; they can only " +
+        "be read by ID (get_variant).",
+      [],
+      "STATUS_FILTER_IGNORED",
+    ),
+  );
+}
+
+/** Empty ARCHIVED listing that cannot be told apart from the filter defect (issue #54). */
+export function archiveReadUnsupportedFailure(): ToolResult {
+  return fail(
+    new KitValidationError(
+      "Listing archived variants is not supported by the KIT API right now: the server " +
+        "silently strips ARCHIVED from the GetVariants status filter (known defect), and " +
+        "both the filtered and the unfiltered listings are empty, so an empty archive " +
+        "cannot be distinguished from the defect. Do NOT conclude the archive is empty. " +
+        "Archived variants can only be read by ID (get_variant).",
+      [],
+      "ARCHIVE_READ_UNSUPPORTED",
+    ),
+  );
+}

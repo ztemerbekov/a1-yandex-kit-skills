@@ -12,6 +12,7 @@ interface RecordedCall {
   init: RequestInit | undefined;
 }
 
+/** `payload` may be a function of the 0-based call index to vary responses per call. */
 async function setup(payload: unknown = { ok: true }) {
   const calls: RecordedCall[] = [];
   const client = new KitClient({
@@ -19,7 +20,8 @@ async function setup(payload: unknown = { ok: true }) {
     rps: 1000,
     fetchImpl: (async (url: unknown, init?: RequestInit) => {
       calls.push({ url: String(url), init });
-      return new Response(JSON.stringify(payload), {
+      const body = typeof payload === "function" ? payload(calls.length - 1) : payload;
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
@@ -123,6 +125,67 @@ test("variant_action unarchive hits /v1/variants/{id}/unarchive", async () => {
   await mcp.callTool({ name: "variant_action", arguments: { id: "v1", action: "unarchive" } });
   assert.equal(calls.length, 1);
   assert.equal(new URL(calls[0]!.url).pathname, "/v1/variants/v1/unarchive");
+});
+
+// Issue #54 guardrail: the live API silently strips ARCHIVED from the status
+// filter and falls back to the default non-archived listing.
+
+test("list_variants fails with STATUS_FILTER_IGNORED when the response has statuses outside the filter", async () => {
+  const { calls, mcp } = await setup({
+    variants: [
+      { id: "v1", status: "PUBLISHED" },
+      { id: "v2", status: "HIDDEN" },
+    ],
+    total_count: 2,
+  });
+  const res = await mcp.callTool({ name: "list_variants", arguments: { status: ["ARCHIVED"] } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "STATUS_FILTER_IGNORED");
+  assert.equal(calls.length, 1, "out-of-filter items need no extra probe");
+});
+
+test("list_variants returns a provably empty archive when the unfiltered probe is non-empty", async () => {
+  const { calls, mcp } = await setup((call: number) =>
+    call === 0
+      ? { variants: [], total_count: 0 }
+      : { variants: [{ id: "v1", status: "PUBLISHED" }], total_count: 12 },
+  );
+  const res = await mcp.callTool({ name: "list_variants", arguments: { status: ["ARCHIVED"] } });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.deepEqual(JSON.parse(resultText(res)).variants, []);
+  assert.equal(calls.length, 2);
+  const probeUrl = new URL(calls[1]!.url);
+  assert.equal(probeUrl.searchParams.get("per_page"), "1");
+  assert.deepEqual(probeUrl.searchParams.getAll("status"), [], "the probe must be unfiltered");
+});
+
+test("list_variants fails with ARCHIVE_READ_UNSUPPORTED when both listings are empty", async () => {
+  const { calls, mcp } = await setup({ variants: [], total_count: 0 });
+  const res = await mcp.callTool({ name: "list_variants", arguments: { status: ["ARCHIVED"] } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "ARCHIVE_READ_UNSUPPORTED");
+  assert.equal(calls.length, 2);
+});
+
+test("list_variants passes archived variants through once the API honors the filter", async () => {
+  const { calls, mcp } = await setup({
+    variants: [{ id: "v1", status: "ARCHIVED" }],
+    total_count: 1,
+  });
+  const res = await mcp.callTool({ name: "list_variants", arguments: { status: ["ARCHIVED"] } });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(JSON.parse(resultText(res)).variants[0].status, "ARCHIVED");
+  assert.equal(calls.length, 1, "a trustworthy response needs no probe");
+});
+
+test("list_variants all=true also detects an ignored status filter", async () => {
+  const { mcp } = await setup({ variants: [{ id: "v1", status: "PUBLISHED" }] });
+  const res = await mcp.callTool({
+    name: "list_variants",
+    arguments: { all: true, status: ["ARCHIVED"] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "STATUS_FILTER_IGNORED");
 });
 
 test("variant_action rejects an invalid action value", async () => {

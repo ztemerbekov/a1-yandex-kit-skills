@@ -131,7 +131,15 @@ cannot be proven and leave the product unchanged.
   actions.** Never substitute one for another. Permanent SKU deletion uses
   `kit_request(operation_id: DeleteVariant, path_params: {id})`, only after an
   exact permanent-delete verb and a detail read confirming `ARCHIVED`. The API
-  has no permanent category-delete operation; never promise one.
+  has no permanent category-delete operation; never promise one. A bulk
+  command over the archive as a set («удали все карточки из архива») cannot be
+  resolved to targets: the API cannot enumerate archived variants (`ARCHIVED`
+  is silently stripped from the `GetVariants` status filter — known defect,
+  issue #54), and `list_variants` fails with
+  `STATUS_FILTER_IGNORED`/`ARCHIVE_READ_UNSUPPORTED`. Report enumeration as
+  unsupported, ask the owner for the exact variant IDs (for example from
+  creation logs), and never derive targets from the default listing or report
+  the archive as empty.
 
 An image addition requires an exact existing `image_id` or a separately
 authorized upload source. Treat file upload and variant linking as two explicit

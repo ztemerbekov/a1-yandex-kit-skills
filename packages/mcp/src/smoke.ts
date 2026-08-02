@@ -13,6 +13,10 @@ interface ProductCollection {
   products?: unknown[];
 }
 
+interface VariantCollection {
+  variants?: Array<{ status?: string }>;
+}
+
 async function main(): Promise<void> {
   let config: Config;
   try {
@@ -36,6 +40,38 @@ async function main(): Promise<void> {
     query: { page: 1, per_page: 1 },
   });
   console.log(`products: fetched=${collection?.products?.length ?? 0} (page=1 per_page=1)`);
+
+  // Issue #54 state detector: the KIT API silently strips ARCHIVED from the
+  // GetVariants status filter. Informational only — reports whether the defect
+  // is still present so the list_variants guardrail can be removed once fixed.
+  const filtered = await client.call<VariantCollection>("GetVariants", {
+    query: { page: 1, per_page: 100, status: ["ARCHIVED"] },
+  });
+  const variants = filtered?.variants ?? [];
+  const archived = variants.filter((v) => v.status === "ARCHIVED").length;
+  const outside = variants.length - archived;
+  if (archived > 0) {
+    console.log(
+      `archived-filter: API FIXED — status=ARCHIVED returned ${archived} archived variants; ` +
+        "the list_variants guardrail (issue #54) can be removed",
+    );
+  } else if (outside > 0) {
+    console.log(
+      `archived-filter: KIT defect still present — status=ARCHIVED returned ${outside} ` +
+        "non-archived variants (the default listing)",
+    );
+  } else {
+    const control = await client.call<VariantCollection>("GetVariants", {
+      query: { page: 1, per_page: 1 },
+    });
+    const controlNonEmpty = (control?.variants?.length ?? 0) > 0;
+    console.log(
+      controlNonEmpty
+        ? "archived-filter: API FIXED — the filter is honored and the archive is empty; " +
+            "the list_variants guardrail (issue #54) can be removed"
+        : "archived-filter: indeterminate — the store has no variants to probe with",
+    );
+  }
 
   console.log("smoke OK");
 }
