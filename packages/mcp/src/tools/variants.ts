@@ -2,7 +2,46 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  archiveReadUnsupportedFailure,
+  clampPerPage,
+  emptyUpdateFailure,
+  fail,
+  ok,
+  READ_ONLY,
+  statusesOutsideFilter,
+  statusFilterIgnoredFailure,
+  validationFailure,
+  type ToolResult,
+} from "../util.js";
+
+/**
+ * Post-check for the known KIT API defect (issue #54): the server silently
+ * strips `ARCHIVED` from the GetVariants status filter, so the listing falls
+ * back to the default non-archived catalog. Two observable shapes:
+ * - items outside the requested filter — the filter was ignored;
+ * - an empty page for a filter that includes ARCHIVED — ambiguous, so probe
+ *   the unfiltered listing once: a non-empty probe proves the filter WAS
+ *   honored (a stripped filter would have returned that same non-empty
+ *   default listing), while an empty probe leaves the archive unprovable.
+ * Returns the failure to surface instead of the response, or null when the
+ * response can be trusted.
+ */
+async function verifyStatusFilterHonored(
+  client: KitClient,
+  requested: string[] | undefined,
+  items: unknown[],
+): Promise<ToolResult | null> {
+  if (!requested || requested.length === 0) return null;
+  const outside = statusesOutsideFilter(requested, items);
+  if (outside.length > 0) return statusFilterIgnoredFailure(requested, outside);
+  if (!requested.includes("ARCHIVED") || items.length > 0) return null;
+  const probe = await client.call<{ variants?: unknown[] }>("GetVariants", {
+    query: { page: 1, per_page: 1 },
+  });
+  const defaultListingNonEmpty = Array.isArray(probe?.variants) && probe.variants.length > 0;
+  return defaultListingNonEmpty ? null : archiveReadUnsupportedFailure();
+}
 
 export function registerVariantTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -11,7 +50,11 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
       title: "List variants",
       description:
         "List variants (sellable items / SKUs) of the store, with optional filters (paginated). " +
-        "By default the API returns variants of all statuses except ARCHIVED.",
+        "By default the API returns variants of all statuses except ARCHIVED. " +
+        "Known KIT API defect: ARCHIVED is silently stripped from the status filter, so " +
+        "archived variants cannot be listed (only read by ID via get_variant); the tool " +
+        "detects this and fails with STATUS_FILTER_IGNORED or ARCHIVE_READ_UNSUPPORTED " +
+        "instead of returning the wrong catalog slice.",
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -38,12 +81,17 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
     async ({ page, per_page, all, product_id, status, name }) => {
       const filters = { product_id, status, name };
       try {
-        if (all) return ok(await client.listAll("GetVariants", { query: filters }));
-        return ok(
-          await client.call("GetVariants", {
-            query: { page, per_page: clampPerPage(per_page), ...filters },
-          }),
-        );
+        if (all) {
+          const result = await client.listAll("GetVariants", { query: filters });
+          const guard = await verifyStatusFilterHonored(client, status, result.items);
+          return guard ?? ok(result);
+        }
+        const res = await client.call<{ variants?: unknown[] }>("GetVariants", {
+          query: { page, per_page: clampPerPage(per_page), ...filters },
+        });
+        const items = Array.isArray(res?.variants) ? res.variants : [];
+        const guard = await verifyStatusFilterHonored(client, status, items);
+        return guard ?? ok(res);
       } catch (e) {
         return fail(e);
       }

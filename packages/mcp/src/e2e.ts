@@ -6,8 +6,11 @@
 // Flow: connect over stdio -> tools/list sanity -> get_store -> create an E2E
 // category -> create a product in it -> create a HIDDEN variant (never visible
 // on the storefront) -> update its price -> read it back -> archive the variant
-// and the category. The product itself cannot be deleted or archived (the API
-// has no such operation) but stays bound to the archived category only.
+// -> permanently delete it (DeleteVariant is only legal for ARCHIVED variants;
+// without this step every run leaves one more card in the merchant UI's
+// archive tab, see issue #54) -> archive the category. The product itself
+// cannot be deleted or archived (the API has no such operation) but stays
+// bound to the archived category only.
 //
 // Plain CLI — console.log is fine here (not part of the MCP stdio server).
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -26,6 +29,7 @@ const REQUIRED_TOOLS = [
   "update_variant",
   "get_variant",
   "variant_action",
+  "kit_request",
 ];
 
 const PRICE_INITIAL = "999.00";
@@ -164,26 +168,26 @@ async function main(): Promise<void> {
     const names = new Set(tools.map((t) => t.name));
     const missing = REQUIRED_TOOLS.filter((t) => !names.has(t));
     assertOk(missing.length === 0, `tools/list has required tools (missing: ${missing.join(", ")})`);
-    console.log(`[1/9] tools/list: ${tools.length} tools, all required present`);
+    console.log(`[1/10] tools/list: ${tools.length} tools, all required present`);
 
     const store = await tool(client, "get_store", {});
-    console.log(`[2/9] get_store: id=${store.id ?? "?"} slug=${store.slug ?? "?"}`);
+    console.log(`[2/10] get_store: id=${store.id ?? "?"} slug=${store.slug ?? "?"}`);
 
     const category = await tool(client, "create_category", {
       category: { title: `E2E ${stamp}`, is_hidden_in_menu: true },
     });
     categoryId = idOf(category, "category");
-    console.log(`[3/9] create_category: id=${categoryId}`);
+    console.log(`[3/10] create_category: id=${categoryId}`);
 
     const product = await tool(client, "create_product", {
       product: { category_ids: [categoryId] },
     });
     const productId = idOf(product, "product");
-    console.log(`[4/9] create_product: id=${productId}`);
+    console.log(`[4/10] create_product: id=${productId}`);
 
     const productBack = await tool(client, "get_product", { id: productId });
     assertOk(idOf(productBack, "product") === productId, "get_product returns the created product");
-    console.log(`[5/9] get_product: readback OK`);
+    console.log(`[5/10] get_product: readback OK`);
 
     const variant = await tool(client, "create_variant", {
       variant: {
@@ -194,7 +198,7 @@ async function main(): Promise<void> {
       },
     });
     variantId = idOf(variant, "variant");
-    console.log(`[6/9] create_variant: id=${variantId} (HIDDEN, price=${PRICE_INITIAL})`);
+    console.log(`[6/10] create_variant: id=${variantId} (HIDDEN, price=${PRICE_INITIAL})`);
 
     await toolRetrying(client, "update_variant", {
       id: variantId,
@@ -207,21 +211,49 @@ async function main(): Promise<void> {
       `updated price readback (${String(pricing.price)} == ${PRICE_UPDATED})`,
     );
     assertOk(variantBack.status === "HIDDEN", "variant stays HIDDEN after update");
-    console.log(`[7/9] update_variant + get_variant: price=${String(pricing.price)}, still HIDDEN`);
+    console.log(`[7/10] update_variant + get_variant: price=${String(pricing.price)}, still HIDDEN`);
   } catch (err) {
     failed = true;
     console.log(err instanceof Error ? err.message : String(err));
   } finally {
     // Cleanup always runs; each step reports but never masks the test failure.
+    let variantArchived = false;
     if (variantId) {
       try {
         await toolRetrying(client, "variant_action", { id: variantId, action: "archive" });
         const archived = await tool(client, "get_variant", { id: variantId });
         assertOk(archived.status === "ARCHIVED", "variant is ARCHIVED after archive");
-        console.log(`[8/9] variant_action: variant archived`);
+        variantArchived = true;
+        console.log(`[8/10] variant_action: variant archived`);
       } catch (err) {
         failed = true;
         console.log(`cleanup: variant archive failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+    if (variantId && variantArchived) {
+      // Permanent delete is only legal for ARCHIVED variants; without it every
+      // run leaves one more card in the merchant UI's archive tab (issue #54),
+      // and the API cannot even list them back (ARCHIVED is stripped from the
+      // GetVariants status filter).
+      try {
+        await tool(client, "kit_request", {
+          operation_id: "DeleteVariant",
+          path_params: { id: variantId },
+        });
+        let readBack: unknown;
+        try {
+          readBack = await tool(client, "get_variant", { id: variantId });
+        } catch (err) {
+          assertOk(
+            err instanceof ToolError && err.status === 404,
+            `get_variant after delete returns 404 (got: ${err instanceof Error ? err.message : err})`,
+          );
+        }
+        assertOk(readBack === undefined, "deleted variant must not be readable");
+        console.log(`[9/10] kit_request DeleteVariant: variant deleted, readback is 404`);
+      } catch (err) {
+        failed = true;
+        console.log(`cleanup: variant delete failed: ${err instanceof Error ? err.message : err}`);
       }
     }
     if (categoryId) {
@@ -231,7 +263,7 @@ async function main(): Promise<void> {
           action: "archive",
           archive_variants: true,
         });
-        console.log(`[9/9] category_action: category archived`);
+        console.log(`[10/10] category_action: category archived`);
       } catch (err) {
         failed = true;
         console.log(`cleanup: category archive failed: ${err instanceof Error ? err.message : err}`);
