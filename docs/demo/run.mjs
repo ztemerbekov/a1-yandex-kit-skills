@@ -162,7 +162,7 @@ const STEPS = [
     tool: "search_operations",
     args: { query: "промокод" },
     spin: 1600,
-    label: "поиск по каталогу из 133 операций (офлайн)",
+    label: "поиск по каталогу из 151 операции (офлайн)",
     render: renderSearch,
   },
   {

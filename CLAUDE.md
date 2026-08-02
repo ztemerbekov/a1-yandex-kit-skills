@@ -2,7 +2,7 @@
 
 npm-workspaces monorepo: typed client, MCP server (stdio) and Claude agent skills for the
 Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
-(`specs/kit-swagger.openapi.json` — 133 operations, 21 tag groups, the single source of truth).
+(`specs/kit-swagger.openapi.json` — 151 operations, 22 tag groups, the single source of truth).
 
 ## Commands
 
@@ -40,7 +40,7 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `validateRequestBody`/`resolveOperationSchema`, and `src/generated/{registry.json,types.ts}`.
 - `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 61 tools; `src/tools/*.ts` is
   one file per domain; `meta.ts` hosts the trio (`search_operations`,
-  `get_operation_schema`, `kit_request`) that covers all 133 operations (65 have curated tools).
+  `get_operation_schema`, `kit_request`) that covers all 151 operations (65 have curated tools).
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
   `gen-docs`, `gen-skills`, `fetch-spec`.
 - `skills/` — 6 generated API skills plus setup and the manually maintained

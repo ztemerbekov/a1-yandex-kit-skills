@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KIT API",
   "specVersion": "1.0.0",
-  "opsCount": 133,
+  "opsCount": 151,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -812,6 +812,91 @@
       "paginated": false,
       "itemsProp": null
     },
+    "GetVariantAttachments": {
+      "id": "GetVariantAttachments",
+      "method": "get",
+      "path": "/v1/variants/{id}/attachments",
+      "tag": "Товары",
+      "summaryRu": "Получение документов товара",
+      "descriptionRu": "Возвращает список документов товара (инструкции, сертификаты, паспорта), отсортированный по порядку отображения.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantAttachmentCollection",
+      "paginated": false,
+      "itemsProp": "attachments"
+    },
+    "CreateVariantAttachment": {
+      "id": "CreateVariantAttachment",
+      "method": "post",
+      "path": "/v1/variants/{id}/attachments",
+      "tag": "Товары",
+      "summaryRu": "Прикрепление документа к товару",
+      "descriptionRu": "Прикрепляет документ к товару по идентификатору ранее загруженного файла\n(файл загружается через POST /v1/files).\n\nОграничения:\n- не более 10 документов на товар;\n- допустимые расширения файла — pdf, doc, docx, xls, xlsx, rtf, txt, jpg, jpeg, png, svg, webp;\n- название не должно содержать символы ':' и '/';\n- к архивному товару прикрепить документ нельзя.\n\nВозвращает `409 Conflict`, если файл уже прикреплен к товару\nили порядок отображения занят другим документом.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/VariantAttachmentCreateRequest",
+      "responseSchemaRef": "#/components/schemas/VariantAttachment",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateVariantAttachment": {
+      "id": "UpdateVariantAttachment",
+      "method": "patch",
+      "path": "/v1/variants/{id}/attachments/{file_id}",
+      "tag": "Товары",
+      "summaryRu": "Обновление документа товара",
+      "descriptionRu": "Обновляет название и/или порядок отображения документа товара.\nПередавайте только те поля, которые нужно изменить — не переданные\nполя остаются без изменений.\n\nЕсли указанный display_sequence уже занят другим документом этого\nтовара, возвращается ошибка 409. Остальные документы автоматически не переупорядочиваются.\nЕсли нужно освободить нужный порядок, сначала измените display_sequence другого документа.\n\nДокументы архивного товара изменять нельзя — возвращается ошибка 400.",
+      "pathParams": [
+        "id",
+        "file_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/merge-patch+json",
+      "requestSchemaRef": "#/components/schemas/VariantAttachmentUpdateRequest",
+      "responseSchemaRef": "#/components/schemas/VariantAttachment",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteVariantAttachment": {
+      "id": "DeleteVariantAttachment",
+      "method": "delete",
+      "path": "/v1/variants/{id}/attachments/{file_id}",
+      "tag": "Товары",
+      "summaryRu": "Открепление документа от товара",
+      "descriptionRu": "Открепляет документ от товара. Операция локальна: удаляется только\nсвязь документа с данным товаром. Если этот же файл прикреплён\nк другим товарам, те документы не затрагиваются. Сам файл\nне удаляется и остаётся доступным для повторного прикрепления.\n\nЕсли документ не прикреплён к товару (в том числе при повторном\nудалении), возвращается ошибка 404.\n\nУ архивного товара удалять документы нельзя — возвращается ошибка 400.",
+      "pathParams": [
+        "id",
+        "file_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "BulkUpdateStocks": {
+      "id": "BulkUpdateStocks",
+      "method": "post",
+      "path": "/v1/variants/stocks/bulk_update",
+      "tag": "Товары",
+      "summaryRu": "Массовое обновление остатков",
+      "descriptionRu": "Массово обновляет остатки товаров по складам. За один запрос можно\nпередать до 5000 элементов — пар товаров + склад с новым количеством.\n\nОперация выполняется синхронно и атомарно. Запрос будет отклонен с ошибкой 400, а изменения — не применены, если в батче обнаружен хотя бы один из следующих случаев:\n- товар или склад не найден;\n- товар или склад архивирован;\n- пара «товар + склад» указана в батче более одного раза.\n\nВ поле errors ответа будет представлен список всех невалидных элементов с указанием идентификаторов соответствующих товаров и складов.\n\nКоличество устанавливается как абсолютное значение.\nЗарезервированное количество (`reserved`) не изменяется.\nОстатки на складах, не упомянутых в батче, не затрагиваются.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/BulkUpdateStocksRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
     "GetWarehouses": {
       "id": "GetWarehouses",
       "method": "get",
@@ -1289,7 +1374,7 @@
       "method": "get",
       "path": "/v1/promocodes/{id}/categories",
       "tag": "Промокоды",
-      "summaryRu": "Получение идентификаторов категорий",
+      "summaryRu": "Получение идентификаторов категорий, к которым применяется промокод",
       "descriptionRu": "Возвращает идентификаторы категорий, к которым применяется промокод (на основе его уникального идентификатора).\nРаботает только для промокодов с параметром `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
       "pathParams": [
         "id"
@@ -1428,6 +1513,591 @@
       "queryParams": [],
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/PromocodeObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetPromocodeGroups": {
+      "id": "GetPromocodeGroups",
+      "method": "get",
+      "path": "/v1/promocode_groups",
+      "tag": "Группы промокодов",
+      "summaryRu": "Получение списка групп промокодов",
+      "descriptionRu": "Возвращает список групп промокодов магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтрация по статусу группы."
+        },
+        {
+          "name": "sort_by",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "created_at",
+            "title",
+            "usage_count"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "created_at",
+          "descriptionRu": "Поле для сортировки."
+        },
+        {
+          "name": "sort_direction",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "desc",
+          "descriptionRu": "Направление сортировки."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/PromocodeGroupCollection",
+      "paginated": true,
+      "itemsProp": "promocode_groups"
+    },
+    "CreatePromocodeGroup": {
+      "id": "CreatePromocodeGroup",
+      "method": "post",
+      "path": "/v1/promocode_groups",
+      "tag": "Группы промокодов",
+      "summaryRu": "Создание группы промокодов",
+      "descriptionRu": "Группа промокодов создается за один шаг — вместе с переданным набором кодов.\n\nПроцесс состоит из трех шагов:\n\n1. Создание группы.\n2. Добавление кодов.\n3. Сохранение группы как активной.\nЕсли на последнем шаге код конфликтует с кодом другой активной группы (в пересекающемся периоде действия), операция отменяется с ошибкой `409 Conflict`.\n\nВ группе должен быть хотя бы один код.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreatePromocodeGroupRequest",
+      "responseSchemaRef": "#/components/schemas/PromocodeGroup",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetPromocodeGroupByID": {
+      "id": "GetPromocodeGroupByID",
+      "method": "get",
+      "path": "/v1/promocode_groups/{id}",
+      "tag": "Группы промокодов",
+      "summaryRu": "Получение группы промокодов по идентификатору",
+      "descriptionRu": "Возвращает детальную информацию о группе промокодов по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/PromocodeGroup",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdatePromocodeGroup": {
+      "id": "UpdatePromocodeGroup",
+      "method": "put",
+      "path": "/v1/promocode_groups/{id}",
+      "tag": "Группы промокодов",
+      "summaryRu": "Обновление группы промокодов",
+      "descriptionRu": "Обновляет параметры существующей группы промокодов.\n\nВозвращает `409 Conflict`, если изменение периода действия (`valid_from` / `valid_until`) приводит к конфликту кодов группы с кодами другой активной группы.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdatePromocodeGroupRequest",
+      "responseSchemaRef": "#/components/schemas/PromocodeGroup",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeletePromocodeGroup": {
+      "id": "DeletePromocodeGroup",
+      "method": "delete",
+      "path": "/v1/promocode_groups/{id}",
+      "tag": "Группы промокодов",
+      "summaryRu": "Удаление группы промокодов",
+      "descriptionRu": "Удаляет группу промокодов вместе со всеми ее кодами.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "AddPromocodeGroupObjects": {
+      "id": "AddPromocodeGroupObjects",
+      "method": "post",
+      "path": "/v1/promocode_groups/{id}/objects/add",
+      "tag": "Группы промокодов",
+      "summaryRu": "Привязка объектов к группе промокодов",
+      "descriptionRu": "Привязывает товары, категории или коллекции к группе промокодов. Максимальное количество объектов — 500.\n\nВ одном запросе передавайте либо товары (`product_variant_ids`), либо категории и коллекции (`category_ids`, `collection_ids`) — не одновременно.\n\nПрименимо только для групп с `binding_mode = SELECTED_VARIANTS` (товары) или `SELECTED_CATEGORIES_COLLECTIONS` (категории и коллекции).",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/PromocodeGroupObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemovePromocodeGroupObjects": {
+      "id": "RemovePromocodeGroupObjects",
+      "method": "post",
+      "path": "/v1/promocode_groups/{id}/objects/remove",
+      "tag": "Группы промокодов",
+      "summaryRu": "Отвязка объектов от группы промокодов",
+      "descriptionRu": "Отвязывает товары, категории или коллекции от группы промокодов. Максимальное количество объектов — 500.\n\nВ одном запросе передавайте либо товары (`product_variant_ids`), либо категории и коллекции (`category_ids`, `collection_ids`) — не одновременно.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/PromocodeGroupObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetPromocodeGroupCodes": {
+      "id": "GetPromocodeGroupCodes",
+      "method": "get",
+      "path": "/v1/promocode_groups/{group_id}/codes",
+      "tag": "Группы промокодов",
+      "summaryRu": "Получение списка кодов в группе промокодов",
+      "descriptionRu": "Возвращает список кодов в указанной группе промокодов с пагинацией.",
+      "pathParams": [
+        "group_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "sort_by",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "code",
+            "created_at",
+            "usage_count"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "created_at",
+          "descriptionRu": "Поле для сортировки."
+        },
+        {
+          "name": "sort_direction",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "asc",
+          "descriptionRu": "Направление сортировки."
+        },
+        {
+          "name": "search",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Поиск по коду (вхождение подстроки)."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/PromocodeGroupCodeCollection",
+      "paginated": true,
+      "itemsProp": "codes"
+    },
+    "AddPromocodeGroupCode": {
+      "id": "AddPromocodeGroupCode",
+      "method": "post",
+      "path": "/v1/promocode_groups/{group_id}/codes",
+      "tag": "Группы промокодов",
+      "summaryRu": "Добавление кода в группу промокодов",
+      "descriptionRu": "Добавляет новый код в указанную группу промокодов.\n\nВозвращает `409 Conflict`, если код уже используется в другой активной группе с пересекающимся периодом действия.",
+      "pathParams": [
+        "group_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/AddPromocodeGroupCodeRequest",
+      "responseSchemaRef": "#/components/schemas/PromocodeGroupCode",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdatePromocodeGroupCode": {
+      "id": "UpdatePromocodeGroupCode",
+      "method": "patch",
+      "path": "/v1/promocode_groups/{group_id}/codes/{code_id}",
+      "tag": "Группы промокодов",
+      "summaryRu": "Обновление кода в группе промокодов",
+      "descriptionRu": "Изменяет строковое значение кода в указанной группе промокодов.\n\nВозвращает `409 Conflict`, если новый код уже используется в другой активной группе с пересекающимся периодом действия.",
+      "pathParams": [
+        "group_id",
+        "code_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdatePromocodeGroupCodeRequest",
+      "responseSchemaRef": "#/components/schemas/PromocodeGroupCode",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeletePromocodeGroupCode": {
+      "id": "DeletePromocodeGroupCode",
+      "method": "delete",
+      "path": "/v1/promocode_groups/{group_id}/codes/{code_id}",
+      "tag": "Группы промокодов",
+      "summaryRu": "Удаление кода из группы промокодов",
+      "descriptionRu": "Удаляет код из указанной группы промокодов.",
+      "pathParams": [
+        "group_id",
+        "code_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetDiscounts": {
+      "id": "GetDiscounts",
+      "method": "get",
+      "path": "/v1/discounts",
+      "tag": "Скидки",
+      "summaryRu": "Получение списка скидок",
+      "descriptionRu": "Возвращает список скидок магазина с пагинацией.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "INACTIVE",
+            "ARCHIVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Статус скидки."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/DiscountCollection",
+      "paginated": true,
+      "itemsProp": "discounts"
+    },
+    "CreateDiscount": {
+      "id": "CreateDiscount",
+      "method": "post",
+      "path": "/v1/discounts",
+      "tag": "Скидки",
+      "summaryRu": "Создание скидки",
+      "descriptionRu": "Создает новую скидку.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateDiscountRequest",
+      "responseSchemaRef": "#/components/schemas/Discount",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetDiscountById": {
+      "id": "GetDiscountById",
+      "method": "get",
+      "path": "/v1/discounts/{id}",
+      "tag": "Скидки",
+      "summaryRu": "Получение скидки по ID",
+      "descriptionRu": "Возвращает информацию о скидке по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Discount",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateDiscount": {
+      "id": "UpdateDiscount",
+      "method": "patch",
+      "path": "/v1/discounts/{id}",
+      "tag": "Скидки",
+      "summaryRu": "Обновление скидки",
+      "descriptionRu": "Обновляет скидку.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateDiscountRequest",
+      "responseSchemaRef": "#/components/schemas/Discount",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetDiscountCategoryIDs": {
+      "id": "GetDiscountCategoryIDs",
+      "method": "get",
+      "path": "/v1/discounts/{id}/categories",
+      "tag": "Скидки",
+      "summaryRu": "Получение идентификаторов категорий для которых применяется скидка",
+      "descriptionRu": "Возвращает идентификаторы категорий для которых применяется скидка по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
+      "paginated": true,
+      "itemsProp": "category_ids"
+    },
+    "GetDiscountCollectionIDs": {
+      "id": "GetDiscountCollectionIDs",
+      "method": "get",
+      "path": "/v1/discounts/{id}/collections",
+      "tag": "Скидки",
+      "summaryRu": "Получение идентификаторов коллекций, к которым применяется скидка.",
+      "descriptionRu": "Возвращает идентификаторы коллекций, к которым применяется скидка, по ее уникальному идентификатору.\nИспользуется для скидок с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
+      "paginated": true,
+      "itemsProp": "collection_ids"
+    },
+    "GetDiscountVariantIDs": {
+      "id": "GetDiscountVariantIDs",
+      "method": "get",
+      "path": "/v1/discounts/{id}/variants",
+      "tag": "Скидки",
+      "summaryRu": "Получение уникальных идентификаторов товаров скидки",
+      "descriptionRu": "Возвращает уникальные идентификаторы товаров скидки по ее уникальному идентификатору.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
+      "paginated": true,
+      "itemsProp": "variant_ids"
+    },
+    "ArchiveDiscount": {
+      "id": "ArchiveDiscount",
+      "method": "post",
+      "path": "/v1/discounts/{id}/archive",
+      "tag": "Скидки",
+      "summaryRu": "Архивация скидки",
+      "descriptionRu": "Архивирует скидку.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UnarchiveDiscount": {
+      "id": "UnarchiveDiscount",
+      "method": "post",
+      "path": "/v1/discounts/{id}/unarchive",
+      "tag": "Скидки",
+      "summaryRu": "Разархивация скидки",
+      "descriptionRu": "Разархивирует скидку.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "AddDiscountObjects": {
+      "id": "AddDiscountObjects",
+      "method": "post",
+      "path": "/v1/discounts/{id}/objects/add",
+      "tag": "Скидки",
+      "summaryRu": "Добавление объектов в скидку",
+      "descriptionRu": "Добавляет товары или категории в скидку. Максимальное количество объектов — 500.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/DiscountObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveDiscountObjects": {
+      "id": "RemoveDiscountObjects",
+      "method": "post",
+      "path": "/v1/discounts/{id}/objects/remove",
+      "tag": "Скидки",
+      "summaryRu": "Удаление объектов из скидки",
+      "descriptionRu": "Удаляет товары или категории из скидки. Максимальное количество объектов — 500.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/DiscountObjects",
       "responseSchemaRef": null,
       "paginated": false,
       "itemsProp": null
@@ -1810,287 +2480,6 @@
       "paginated": false,
       "itemsProp": null
     },
-    "GetDiscounts": {
-      "id": "GetDiscounts",
-      "method": "get",
-      "path": "/v1/discounts",
-      "tag": "Скидки",
-      "summaryRu": "Получение списка скидок",
-      "descriptionRu": "Возвращает список скидок магазина с пагинацией.",
-      "pathParams": [],
-      "queryParams": [
-        {
-          "name": "page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": null,
-          "default": 1,
-          "descriptionRu": "Номер страницы."
-        },
-        {
-          "name": "per_page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25,
-          "descriptionRu": "Количество элементов на странице."
-        },
-        {
-          "name": "status",
-          "required": true,
-          "type": "array",
-          "enum": [
-            "ACTIVE",
-            "INACTIVE",
-            "ARCHIVED"
-          ],
-          "minimum": null,
-          "maximum": null,
-          "default": null,
-          "descriptionRu": "Статус скидки."
-        }
-      ],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": "#/components/schemas/DiscountCollection",
-      "paginated": true,
-      "itemsProp": "discounts"
-    },
-    "CreateDiscount": {
-      "id": "CreateDiscount",
-      "method": "post",
-      "path": "/v1/discounts",
-      "tag": "Скидки",
-      "summaryRu": "Создание скидки",
-      "descriptionRu": "Создает новую скидку.",
-      "pathParams": [],
-      "queryParams": [],
-      "requestContentType": "application/json",
-      "requestSchemaRef": "#/components/schemas/CreateDiscountRequest",
-      "responseSchemaRef": "#/components/schemas/Discount",
-      "paginated": false,
-      "itemsProp": null
-    },
-    "GetDiscountById": {
-      "id": "GetDiscountById",
-      "method": "get",
-      "path": "/v1/discounts/{id}",
-      "tag": "Скидки",
-      "summaryRu": "Получение скидки по ID",
-      "descriptionRu": "Возвращает информацию о скидке по ее уникальному идентификатору.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": "#/components/schemas/Discount",
-      "paginated": false,
-      "itemsProp": null
-    },
-    "UpdateDiscount": {
-      "id": "UpdateDiscount",
-      "method": "patch",
-      "path": "/v1/discounts/{id}",
-      "tag": "Скидки",
-      "summaryRu": "Обновление скидки",
-      "descriptionRu": "Обновляет скидку.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [],
-      "requestContentType": "application/json",
-      "requestSchemaRef": "#/components/schemas/UpdateDiscountRequest",
-      "responseSchemaRef": "#/components/schemas/Discount",
-      "paginated": false,
-      "itemsProp": null
-    },
-    "GetDiscountCategoryIDs": {
-      "id": "GetDiscountCategoryIDs",
-      "method": "get",
-      "path": "/v1/discounts/{id}/categories",
-      "tag": "Скидки",
-      "summaryRu": "Получение идентификаторов категорий для которых применяется скидка",
-      "descriptionRu": "Возвращает идентификаторы категорий для которых применяется скидка по ее уникальному идентификатору.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [
-        {
-          "name": "page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": null,
-          "default": 1,
-          "descriptionRu": "Номер страницы."
-        },
-        {
-          "name": "per_page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25,
-          "descriptionRu": "Количество элементов на странице."
-        }
-      ],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
-      "paginated": true,
-      "itemsProp": "category_ids"
-    },
-    "GetDiscountCollectionIDs": {
-      "id": "GetDiscountCollectionIDs",
-      "method": "get",
-      "path": "/v1/discounts/{id}/collections",
-      "tag": "Скидки",
-      "summaryRu": "Получение идентификаторов коллекций, к которым применяется скидка.",
-      "descriptionRu": "Возвращает идентификаторы коллекций, к которым применяется скидка, по ее уникальному идентификатору.\nИспользуется для скидок с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [
-        {
-          "name": "page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": null,
-          "default": 1,
-          "descriptionRu": "Номер страницы."
-        },
-        {
-          "name": "per_page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25,
-          "descriptionRu": "Количество элементов на странице."
-        }
-      ],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
-      "paginated": true,
-      "itemsProp": "collection_ids"
-    },
-    "GetDiscountVariantIDs": {
-      "id": "GetDiscountVariantIDs",
-      "method": "get",
-      "path": "/v1/discounts/{id}/variants",
-      "tag": "Скидки",
-      "summaryRu": "Получение уникальных идентификаторов товаров скидки",
-      "descriptionRu": "Возвращает уникальные идентификаторы товаров скидки по ее уникальному идентификатору.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [
-        {
-          "name": "page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": null,
-          "default": 1,
-          "descriptionRu": "Номер страницы."
-        },
-        {
-          "name": "per_page",
-          "required": false,
-          "type": "integer",
-          "enum": null,
-          "minimum": 1,
-          "maximum": 100,
-          "default": 25,
-          "descriptionRu": "Количество элементов на странице."
-        }
-      ],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": "#/components/schemas/VariantIDCollection",
-      "paginated": true,
-      "itemsProp": "variant_ids"
-    },
-    "ArchiveDiscount": {
-      "id": "ArchiveDiscount",
-      "method": "post",
-      "path": "/v1/discounts/{id}/archive",
-      "tag": "Скидки",
-      "summaryRu": "Архивация скидки",
-      "descriptionRu": "Архивирует скидку.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": null,
-      "paginated": false,
-      "itemsProp": null
-    },
-    "UnarchiveDiscount": {
-      "id": "UnarchiveDiscount",
-      "method": "post",
-      "path": "/v1/discounts/{id}/unarchive",
-      "tag": "Скидки",
-      "summaryRu": "Разархивация скидки",
-      "descriptionRu": "Разархивирует скидку.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [],
-      "requestContentType": null,
-      "requestSchemaRef": null,
-      "responseSchemaRef": null,
-      "paginated": false,
-      "itemsProp": null
-    },
-    "AddDiscountObjects": {
-      "id": "AddDiscountObjects",
-      "method": "post",
-      "path": "/v1/discounts/{id}/objects/add",
-      "tag": "Скидки",
-      "summaryRu": "Добавление объектов в скидку",
-      "descriptionRu": "Добавляет товары или категории в скидку. Максимальное количество объектов — 500.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [],
-      "requestContentType": "application/json",
-      "requestSchemaRef": "#/components/schemas/DiscountObjects",
-      "responseSchemaRef": null,
-      "paginated": false,
-      "itemsProp": null
-    },
-    "RemoveDiscountObjects": {
-      "id": "RemoveDiscountObjects",
-      "method": "post",
-      "path": "/v1/discounts/{id}/objects/remove",
-      "tag": "Скидки",
-      "summaryRu": "Удаление объектов из скидки",
-      "descriptionRu": "Удаляет товары или категории из скидки. Максимальное количество объектов — 500.",
-      "pathParams": [
-        "id"
-      ],
-      "queryParams": [],
-      "requestContentType": "application/json",
-      "requestSchemaRef": "#/components/schemas/DiscountObjects",
-      "responseSchemaRef": null,
-      "paginated": false,
-      "itemsProp": null
-    },
     "GetCollectionById": {
       "id": "GetCollectionById",
       "method": "get",
@@ -2172,6 +2561,61 @@
       "queryParams": [],
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/RemoveCardsFromStaticCollectionRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetCollectionCardsManualOrder": {
+      "id": "GetCollectionCardsManualOrder",
+      "method": "get",
+      "path": "/v1/collections/{collection_id}/cards/manual-order",
+      "tag": "Коллекции",
+      "summaryRu": "Получение ручного порядка карточек коллекции",
+      "descriptionRu": "Возвращает идентификаторы карточек статической коллекции. Порядок значений соответствует ручной сортировке коллекции.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": null
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": null
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionCardsManualOrder",
+      "paginated": true,
+      "itemsProp": "product_card_ids"
+    },
+    "MoveCollectionCards": {
+      "id": "MoveCollectionCards",
+      "method": "post",
+      "path": "/v1/collections/{collection_id}/cards/move",
+      "tag": "Коллекции",
+      "summaryRu": "Перемещение карточек в статической коллекции",
+      "descriptionRu": "Перемещает карточки на указанную позицию в ручном порядке сортировки статической коллекции. Заданный порядок применяется только при выбранном типе сортировки `MANUAL`.",
+      "pathParams": [
+        "collection_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/MoveCollectionCardsRequest",
       "responseSchemaRef": null,
       "paginated": false,
       "itemsProp": null
