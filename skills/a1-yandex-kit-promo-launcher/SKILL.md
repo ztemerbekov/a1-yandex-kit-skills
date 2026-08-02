@@ -8,6 +8,12 @@ metadata:
 
 # A1 Yandex KIT Promo Launcher
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Launch and manage promotions without inventing a discount, scope, duration, limit or
 activation state. This scenario skill orchestrates `a1-yandex-kit-promotions`, the
 catalog skills and the `a1-yandex-kit` MCP server; use those skills for the exact API

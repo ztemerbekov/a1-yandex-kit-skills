@@ -9,6 +9,12 @@ metadata:
 
 # A1 Yandex KIT — Store
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
 Склады, Пользователи, Гео, Файлы, Редиректы, Новости. This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; `UpdateWarehouse`

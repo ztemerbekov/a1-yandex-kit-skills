@@ -9,6 +9,12 @@ metadata:
 
 # A1 Yandex KIT — Catalog
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
 Категории товаров, Характеристики товаров, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (`/v1/variants`) is the sellable unit carrying SKU, prices

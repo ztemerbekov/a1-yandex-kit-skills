@@ -8,6 +8,12 @@ metadata:
 
 # A1 Yandex KIT Operator
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Give a store owner a grounded operating report and perform only exact changes the owner
 has already specified. Find current order, storefront, promotion and integration risks;
 state the evidence and consequence; and never invent a business decision or value. This

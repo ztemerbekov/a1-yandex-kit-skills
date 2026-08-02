@@ -9,6 +9,12 @@ metadata:
 
 # A1 Yandex KIT Skills
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`references/merchant-communication.md`](references/merchant-communication.md)
+completely.
+
 Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
 prices and for managing orders between a merchant's backend and the platform. The official

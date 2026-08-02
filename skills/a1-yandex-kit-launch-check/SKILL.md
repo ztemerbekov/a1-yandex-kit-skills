@@ -8,6 +8,12 @@ metadata:
 
 # A1 Yandex KIT Launch Check
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Check the minimum Critical Chain of Jobs for a first sale without claiming that an API
 snapshot proves checkout. This scenario skill orchestrates `a1-yandex-kit-operator`,
 `a1-yandex-kit-catalog-doctor`, `a1-yandex-kit-promo-launcher` and the domain skills.

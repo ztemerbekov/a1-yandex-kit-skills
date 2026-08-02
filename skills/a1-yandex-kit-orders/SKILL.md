@@ -9,6 +9,12 @@ metadata:
 
 # A1 Yandex KIT — Orders
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, and read the attached

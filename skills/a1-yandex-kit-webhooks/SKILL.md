@@ -9,6 +9,12 @@ metadata:
 
 # A1 Yandex KIT — Webhooks
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
 order lifecycle notifications and managing those subscriptions.
 

@@ -9,6 +9,12 @@ metadata:
 
 # A1 Yandex KIT — Promotions
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Подарки. All three promotion kinds are created first and then bound to
 objects: discounts and promocodes to variants, categories or collections via the

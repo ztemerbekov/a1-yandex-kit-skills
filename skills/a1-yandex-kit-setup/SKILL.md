@@ -7,6 +7,12 @@ metadata:
 
 # A1 Yandex KIT Setup
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Make setup a concierge flow for typed requests and voice transcriptions alike.
 Start from the branch that invoked it:
 

@@ -8,6 +8,12 @@ metadata:
 
 # A1 Yandex KIT Catalog Doctor
 
+## Communication
+
+Before producing any user-facing message, read and apply
+[`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
+completely.
+
 Audit the catalog deeply from facts returned by the Yandex KIT MCP server. Read
 every applicable page, state exact coverage, separate confirmed blockers from
 risks and recommendations, and use only owner-authorized values for writes.
