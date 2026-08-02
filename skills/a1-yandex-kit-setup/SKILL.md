@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-setup
-description: "Связь с магазином Яндекс KIT для текущего AI-клиента. Использовать по смыслу для текстовых и голосовых запросов без команды: «Подключим магазин» — первое подключение; «Переподключим магазин» или «Переустановим связь с магазином» — восстановление подключения; «Поменяем токен» — замена токена. Короткое «Связь с магазином» открывает выбор нужного действия."
+description: "Connect a Yandex KIT store to the current AI client, or reconnect it by replacing its token. Use for natural-language setup requests, including Russian text or voice transcripts such as «Связь с магазином», «Подключим магазин», «Переподключим магазин», «Переустановим связь с магазином» and «Поменяем токен». Treat short «Связь с магазином» as an orientation request."
 metadata:
   author: Zinnur Temerbekov
 ---
@@ -11,10 +11,11 @@ Make setup a concierge flow for typed requests and voice transcriptions alike.
 Start from the branch that invoked it:
 
 - For the short orientation request `Связь с магазином`, ask one question:
-  `Что сделать: подключить магазин, переподключить его или поменять токен?`
-- A concrete request to connect, reconnect or reinstall, or replace the token
-  authorizes updating the selected client's user-level MCP configuration after
-  the required inputs are collected and the candidate token passes validation.
+  `Что сделать: подключить магазин или переподключить его с новым токеном?`
+- A concrete request to connect or reconnect authorizes updating the selected
+  client's user-level MCP configuration after the required inputs are collected
+  and the candidate token passes validation. Reinstalling the connection and
+  changing the token are both reconnection requests.
 
 A project-local skill installation does not limit the configuration to that
 project.
@@ -88,15 +89,13 @@ token.
 - When `configured` is false, ask:
   `Для настройки потребуется токен Яндекс KIT. Чтобы его получить, зайдите в кабинет Яндекс KIT: Настройки → API и скопируйте ключ. Вставьте его сюда — я привяжу его к приложению и не буду повторять в ответе. Токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
 - When `configured` is true, continue from the selected branch:
-  - For reconnection or reinstallation, ask:
-    `Чтобы заново настроить связь с магазином, пришлите действующий токен из **Настройки → API** — я проверю его, обновлю подключение и не буду повторять токен в ответе. Он останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
-  - For token replacement, ask:
+  - For reconnection, including reinstallation or token replacement, ask:
     `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
   - For a first-connection request when a token is already configured, ask:
-    `Токен Яндекс KIT уже сохранён в настройках. Вы хотите его обновить?`
+    `Токен Яндекс KIT уже сохранён в настройках. Хотите переподключить магазин с новым токеном?`
     - For `нет`, finish with:
       `Принято! Оставляем действующий токен Яндекс KIT без изменений. Всё работает в прежнем режиме.`
-    - For `да`, use the token-replacement prompt above.
+    - For `да`, use the reconnection prompt above.
 
 Accept the token in chat. Do not echo, summarize, quote, log or interpolate it
 into a shell command. Pass a new token only through stdin to `setup.mjs`.

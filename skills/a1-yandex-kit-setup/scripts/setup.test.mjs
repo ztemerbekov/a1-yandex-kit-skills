@@ -946,6 +946,10 @@ test("setup skill supports implicit Russian text and voice invocation", async ()
   assert.doesNotMatch(skill, /^disable-model-invocation:/m);
   const description = skill.match(/^description: "([^"]+)"$/m)?.[1];
   assert.ok(description, "setup skill must have a model-facing description");
+  assert.match(
+    description,
+    /^Connect a Yandex KIT store.*reconnect it by replacing its token/,
+  );
   for (const phrase of [
     "Связь с магазином",
     "Переустановим связь с магазином",
@@ -957,9 +961,10 @@ test("setup skill supports implicit Russian text and voice invocation", async ()
   }
   assert.doesNotMatch(skill, /Treat invoking this skill as authorization/);
   assert.match(
-    openAiMetadata,
-    /^policy:\n  allow_implicit_invocation: true$/m,
+    skill,
+    /Что сделать: подключить магазин или переподключить его с новым токеном\?/,
   );
+  assert.doesNotMatch(openAiMetadata, /^policy:/m);
 });
 
 test("direct smoke performs initialize, tools/list, and read-only get_store", async () => {
