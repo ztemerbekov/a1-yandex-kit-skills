@@ -32,7 +32,7 @@ export function fail(err: unknown): ToolResult {
   return { isError: true, content: [{ type: "text", text: JSON.stringify(payload) }] };
 }
 
-export function clampPerPage(perPage?: number): number {
-  if (perPage === undefined) return DEFAULT_PER_PAGE;
-  return Math.max(1, Math.min(MAX_PER_PAGE, Math.trunc(perPage)));
+export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): number {
+  if (perPage === undefined) return Math.min(DEFAULT_PER_PAGE, max);
+  return Math.max(1, Math.min(max, Math.trunc(perPage)));
 }

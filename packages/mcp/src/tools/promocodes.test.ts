@@ -59,7 +59,8 @@ test("registers exactly the promocode tools (no archive action)", async () => {
   ]);
 });
 
-test("list_promocodes passes status through and clamps per_page to 100", async () => {
+// The live API caps per_page at 25 for /v1/promocodes (stricter than the spec's 100).
+test("list_promocodes passes status through and clamps per_page to the server cap of 25", async () => {
   const { calls, mcp } = await setup({ promocodes: [], total_count: 0 });
   const res = await mcp.callTool({
     name: "list_promocodes",
@@ -70,11 +71,11 @@ test("list_promocodes passes status through and clamps per_page to 100", async (
   const url = new URL(calls[0]!.url);
   assert.equal(url.pathname, "/v1/promocodes");
   assert.equal(url.searchParams.get("page"), "2");
-  assert.equal(url.searchParams.get("per_page"), "100");
+  assert.equal(url.searchParams.get("per_page"), "25");
   assert.equal(url.searchParams.get("status"), "ACTIVE");
 });
 
-test("list_promocodes all=true fetches via listAll keeping the status filter", async () => {
+test("list_promocodes all=true fetches via listAll within the server per_page cap", async () => {
   const { calls, mcp } = await setup({ promocodes: [{ id: "pc1" }], total_count: 1 });
   const res = await mcp.callTool({
     name: "list_promocodes",
@@ -83,7 +84,7 @@ test("list_promocodes all=true fetches via listAll keeping the status filter", a
   assert.equal(calls.length, 1);
   const url = new URL(calls[0]!.url);
   assert.equal(url.searchParams.get("page"), "1");
-  assert.equal(url.searchParams.get("per_page"), "100");
+  assert.equal(url.searchParams.get("per_page"), "25");
   assert.equal(url.searchParams.get("status"), "INACTIVE");
   const data = JSON.parse(resultText(res));
   assert.deepEqual(data, { items: [{ id: "pc1" }], pages: 1, truncated: false });

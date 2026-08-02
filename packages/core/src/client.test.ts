@@ -403,6 +403,31 @@ test("listAll respects maxItems and reports truncation", async () => {
   }
 });
 
+test("listAll honors the server per_page cap for GetPromocodes", async () => {
+  const { calls, fetchImpl } = stubFetch((url) => {
+    const page = Number(new URL(url).searchParams.get("page"));
+    const count = page === 1 ? 25 : 10;
+    return jsonResponse({
+      promocodes: Array.from({ length: count }, (_, i) => ({ id: `pc${(page - 1) * 25 + i}` })),
+      total_count: 35,
+    });
+  });
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  const result = await client.listAll<{ id: string }>("GetPromocodes", {
+    query: { status: "ACTIVE" },
+  });
+
+  assert.equal(result.items.length, 35);
+  assert.equal(result.pages, 2);
+  assert.equal(result.truncated, false);
+  for (const call of calls) {
+    // The live API rejects per_page > 25 on this endpoint despite the spec's 100.
+    assert.equal(new URL(call.url).searchParams.get("per_page"), "25");
+    assert.equal(new URL(call.url).searchParams.get("status"), "ACTIVE");
+  }
+});
+
 test("listAll rejects non-paginated operations without network", async () => {
   const { calls, fetchImpl } = stubFetch(() => jsonResponse({}));
   const client = new KitClient({ token: "t", rps: 1000, fetchImpl });

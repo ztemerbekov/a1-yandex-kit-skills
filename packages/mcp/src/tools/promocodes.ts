@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { validateRequestBody, type KitClient } from "yandex-kit-core";
+import { SERVER_PER_PAGE_LIMITS, validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import { clampPerPage, fail, ok, READ_ONLY } from "../util.js";
 
@@ -26,7 +26,10 @@ export function registerPromocodeTools(server: McpServer, client: KitClient): vo
           .number()
           .int()
           .optional()
-          .describe("Items per page, 1-100 (default 25). Values outside the range are clamped."),
+          .describe(
+            "Items per page, 1-25 (default 25). The live API rejects values above 25 for this " +
+              "endpoint even though the published spec allows 100; values outside the range are clamped.",
+          ),
         all: z
           .boolean()
           .optional()
@@ -38,7 +41,11 @@ export function registerPromocodeTools(server: McpServer, client: KitClient): vo
         if (all) return ok(await client.listAll("GetPromocodes", { query: { status } }));
         return ok(
           await client.call("GetPromocodes", {
-            query: { page, per_page: clampPerPage(per_page), status },
+            query: {
+              page,
+              per_page: clampPerPage(per_page, SERVER_PER_PAGE_LIMITS.GetPromocodes),
+              status,
+            },
           }),
         );
       } catch (e) {
@@ -76,6 +83,8 @@ export function registerPromocodeTools(server: McpServer, client: KitClient): vo
         "promocode_dates ({start_date, optional end_date}) and type (ORDER|PRODUCTS). " +
         "Optional: binding_mode, minimum_order_amount, max_usage, max_discount_amount, " +
         "one_time_use, first_order_only, show_in_pdp. " +
+        "The live API rejects codes containing lowercase letters even though the spec documents " +
+        "no format constraint — use uppercase Latin letters and digits (e.g. WELCOME5). " +
         'Call get_operation_schema("CreatePromocode") for the exact request shape.',
       inputSchema: {
         promocode: z
