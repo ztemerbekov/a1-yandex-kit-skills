@@ -7,6 +7,8 @@
  *   skills/<name>/scripts/search_docs.mjs — dep-free search/inspect (node builtins only)
  *   skills/<name>/scripts/validate.mjs    — esbuild bundle vendoring Ajv (offline validation)
  *   skills/<consumer>/references/exact-write-protocol.md — shared write-plan safety core
+ *   skills/a1-yandex-kit/references/merchant-communication.md — communication contract
+ *     (every generated SKILL.md links it from its Communication section)
  *
  * All six skills ship identical scripts + data, so each is standalone-installable.
  * Output is deterministic: prose lives in template constants here, tables come from
@@ -35,6 +37,9 @@ const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVarian
 const EXACT_WRITE_PLAN_RELATIVE_PATH = "references/exact-write-protocol.md";
 const EXACT_WRITE_PLAN_GENERATED_HEADER =
   "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n";
+const MERCHANT_COMMUNICATION_RELATIVE_PATH = "references/merchant-communication.md";
+const MERCHANT_COMMUNICATION_GENERATED_HEADER =
+  "<!-- Generated from packages/codegen/src/skill-src/references/merchant-communication.md; do not edit. -->\n\n";
 
 // ---------------------------------------------------------------------------
 // Inputs
@@ -398,6 +403,22 @@ function frontmatter(skill: SkillDef): string {
   ].join("\n");
 }
 
+/**
+ * The Communication section every skill opens with. The router skill hosts the
+ * generator-owned copy of the contract; domain skills link to it cross-skill.
+ */
+function communicationSection(skill: SkillDef): string {
+  const target =
+    skill.name === "a1-yandex-kit"
+      ? MERCHANT_COMMUNICATION_RELATIVE_PATH
+      : `../a1-yandex-kit/${MERCHANT_COMMUNICATION_RELATIVE_PATH}`;
+  return `## Communication
+
+Before producing any user-facing message, read and apply
+[\`${target}\`](${target})
+completely.`;
+}
+
 function workflowSection(skill: SkillDef): string {
   return `## Workflow
 
@@ -502,11 +523,52 @@ const SKILL_TITLES: Record<string, string> = {
   "a1-yandex-kit-webhooks": "A1 Yandex KIT — Webhooks",
 };
 
+/** agents/openai.yaml marketplace interface per generated skill (RU copy is hand-tuned here). */
+const SKILL_OPENAI_INTERFACES: Record<string, { displayName: string; shortDescription: string }> = {
+  "a1-yandex-kit": {
+    displayName: "A1 Yandex KIT API",
+    shortDescription: "Помогает безопасно работать с API Яндекс KIT",
+  },
+  "a1-yandex-kit-catalog": {
+    displayName: "A1 Yandex KIT Catalog",
+    shortDescription: "Управляет товарами, ценами, остатками и категориями магазина",
+  },
+  "a1-yandex-kit-orders": {
+    displayName: "A1 Yandex KIT Orders",
+    shortDescription: "Проверяет и обрабатывает заказы магазина",
+  },
+  "a1-yandex-kit-promotions": {
+    displayName: "A1 Yandex KIT Promotions",
+    shortDescription: "Управляет скидками, промокодами и подарками магазина",
+  },
+  "a1-yandex-kit-store": {
+    displayName: "A1 Yandex KIT Store",
+    shortDescription: "Управляет складами, файлами и данными магазина",
+  },
+  "a1-yandex-kit-webhooks": {
+    displayName: "A1 Yandex KIT Webhooks",
+    shortDescription: "Подключает уведомления об изменениях заказов через вебхуки",
+  },
+};
+
+function renderOpenAiInterface(skill: SkillDef): string {
+  const iface = SKILL_OPENAI_INTERFACES[skill.name];
+  if (!iface) throw new Error(`No agents/openai.yaml interface defined for ${skill.name}`);
+  return [
+    "interface:",
+    `  display_name: ${yamlQuote(iface.displayName)}`,
+    `  short_description: ${yamlQuote(iface.shortDescription)}`,
+    "",
+  ].join("\n");
+}
+
 function renderSkillMd(skill: SkillDef): string {
   const parts = [
     frontmatter(skill),
     "",
     `# ${SKILL_TITLES[skill.name]}`,
+    "",
+    communicationSection(skill),
     "",
     skill.overview,
     "",
@@ -536,6 +598,10 @@ const exactWritePlanProtocol = readFileSync(
   SKILL_SRC_DIR + "references/exact-write-protocol.md",
   "utf8",
 );
+const merchantCommunicationContract = readFileSync(
+  SKILL_SRC_DIR + "references/merchant-communication.md",
+  "utf8",
+);
 
 const bundle = await build({
   entryPoints: [SKILL_SRC_DIR + "validate.src.mjs"],
@@ -558,9 +624,11 @@ rmSync(OUT_DIR + "a1-yandex-kit-marketing/", { recursive: true, force: true });
 for (const skill of SKILLS) {
   const dir = OUT_DIR + skill.name + "/";
   rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir + "agents", { recursive: true });
   mkdirSync(dir + "data", { recursive: true });
   mkdirSync(dir + "scripts", { recursive: true });
   writeFileSync(dir + "SKILL.md", renderSkillMd(skill));
+  writeFileSync(dir + "agents/openai.yaml", renderOpenAiInterface(skill));
   writeFileSync(dir + "data/kit_v1.json.gz", specGz);
   writeFileSync(dir + "scripts/search_docs.mjs", searchDocsScript);
   writeFileSync(dir + "scripts/validate.mjs", validateScript);
@@ -578,9 +646,24 @@ if (exactWritePlanConsumers.length === 0) {
   );
 }
 
+// The router skill declares the local link in its generated SKILL.md, so it hosts
+// the generator-owned copy that every other skill's Communication section points at.
+const merchantCommunicationHosts = syncGeneratedSkillReference({
+  skillsDir: OUT_DIR,
+  relativePath: MERCHANT_COMMUNICATION_RELATIVE_PATH,
+  generatedHeader: MERCHANT_COMMUNICATION_GENERATED_HEADER,
+  source: merchantCommunicationContract,
+});
+if (merchantCommunicationHosts.length === 0) {
+  throw new Error(
+    `No SKILL.md declares a Markdown link to ${MERCHANT_COMMUNICATION_RELATIVE_PATH}`,
+  );
+}
+
 console.log(
   `gen-skills: ${SKILLS.length} skills (${SKILLS.map((s) => s.name).join(", ")}), ` +
     `data ${specGz.length} bytes gz, validate.mjs ${validateScript.length} bytes, ` +
     `shared exact write-plan protocol for ${exactWritePlanConsumers.length} declared skills ` +
-    `(${exactWritePlanConsumers.join(", ")})`,
+    `(${exactWritePlanConsumers.join(", ")}), ` +
+    `merchant communication contract hosted by ${merchantCommunicationHosts.join(", ")}`,
 );
