@@ -40,6 +40,7 @@ test("setup-lib preserves the public module contract", () => {
     "mergeToml",
     "mergeYaml",
     "normalizeClient",
+    "probeNetwork",
     "projectShadowsServer",
     "resolveAdapter",
     "rollbackChange",
