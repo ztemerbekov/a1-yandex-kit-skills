@@ -286,3 +286,13 @@ npx skills update
 ## Помощь и обратная связь
 
 Нужна помощь, что-то не работает или есть идея? Напишите нам в Telegram — <img src="./assets/logos/a1-logo-warm.svg" alt="A1" width="22">&nbsp;[**Yandex KIT Skills** <sup>β</sup>](https://t.me/a1_yandex_kit_skills).
+
+<br>
+
+<p align="center">
+  <img src="./assets/readme/mona-hifive-yandex-kit-warm.gif" alt="Две Моны дают пять" width="256">
+</p>
+
+<p align="center">
+  <strong>Вы дочитали до конца!</strong>
+</p>
