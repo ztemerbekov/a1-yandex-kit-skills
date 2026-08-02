@@ -294,5 +294,5 @@ npx skills update
 </p>
 
 <p align="center">
-  <strong>Вы дочитали до конца!</strong>
+  Вы дочитали до конца!
 </p>
