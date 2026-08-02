@@ -14,7 +14,36 @@ import {
   type RegistryOp,
 } from "yandex-kit-core";
 
-import { READ_ONLY, fail, ok } from "../util.js";
+import {
+  READ_ONLY,
+  fail,
+  ok,
+  statusesOutsideFilter,
+  statusFilterIgnoredFailure,
+  type ToolResult,
+} from "../util.js";
+
+/**
+ * Generic post-check for paginated list responses (issue #54): the KIT API is
+ * known to silently strip `ARCHIVED` from the GetVariants status filter and
+ * fall back to the default listing. A response containing items whose status
+ * lies outside the requested status filter must never be returned as if it
+ * were the filtered view — for any list operation, current or future.
+ */
+function checkStatusFilterHonored(
+  op: RegistryOp,
+  query: Record<string, unknown> | undefined,
+  data: unknown,
+): ToolResult | null {
+  if (!op.paginated || !op.itemsProp || !query) return null;
+  const requested = query.status;
+  if (!Array.isArray(requested) || requested.length === 0) return null;
+  if (!requested.every((s): s is string => typeof s === "string")) return null;
+  const items = (data as Record<string, unknown> | null | undefined)?.[op.itemsProp];
+  if (!Array.isArray(items)) return null;
+  const outside = statusesOutsideFilter(requested, items);
+  return outside.length > 0 ? statusFilterIgnoredFailure(requested, outside) : null;
+}
 
 /** Field weights for search scoring (operationId/path > tag/summary > description). */
 const SEARCH_FIELDS: ReadonlyArray<{
@@ -249,13 +278,13 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
             );
           }
         }
-        return ok(
-          await client.call(operation_id, {
-            pathParams: path_params,
-            query,
-            body,
-          }),
-        );
+        const data = await client.call(operation_id, {
+          pathParams: path_params,
+          query,
+          body,
+        });
+        const guard = checkStatusFilterHonored(op, query, data);
+        return guard ?? ok(data);
       } catch (e) {
         return fail(e);
       }
