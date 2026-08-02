@@ -1,16 +1,24 @@
 ---
 name: a1-yandex-kit-setup
-description: "Connect the Yandex KIT MCP server to the user's current AI client. Use when the user asks «подключи Яндекс KIT» or «настрой Yandex KIT», or explicitly wants to replace its Yandex KIT token. Handles Claude Code, Claude Desktop, Cursor, OpenAI Codex, VS Code, Kimi Code, Kimi Desktop, Hermes Agent, OpenClaw and new clients through a compatibility ladder."
-disable-model-invocation: true
+description: "Connect a Yandex KIT store to the current AI client, or reconnect it by replacing its token. Use for natural-language setup requests, including Russian text or voice transcripts such as «Связь с магазином», «Подключим магазин», «Переподключим магазин», «Переустановим связь с магазином» and «Поменяем токен». Treat short «Связь с магазином» as an orientation request."
 metadata:
   author: Zinnur Temerbekov
 ---
 
 # A1 Yandex KIT Setup
 
-Make setup a concierge flow. Treat invoking this skill as authorization
-to update the selected client's user-level MCP configuration. A project-local
-skill installation does not limit the configuration to that project.
+Make setup a concierge flow for typed requests and voice transcriptions alike.
+Start from the branch that invoked it:
+
+- For the short orientation request `Связь с магазином`, ask one question:
+  `Что сделать: подключить магазин или переподключить его с новым токеном?`
+- A concrete request to connect or reconnect authorizes updating the selected
+  client's user-level MCP configuration after the required inputs are collected
+  and the candidate token passes validation. Reinstalling the connection and
+  changing the token are both reconnection requests.
+
+A project-local skill installation does not limit the configuration to that
+project.
 
 Use `scripts/setup.mjs` for configuration and the direct read-only smoke test.
 Resolve every relative path from this skill directory, not from the user's
@@ -80,12 +88,14 @@ token.
 
 - When `configured` is false, ask:
   `Для настройки потребуется токен Яндекс KIT. Чтобы его получить, зайдите в кабинет Яндекс KIT: Настройки → API и скопируйте ключ. Вставьте его сюда — я привяжу его к приложению и не буду повторять в ответе. Токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
-- When `configured` is true, always ask:
-  `Токен Яндекс KIT уже сохранён в настройках. Вы хотите его обновить?`
-  - For `нет`, do not configure, normalize or verify anything. Finish with:
-    `Принято! Оставляем действующий токен Яндекс KIT без изменений. Всё работает в прежнем режиме.`
-  - For `да`, ask:
+- When `configured` is true, continue from the selected branch:
+  - For reconnection, including reinstallation or token replacement, ask:
     `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
+  - For a first-connection request when a token is already configured, ask:
+    `Токен Яндекс KIT уже сохранён в настройках. Хотите переподключить магазин с новым токеном?`
+    - For `нет`, finish with:
+      `Принято! Оставляем действующий токен Яндекс KIT без изменений. Всё работает в прежнем режиме.`
+    - For `да`, use the reconnection prompt above.
 
 Accept the token in chat. Do not echo, summarize, quote, log or interpolate it
 into a shell command. Pass a new token only through stdin to `setup.mjs`.
@@ -104,7 +114,8 @@ cancellation leaves the current client settings unchanged. Treat other smoke
 failures as their own diagnostics instead of asking for a different token.
 
 This step is complete when one candidate token has passed `get_store`. The
-explicit `нет` branch above finishes the skill without reaching this point.
+explicit `нет` branch for an existing first connection finishes the skill
+without reaching this point.
 
 ## 4. Configure the user-level client
 
@@ -140,11 +151,12 @@ rewrite another server. When an exact project/local `yandex-kit` entry shadows
 the user-level name, leave that entry unchanged and configure
 `a1-yandex-kit-global` instead.
 
-Treat skill invocation as the configuration authorization and surface only the
-host application's unavoidable filesystem approval. If an existing config
-cannot be parsed safely, leave it unchanged and return to the compatibility
-ladder to try the client's documented native CLI. Give the technical handoff
-only when the native route is also unavailable or fails.
+Use the concrete setup request selected at the start as the configuration
+authorization and surface only the host application's unavoidable filesystem
+approval. If an existing config cannot be parsed safely, leave it unchanged and
+return to the compatibility ladder to try the client's documented native CLI.
+Give the technical handoff only when the native route is also unavailable or
+fails.
 
 For a file adapter, this step is complete when the helper reports
 `configured: true`, the token is present without being printed, unrelated

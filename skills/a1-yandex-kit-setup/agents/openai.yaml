@@ -2,5 +2,3 @@ interface:
   display_name: "A1 Yandex KIT Setup"
   short_description: "Подключает ваш магазин на Яндекс KIT к AI-клиенту"
   default_prompt: "$a1-yandex-kit-setup давай подключим мой магазин!"
-policy:
-  allow_implicit_invocation: false
