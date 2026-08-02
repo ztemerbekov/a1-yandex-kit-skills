@@ -1,5 +1,3 @@
-<!-- Generated from packages/codegen/src/skill-src/references/merchant-communication.md; do not edit. -->
-
 # Merchant communication
 
 ## Reader

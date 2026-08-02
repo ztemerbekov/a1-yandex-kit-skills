@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-promotions
-description: "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding them to products, categories or collections."
+description: "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes, promocode groups (shared codes and single-use coupon batches) and gifts. Use when creating or updating discounts, promocodes, promocode groups or gifts, or when binding them to products, categories or collections."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
@@ -16,16 +16,24 @@ Before producing any user-facing message, read and apply
 completely.
 
 Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
-Промокоды, Подарки. All three promotion kinds are created first and then bound to
-objects: discounts and promocodes to variants, categories or collections via the
-`.../objects/add` and `.../objects/remove` endpoints, gifts to variants via
-`POST`/`DELETE /v1/gifts/{id}/variants`. End-of-life differs per kind — **only
+Промокоды, Группы промокодов, Подарки. Promotions are created first and then bound to
+objects: discounts, promocodes and promocode groups to variants, categories or
+collections via their `.../objects/add` and `.../objects/remove` endpoints (a
+promocode-group request carries either variants or categories+collections, not both),
+gifts to variants via `POST`/`DELETE /v1/gifts/{id}/variants`. Промокоды and
+Группы промокодов are separate models: a promocode is one standalone code, while a
+group holds the discount rules plus its codes — type `SINGLE` (one shared code) or
+`MULTIPLE` (single-use coupon codes managed via
+`/v1/promocode_groups/{group_id}/codes`). End-of-life differs per kind — **only
 discounts can be archived** (`ArchiveDiscount`/`UnarchiveDiscount`, status
 `ACTIVE`/`INACTIVE`/`ARCHIVED`; archived discounts stop applying but stay
 restorable). Promocodes and gifts have no archive endpoints and only two statuses,
 `ACTIVE`/`INACTIVE` — pause them by PATCHing `status` to `INACTIVE` via
-`UpdatePromocode`/`UpdateGift`. `DeleteGift` removes a gift **permanently**, with
-no restore — prefer deactivation.
+`UpdatePromocode`/`UpdateGift`. Promocode groups also report `ACTIVE`/`INACTIVE`,
+but `UpdatePromocodeGroup` is a full PUT replace with **no `status` field** — every
+field is required, so resend the current values when changing anything. `DeleteGift`
+removes a gift **permanently**, with no restore — prefer deactivation;
+`DeletePromocodeGroup` likewise permanently deletes the group **with all its codes**.
 
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
@@ -68,7 +76,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (28 operations)
+## Endpoints (39 operations)
 
 ### Скидки
 
@@ -94,11 +102,27 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | PATCH | `/v1/promocodes/{id}` | `UpdatePromocode` | Обновление промокода |
 | GET | `/v1/promocodes` | `GetPromocodes` | Получение списка промокодов |
 | POST | `/v1/promocodes` | `CreatePromocode` | Создание промокода |
-| GET | `/v1/promocodes/{id}/categories` | `GetPromocodeCategoryIDs` | Получение идентификаторов категорий |
+| GET | `/v1/promocodes/{id}/categories` | `GetPromocodeCategoryIDs` | Получение идентификаторов категорий, к которым применяется промокод |
 | GET | `/v1/promocodes/{id}/collections` | `GetPromocodeCollectionIDs` | Получение идентификаторов коллекций, к которым применяется промокод |
 | GET | `/v1/promocodes/{id}/variants` | `GetPromocodeVariantIDs` | Получение уникальных идентификаторов товаров промокода |
 | POST | `/v1/promocodes/{id}/objects/add` | `AddPromocodeObjects` | Добавление объектов в промокод |
 | POST | `/v1/promocodes/{id}/objects/remove` | `RemovePromocodeObjects` | Удаление объектов из промокода |
+
+### Группы промокодов
+
+| Method | Path | OperationId | Summary (RU) |
+| --- | --- | --- | --- |
+| GET | `/v1/promocode_groups` | `GetPromocodeGroups` | Получение списка групп промокодов |
+| POST | `/v1/promocode_groups` | `CreatePromocodeGroup` | Создание группы промокодов |
+| GET | `/v1/promocode_groups/{id}` | `GetPromocodeGroupByID` | Получение группы промокодов по идентификатору |
+| PUT | `/v1/promocode_groups/{id}` | `UpdatePromocodeGroup` | Обновление группы промокодов |
+| DELETE | `/v1/promocode_groups/{id}` | `DeletePromocodeGroup` | Удаление группы промокодов |
+| POST | `/v1/promocode_groups/{id}/objects/add` | `AddPromocodeGroupObjects` | Привязка объектов к группе промокодов |
+| POST | `/v1/promocode_groups/{id}/objects/remove` | `RemovePromocodeGroupObjects` | Отвязка объектов от группы промокодов |
+| GET | `/v1/promocode_groups/{group_id}/codes` | `GetPromocodeGroupCodes` | Получение списка кодов в группе промокодов |
+| POST | `/v1/promocode_groups/{group_id}/codes` | `AddPromocodeGroupCode` | Добавление кода в группу промокодов |
+| PATCH | `/v1/promocode_groups/{group_id}/codes/{code_id}` | `UpdatePromocodeGroupCode` | Обновление кода в группе промокодов |
+| DELETE | `/v1/promocode_groups/{group_id}/codes/{code_id}` | `DeletePromocodeGroupCode` | Удаление кода из группы промокодов |
 
 ### Подарки
 
@@ -117,7 +141,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-133 operations):
+151 operations):
 
 - `list_discounts` — List discounts of the store filtered by status (paginated).
 - `get_discount` — Get a single discount by its ID (title, value, dates, status, binding mode).
@@ -131,4 +155,4 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `update_promocode` — Update an existing promocode (plain application/json PATCH): send only the fields to change (code, title, discount_value, promocode_dates, status, binding_mode, limits).
 - `manage_promocode_objects` — Attach objects to a promocode or detach them.
 
-Подарки (gifts) have no dedicated tools — manage them through `search_operations` + `kit_request`.
+Подарки (gifts) and Группы промокодов have no dedicated tools — manage them through `search_operations` + `kit_request`.
