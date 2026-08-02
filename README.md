@@ -62,15 +62,10 @@
 1. Откройте терминал и установите пакет навыков:
 
    ```bash
-   npx skills@latest add ztemerbekov/a1-yandex-kit-skills -g -y
+   npx skills@latest add ztemerbekov/a1-yandex-kit-skills -y
    ```
 
-   Если команда `npx` не запускается, установите Node.js 20+, заново откройте терминал и повторите этот шаг.
-
-   Если вы обновляете прежнюю установку и явно вызывали доменный навык
-   `$a1-yandex-kit-marketing` или `/a1-yandex-kit-marketing`, используйте новое имя:
-   `$a1-yandex-kit-promotions` или `/a1-yandex-kit-promotions`. Старое имя больше не
-   поставляется.
+   Чтобы позже получить свежие обновления, выполните `npx skills update`.
 
 2. **Явно вызовите** установщик навыком `a1-yandex-kit-setup`. В Codex вызов выглядит так:
 
