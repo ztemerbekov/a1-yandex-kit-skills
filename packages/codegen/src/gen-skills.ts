@@ -33,7 +33,13 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 
 const SKILL_VERSION = "0.1.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
-const MERGE_PATCH_OPS = ["UpdateCategory", "UpdateCharacteristic", "UpdateVariant", "UpdateWarehouse"];
+const MERGE_PATCH_OPS = [
+  "UpdateCategory",
+  "UpdateCharacteristic",
+  "UpdateVariant",
+  "UpdateVariantAttachment",
+  "UpdateWarehouse",
+];
 const EXACT_WRITE_PLAN_RELATIVE_PATH = "references/exact-write-protocol.md";
 const EXACT_WRITE_PLAN_GENERATED_HEADER =
   "<!-- Generated from packages/codegen/src/skill-src/references/exact-write-protocol.md; do not edit. -->\n\n";
@@ -142,9 +148,9 @@ docs are in Russian; the full OpenAPI spec (${registry.opsCount} operations) is 
 - **No sandbox**: production only — prefer read-only calls while exploring and
   double-check every write.
 - **Pagination**: list endpoints take \`page\` + \`per_page\` (max 100) query parameters.
-- **Content types**: request bodies are \`application/json\`, except exactly four operations
+- **Content types**: request bodies are \`application/json\`, except the ${MERGE_PATCH_OPS.length} operations
   that use JSON Merge Patch (\`application/merge-patch+json\`): ${MERGE_PATCH_OPS.map((id) => `\`${id}\``).join(", ")} — send only the fields to change.
-  \`null\` clears a field only where the schema marks it nullable — of the four, that is
+  \`null\` clears a field only where the schema marks it nullable — of these, that is
   just \`parent_id\` and \`file_id\` of \`UpdateCategory\`; elsewhere \`null\` fails
   validation (\`validate.mjs\` below will catch it). \`POST /v1/files\` (\`UploadFile\`)
   is \`multipart/form-data\`.`;
@@ -157,7 +163,7 @@ same scripts and data, plus the endpoint tables of its tags:
 - \`a1-yandex-kit-catalog\` — products, variants (SKUs, prices, stocks), categories,
   characteristics, collections, context collections, badges.
 - \`a1-yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
-- \`a1-yandex-kit-promotions\` — discounts, promo codes, gifts.
+- \`a1-yandex-kit-promotions\` — discounts, promo codes, promocode groups, gifts.
 - \`a1-yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects, blog/news.
 - \`a1-yandex-kit-webhooks\` — webhooks: order events, HTTPS callbacks, signing secret.`;
 
@@ -203,7 +209,8 @@ const SKILLS: SkillDef[] = [
     name: "a1-yandex-kit-catalog",
     description:
       "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, " +
-      "stocks), categories, characteristics, collections, context collections and badges. " +
+      "stocks), variant documents (attachments), categories, characteristics, collections, " +
+      "context collections and badges. " +
       "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store.",
     overview: `Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
 Категории товаров, Характеристики товаров, Коллекции, Контекстные коллекции, Бейджи.
@@ -213,10 +220,15 @@ and per-warehouse stocks, and a product (\`/v1/products\`) groups variants, so m
 \`product_id\` and \`product_card_id\` (карточка товара) — the card-scoped endpoints
 (\`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
 «Добавление/Удаление карточек») take \`product_card_id\`, never a product id; read it
-from the variant first. Mind the content types: \`UpdateVariant\`, \`UpdateCategory\` and
-\`UpdateCharacteristic\` use JSON Merge Patch (\`application/merge-patch+json\` — send
-only the fields to change; \`null\` clears only the fields the schema marks nullable,
-see the \`a1-yandex-kit\` skill), while the other updates are plain \`application/json\`.
+from the variant first. Variant documents (инструкции, сертификаты, паспорта) live under
+\`/v1/variants/{id}/attachments\`: upload the file via \`POST /v1/files\` first, then
+attach it by \`file_id\`; the title must not contain \`:\` or \`/\`, and
+\`display_sequence\` must be unique per variant (an occupied value returns 409 — nothing
+is reordered automatically). Mind the content types: \`UpdateVariant\`, \`UpdateCategory\`,
+\`UpdateCharacteristic\` and \`UpdateVariantAttachment\` use JSON Merge Patch
+(\`application/merge-patch+json\` — send only the fields to change; \`null\` clears only
+the fields the schema marks nullable, see the \`a1-yandex-kit\` skill), while the other
+updates are plain \`application/json\`.
 
 ${DOMAIN_TRAILER}`,
     tags: ["Товары", "Категории товаров", "Характеристики товаров", "Коллекции", "Контекстные коллекции", "Бейджи"],
@@ -257,25 +269,36 @@ ${DOMAIN_TRAILER}`,
   {
     name: "a1-yandex-kit-promotions",
     description:
-      "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes " +
-      "and gifts. Use when creating or updating discounts, promocodes or gifts, or when binding " +
-      "them to products, categories or collections.",
+      "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes, " +
+      "promocode groups (shared codes and single-use coupon batches) and gifts. Use when " +
+      "creating or updating discounts, promocodes, promocode groups or gifts, or when " +
+      "binding them to products, categories or collections.",
     overview: `Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
-Промокоды, Подарки. All three promotion kinds are created first and then bound to
-objects: discounts and promocodes to variants, categories or collections via the
-\`.../objects/add\` and \`.../objects/remove\` endpoints, gifts to variants via
-\`POST\`/\`DELETE /v1/gifts/{id}/variants\`. End-of-life differs per kind — **only
+Промокоды, Группы промокодов, Подарки. Promotions are created first and then bound to
+objects: discounts, promocodes and promocode groups to variants, categories or
+collections via their \`.../objects/add\` and \`.../objects/remove\` endpoints (a
+promocode-group request carries either variants or categories+collections, not both),
+gifts to variants via \`POST\`/\`DELETE /v1/gifts/{id}/variants\`. Промокоды and
+Группы промокодов are separate models: a promocode is one standalone code, while a
+group holds the discount rules plus its codes — type \`SINGLE\` (one shared code) or
+\`MULTIPLE\` (single-use coupon codes managed via
+\`/v1/promocode_groups/{group_id}/codes\`). End-of-life differs per kind — **only
 discounts can be archived** (\`ArchiveDiscount\`/\`UnarchiveDiscount\`, status
 \`ACTIVE\`/\`INACTIVE\`/\`ARCHIVED\`; archived discounts stop applying but stay
 restorable). Promocodes and gifts have no archive endpoints and only two statuses,
 \`ACTIVE\`/\`INACTIVE\` — pause them by PATCHing \`status\` to \`INACTIVE\` via
-\`UpdatePromocode\`/\`UpdateGift\`. \`DeleteGift\` removes a gift **permanently**, with
-no restore — prefer deactivation.
+\`UpdatePromocode\`/\`UpdateGift\`. Promocode groups also report \`ACTIVE\`/\`INACTIVE\`,
+but \`UpdatePromocodeGroup\` is a full PUT replace with **no \`status\` field** — every
+field is required, so resend the current values when changing anything. \`DeleteGift\`
+removes a gift **permanently**, with no restore — prefer deactivation;
+\`DeletePromocodeGroup\` likewise permanently deletes the group **with all its codes**.
 
 ${DOMAIN_TRAILER}`,
-    tags: ["Скидки", "Промокоды", "Подарки"],
+    tags: ["Скидки", "Промокоды", "Группы промокодов", "Подарки"],
     toolFiles: ["discounts", "promocodes"],
-    toolsNote: "Подарки (gifts) have no dedicated tools — manage them through `search_operations` + `kit_request`.",
+    toolsNote:
+      "Подарки (gifts) and Группы промокодов have no dedicated tools — manage them through " +
+      "`search_operations` + `kit_request`.",
     exampleQuery: "создать скидку",
     exampleOp: "CreateDiscount",
     executeToolsBullet:
@@ -346,10 +369,14 @@ ${DOMAIN_TRAILER}`,
       }
     }
   }
-  for (const id of MERGE_PATCH_OPS) {
-    if (registry.ops[id]?.requestContentType !== "application/merge-patch+json") {
-      throw new Error(`${id} is no longer a merge-patch operation — update gen-skills.ts`);
-    }
+  const registryMergePatch = allOps
+    .filter((op) => op.requestContentType === "application/merge-patch+json")
+    .map((op) => op.id)
+    .sort();
+  if (registryMergePatch.join(",") !== [...MERGE_PATCH_OPS].sort().join(",")) {
+    throw new Error(
+      `MERGE_PATCH_OPS out of sync with registry (registry: [${registryMergePatch.join(", ")}]) — update gen-skills.ts`,
+    );
   }
   // Prose facts hard-coded above: which merge-patch fields are nullable and
   // which promotion kinds can be archived. Fail loudly if the spec drifts.
@@ -362,7 +389,12 @@ ${DOMAIN_TRAILER}`,
   if (nullableProps("UpdateCategoryRequest") !== "file_id,parent_id") {
     throw new Error("UpdateCategoryRequest nullable fields changed — update the merge-patch prose in gen-skills.ts");
   }
-  for (const schema of ["UpdateVariantRequest", "UpdateCharacteristicRequest", "UpdateWarehouseRequest"]) {
+  for (const schema of [
+    "UpdateVariantRequest",
+    "UpdateCharacteristicRequest",
+    "UpdateWarehouseRequest",
+    "VariantAttachmentUpdateRequest",
+  ]) {
     if (nullableProps(schema) !== "") {
       throw new Error(`${schema} gained nullable fields — update the merge-patch prose in gen-skills.ts`);
     }
@@ -371,7 +403,7 @@ ${DOMAIN_TRAILER}`,
   if (!(specSchemas.DiscountStatus?.enum ?? []).includes("ARCHIVED")) {
     throw new Error("DiscountStatus lost ARCHIVED — update the promotion lifecycle prose in gen-skills.ts");
   }
-  for (const schema of ["PromocodeStatus", "GiftStatus"]) {
+  for (const schema of ["PromocodeStatus", "GiftStatus", "PromocodeGroupStatus"]) {
     if (statusEnum(schema) !== "ACTIVE,INACTIVE") {
       throw new Error(`${schema} enum changed — update the promotion lifecycle prose in gen-skills.ts`);
     }

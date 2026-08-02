@@ -589,6 +589,117 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/variants/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["VariantID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение документов товара
+         * @description Возвращает список документов товара (инструкции, сертификаты, паспорта), отсортированный по порядку отображения.
+         */
+        get: operations["GetVariantAttachments"];
+        put?: never;
+        /**
+         * Прикрепление документа к товару
+         * @description Прикрепляет документ к товару по идентификатору ранее загруженного файла
+         *     (файл загружается через POST /v1/files).
+         *
+         *     Ограничения:
+         *     - не более 10 документов на товар;
+         *     - допустимые расширения файла — pdf, doc, docx, xls, xlsx, rtf, txt, jpg, jpeg, png, svg, webp;
+         *     - название не должно содержать символы ':' и '/';
+         *     - к архивному товару прикрепить документ нельзя.
+         *
+         *     Возвращает `409 Conflict`, если файл уже прикреплен к товару
+         *     или порядок отображения занят другим документом.
+         */
+        post: operations["CreateVariantAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/variants/{id}/attachments/{file_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["VariantID"];
+                file_id: components["schemas"]["FileID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Открепление документа от товара
+         * @description Открепляет документ от товара. Операция локальна: удаляется только
+         *     связь документа с данным товаром. Если этот же файл прикреплён
+         *     к другим товарам, те документы не затрагиваются. Сам файл
+         *     не удаляется и остаётся доступным для повторного прикрепления.
+         *
+         *     Если документ не прикреплён к товару (в том числе при повторном
+         *     удалении), возвращается ошибка 404.
+         *
+         *     У архивного товара удалять документы нельзя — возвращается ошибка 400.
+         */
+        delete: operations["DeleteVariantAttachment"];
+        options?: never;
+        head?: never;
+        /**
+         * Обновление документа товара
+         * @description Обновляет название и/или порядок отображения документа товара.
+         *     Передавайте только те поля, которые нужно изменить — не переданные
+         *     поля остаются без изменений.
+         *
+         *     Если указанный display_sequence уже занят другим документом этого
+         *     товара, возвращается ошибка 409. Остальные документы автоматически не переупорядочиваются.
+         *     Если нужно освободить нужный порядок, сначала измените display_sequence другого документа.
+         *
+         *     Документы архивного товара изменять нельзя — возвращается ошибка 400.
+         */
+        patch: operations["UpdateVariantAttachment"];
+        trace?: never;
+    };
+    "/v1/variants/stocks/bulk_update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Массовое обновление остатков
+         * @description Массово обновляет остатки товаров по складам. За один запрос можно
+         *     передать до 5000 элементов — пар товаров + склад с новым количеством.
+         *
+         *     Операция выполняется синхронно и атомарно. Запрос будет отклонен с ошибкой 400, а изменения — не применены, если в батче обнаружен хотя бы один из следующих случаев:
+         *     - товар или склад не найден;
+         *     - товар или склад архивирован;
+         *     - пара «товар + склад» указана в батче более одного раза.
+         *
+         *     В поле errors ответа будет представлен список всех невалидных элементов с указанием идентификаторов соответствующих товаров и складов.
+         *
+         *     Количество устанавливается как абсолютное значение.
+         *     Зарезервированное количество (`reserved`) не изменяется.
+         *     Остатки на складах, не упомянутых в батче, не затрагиваются.
+         */
+        post: operations["BulkUpdateStocks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/warehouses": {
         parameters: {
             query?: never;
@@ -927,6 +1038,7 @@ export interface paths {
         head?: never;
         /**
          * Обновление промокода
+         * @deprecated
          * @description Обновляет промокод по уникальному идентификатору.
          */
         patch: operations["UpdatePromocode"];
@@ -941,12 +1053,14 @@ export interface paths {
         };
         /**
          * Получение списка промокодов
+         * @deprecated
          * @description Возвращает список промокодов магазина с пагинацией.
          */
         get: operations["GetPromocodes"];
         put?: never;
         /**
          * Создание промокода
+         * @deprecated
          * @description Создает новый промокод.
          */
         post: operations["CreatePromocode"];
@@ -966,7 +1080,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение идентификаторов категорий
+         * Получение идентификаторов категорий, к которым применяется промокод
+         * @deprecated
          * @description Возвращает идентификаторы категорий, к которым применяется промокод (на основе его уникального идентификатора).
          *     Работает только для промокодов с параметром `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.
          */
@@ -990,6 +1105,7 @@ export interface paths {
         };
         /**
          * Получение идентификаторов коллекций, к которым применяется промокод
+         * @deprecated
          * @description Возвращает идентификаторы коллекций, к которым применяется промокод, по его уникальному идентификатору.
          *     Используется для промокодов с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.
          */
@@ -1013,6 +1129,7 @@ export interface paths {
         };
         /**
          * Получение уникальных идентификаторов товаров промокода
+         * @deprecated
          * @description Возвращает уникальные идентификаторы товаров, к которым применяется промокод (на основе его уникального идентификатора).
          *     Работает только для промокодов с параметром `binding_mode = SELECTED_VARIANTS`.
          */
@@ -1038,6 +1155,7 @@ export interface paths {
         put?: never;
         /**
          * Добавление объектов в промокод
+         * @deprecated
          * @description Добавляет товары, категории или коллекции в промокод. Максимальное количество объектов — 500.
          *
          *     Промокод должен иметь параметр `binding_mode = SELECTED_VARIANTS` (для добавления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для добавления категорий и коллекций).
@@ -1062,6 +1180,7 @@ export interface paths {
         put?: never;
         /**
          * Удаление объектов из промокода
+         * @deprecated
          * @description Удаляет товары, категории или категории из промокода. Максимальное количество объектов — 500.
          *
          *     Промокод должен иметь `binding_mode = SELECTED_VARIANTS` (для удаления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для удаления категорий или коллекций).
@@ -1073,7 +1192,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/gifts": {
+    "/v1/promocode_groups": {
         parameters: {
             query?: never;
             header?: never;
@@ -1081,176 +1200,174 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение списка подарков
-         * @description Возвращает список подарков магазина с пагинацией.
+         * Получение списка групп промокодов
+         * @description Возвращает список групп промокодов магазина с пагинацией.
          */
-        get: operations["GetGifts"];
+        get: operations["GetPromocodeGroups"];
         put?: never;
         /**
-         * Создание подарка
-         * @description Создает новый подарок за покупку с товарами. Подарок создается в статусе `INACTIVE`.
+         * Создание группы промокодов
+         * @description Группа промокодов создается за один шаг — вместе с переданным набором кодов.
+         *
+         *     Процесс состоит из трех шагов:
+         *
+         *     1. Создание группы.
+         *     2. Добавление кодов.
+         *     3. Сохранение группы как активной.
+         *     Если на последнем шаге код конфликтует с кодом другой активной группы (в пересекающемся периоде действия), операция отменяется с ошибкой `409 Conflict`.
+         *
+         *     В группе должен быть хотя бы один код.
          */
-        post: operations["CreateGift"];
+        post: operations["CreatePromocodeGroup"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/gifts/{id}": {
+    "/v1/promocode_groups/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["schemas"]["GiftID"];
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
             };
             cookie?: never;
         };
         /**
-         * Получение подарка по ID
-         * @description Возвращает информацию о подарке по его уникальному идентификатору.
+         * Получение группы промокодов по идентификатору
+         * @description Возвращает детальную информацию о группе промокодов по ее уникальному идентификатору.
          */
-        get: operations["GetGiftById"];
-        put?: never;
+        get: operations["GetPromocodeGroupByID"];
+        /**
+         * Обновление группы промокодов
+         * @description Обновляет параметры существующей группы промокодов.
+         *
+         *     Возвращает `409 Conflict`, если изменение периода действия (`valid_from` / `valid_until`) приводит к конфликту кодов группы с кодами другой активной группы.
+         */
+        put: operations["UpdatePromocodeGroup"];
         post?: never;
         /**
-         * Удаление подарка
-         * @description Удаляет подарок.
+         * Удаление группы промокодов
+         * @description Удаляет группу промокодов вместе со всеми ее кодами.
          */
-        delete: operations["DeleteGift"];
-        options?: never;
-        head?: never;
-        /**
-         * Обновление подарка
-         * @description Обновляет подарок. Передаются только изменяемые поля.
-         */
-        patch: operations["UpdateGift"];
-        trace?: never;
-    };
-    "/v1/gifts/{id}/variants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["GiftID"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Получение идентификаторов товаров подарка
-         * @description Возвращает уникальные идентификаторы товаров подарка с пагинацией.
-         */
-        get: operations["GetGiftVariants"];
-        put?: never;
-        /**
-         * Добавление товаров в подарок
-         * @description Добавляет товары в подарок. В подарке может быть не более 50 товаров.
-         */
-        post: operations["AddGiftVariants"];
-        /**
-         * Удаление товаров из подарка
-         * @description Удаляет товары из подарка. В подарке должен остаться хотя бы один товар.
-         */
-        delete: operations["RemoveGiftVariants"];
+        delete: operations["DeletePromocodeGroup"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/gift_cards": {
+    "/v1/promocode_groups/{id}/objects/add": {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
+            };
             cookie?: never;
         };
-        /**
-         * Получение списка подарочных карт
-         * @description Возвращает список подарочных карт магазина с пагинацией и фильтрами.
-         */
-        get: operations["GetGiftCards"];
+        get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Привязка объектов к группе промокодов
+         * @description Привязывает товары, категории или коллекции к группе промокодов. Максимальное количество объектов — 500.
+         *
+         *     В одном запросе передавайте либо товары (`product_variant_ids`), либо категории и коллекции (`category_ids`, `collection_ids`) — не одновременно.
+         *
+         *     Применимо только для групп с `binding_mode = SELECTED_VARIANTS` (товары) или `SELECTED_CATEGORIES_COLLECTIONS` (категории и коллекции).
+         */
+        post: operations["AddPromocodeGroupObjects"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/gift_cards/{gift_card_id}": {
+    "/v1/promocode_groups/{id}/objects/remove": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                gift_card_id: components["schemas"]["GiftCardID"];
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
             };
             cookie?: never;
         };
-        /**
-         * Получение подарочной карты по ID
-         * @description Возвращает информацию о подарочной карте по ее уникальному идентификатору.
-         */
-        get: operations["GetGiftCardById"];
+        get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Отвязка объектов от группы промокодов
+         * @description Отвязывает товары, категории или коллекции от группы промокодов. Максимальное количество объектов — 500.
+         *
+         *     В одном запросе передавайте либо товары (`product_variant_ids`), либо категории и коллекции (`category_ids`, `collection_ids`) — не одновременно.
+         */
+        post: operations["RemovePromocodeGroupObjects"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/context-collections": {
+    "/v1/promocode_groups/{group_id}/codes": {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                group_id: components["schemas"]["PromocodeGroupID"];
+            };
             cookie?: never;
         };
         /**
-         * Получение списка контекстных коллекций
-         * @description Возвращает список контекстных коллекций магазина с пагинацией.
+         * Получение списка кодов в группе промокодов
+         * @description Возвращает список кодов в указанной группе промокодов с пагинацией.
          */
-        get: operations["GetContextCollections"];
+        get: operations["GetPromocodeGroupCodes"];
         put?: never;
         /**
-         * Создание контекстной коллекции
-         * @description Создает новую контекстную коллекцию с условиями подбора похожих товаров.
+         * Добавление кода в группу промокодов
+         * @description Добавляет новый код в указанную группу промокодов.
+         *
+         *     Возвращает `409 Conflict`, если код уже используется в другой активной группе с пересекающимся периодом действия.
          */
-        post: operations["CreateContextCollection"];
+        post: operations["AddPromocodeGroupCode"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/context-collections/{id}": {
+    "/v1/promocode_groups/{group_id}/codes/{code_id}": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: components["schemas"]["ContextCollectionID"];
+                /** @description Уникальный идентификатор группы промокодов. */
+                group_id: components["schemas"]["PromocodeGroupID"];
+                /** @description Уникальный идентификатор кода промокода. */
+                code_id: components["schemas"]["PromocodeGroupCodeID"];
             };
             cookie?: never;
         };
-        /**
-         * Получение контекстной коллекции по ID
-         * @description Возвращает контекстную коллекцию по ее уникальному идентификатору.
-         */
-        get: operations["GetContextCollectionById"];
+        get?: never;
         put?: never;
         post?: never;
         /**
-         * Удаление контекстной коллекции
-         * @description Удаляет контекстную коллекцию по уникальному идентификатору.
+         * Удаление кода из группы промокодов
+         * @description Удаляет код из указанной группы промокодов.
          */
-        delete: operations["DeleteContextCollection"];
+        delete: operations["DeletePromocodeGroupCode"];
         options?: never;
         head?: never;
         /**
-         * Обновление контекстной коллекции
-         * @description Обновляет контекстную коллекцию по уникальному идентификатору.
+         * Обновление кода в группе промокодов
+         * @description Изменяет строковое значение кода в указанной группе промокодов.
+         *
+         *     Возвращает `409 Conflict`, если новый код уже используется в другой активной группе с пересекающимся периодом действия.
          */
-        patch: operations["UpdateContextCollection"];
+        patch: operations["UpdatePromocodeGroupCode"];
         trace?: never;
     };
     "/v1/discounts": {
@@ -1458,6 +1575,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/gifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение списка подарков
+         * @description Возвращает список подарков магазина с пагинацией.
+         */
+        get: operations["GetGifts"];
+        put?: never;
+        /**
+         * Создание подарка
+         * @description Создает новый подарок за покупку с товарами. Подарок создается в статусе `INACTIVE`.
+         */
+        post: operations["CreateGift"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gifts/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["GiftID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение подарка по ID
+         * @description Возвращает информацию о подарке по его уникальному идентификатору.
+         */
+        get: operations["GetGiftById"];
+        put?: never;
+        post?: never;
+        /**
+         * Удаление подарка
+         * @description Удаляет подарок.
+         */
+        delete: operations["DeleteGift"];
+        options?: never;
+        head?: never;
+        /**
+         * Обновление подарка
+         * @description Обновляет подарок. Передаются только изменяемые поля.
+         */
+        patch: operations["UpdateGift"];
+        trace?: never;
+    };
+    "/v1/gifts/{id}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["GiftID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение идентификаторов товаров подарка
+         * @description Возвращает уникальные идентификаторы товаров подарка с пагинацией.
+         */
+        get: operations["GetGiftVariants"];
+        put?: never;
+        /**
+         * Добавление товаров в подарок
+         * @description Добавляет товары в подарок. В подарке может быть не более 50 товаров.
+         */
+        post: operations["AddGiftVariants"];
+        /**
+         * Удаление товаров из подарка
+         * @description Удаляет товары из подарка. В подарке должен остаться хотя бы один товар.
+         */
+        delete: operations["RemoveGiftVariants"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gift_cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение списка подарочных карт
+         * @description Возвращает список подарочных карт магазина с пагинацией и фильтрами.
+         */
+        get: operations["GetGiftCards"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/gift_cards/{gift_card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gift_card_id: components["schemas"]["GiftCardID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение подарочной карты по ID
+         * @description Возвращает информацию о подарочной карте по ее уникальному идентификатору.
+         */
+        get: operations["GetGiftCardById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/context-collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение списка контекстных коллекций
+         * @description Возвращает список контекстных коллекций магазина с пагинацией.
+         */
+        get: operations["GetContextCollections"];
+        put?: never;
+        /**
+         * Создание контекстной коллекции
+         * @description Создает новую контекстную коллекцию с условиями подбора похожих товаров.
+         */
+        post: operations["CreateContextCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/context-collections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["ContextCollectionID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение контекстной коллекции по ID
+         * @description Возвращает контекстную коллекцию по ее уникальному идентификатору.
+         */
+        get: operations["GetContextCollectionById"];
+        put?: never;
+        post?: never;
+        /**
+         * Удаление контекстной коллекции
+         * @description Удаляет контекстную коллекцию по уникальному идентификатору.
+         */
+        delete: operations["DeleteContextCollection"];
+        options?: never;
+        head?: never;
+        /**
+         * Обновление контекстной коллекции
+         * @description Обновляет контекстную коллекцию по уникальному идентификатору.
+         */
+        patch: operations["UpdateContextCollection"];
+        trace?: never;
+    };
     "/v1/collections/{collection_id}": {
         parameters: {
             query?: never;
@@ -1526,6 +1823,50 @@ export interface paths {
          * @description Удаляет карточки из статической коллекции.
          */
         post: operations["RemoveCardsFromCollection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/collections/{collection_id}/cards/manual-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: components["schemas"]["CollectionID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение ручного порядка карточек коллекции
+         * @description Возвращает идентификаторы карточек статической коллекции. Порядок значений соответствует ручной сортировке коллекции.
+         */
+        get: operations["GetCollectionCardsManualOrder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/collections/{collection_id}/cards/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: components["schemas"]["CollectionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Перемещение карточек в статической коллекции
+         * @description Перемещает карточки на указанную позицию в ручном порядке сортировки статической коллекции. Заданный порядок применяется только при выбранном типе сортировки `MANUAL`.
+         */
+        post: operations["MoveCollectionCards"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2134,6 +2475,50 @@ export interface components {
              * @example 00000000000000000000000000000000
              */
             trace_id: string;
+        };
+        /**
+         * @description Ошибка массовой операции. В дополнение к обычной ошибке содержит список ошибок по элементам батча:
+         *     - идентификаторы товара и склада;
+         *     - невалидного элемента, код и описание ошибки.
+         */
+        BulkOperationError: components["schemas"]["Error"] & {
+            errors?: components["schemas"]["BulkOperationItemError"][];
+        };
+        /** @description Ошибка обработки одного элемента массовой операции. */
+        BulkOperationItemError: {
+            variant_id: components["schemas"]["VariantID"];
+            warehouse_id?: components["schemas"]["WarehouseID"];
+            /**
+             * @description Код ошибки элемента:
+             *     - `VARIANT_NOT_FOUND` — товар не найден.
+             *     - `WAREHOUSE_NOT_FOUND` — склад не найден.
+             *     - `VARIANT_ARCHIVED` — товар архивирован.
+             *     - `WAREHOUSE_ARCHIVED` — склад архивирован.
+             *     - `DUPLICATE_ITEM` — элемент с таким идентификатором передан более одного раза.
+             *     - `INVALID_QUANTITY` — некорректное количество.
+             * @example VARIANT_NOT_FOUND
+             */
+            code: string;
+            /**
+             * @description Человекочитаемое описание ошибки.
+             * @example Товар с id 019b21d9-c5d9-777d-80bd-d67c664bc6d9 не найден
+             */
+            message: string;
+        };
+        /** @description Элемент массового обновления остатков — новое количество товара на складе. */
+        BulkStockItem: {
+            variant_id: components["schemas"]["VariantID"];
+            warehouse_id: components["schemas"]["WarehouseID"];
+            /**
+             * @description Новое количество товара на складе (абсолютное значение).
+             * @example 10
+             */
+            quantity: number;
+        };
+        /** @description Запрос массового обновления остатков. */
+        BulkUpdateStocksRequest: {
+            /** @description Элементы обновления. Пара товар + склад не может повторяться. */
+            items: components["schemas"]["BulkStockItem"][];
         };
         /**
          * Format: uuid
@@ -2815,6 +3200,73 @@ export interface components {
              * @example prostyni-ISEO#a94c555e-5c48-40ae-afe8-28197f3246a6
              */
             external_id: string;
+        };
+        /** @description Документ товара (инструкция, сертификат, паспорт). */
+        VariantAttachment: {
+            /**
+             * Format: uuid
+             * @description Идентификатор файла.
+             * @example 019b21d9-c5d9-777d-80bd-d67c664bc6d9
+             */
+            file_id: string;
+            /**
+             * @description Название документа.
+             * @example Инструкция по установке
+             */
+            title: string;
+            /**
+             * @description Расширение файла.
+             * @example pdf
+             */
+            extension: string;
+            /**
+             * Format: uint
+             * @description Порядок отображения.
+             * @example 1
+             */
+            display_sequence: number;
+        };
+        /** @description Список документов товара. */
+        VariantAttachmentCollection: {
+            /** @description Список документов товара. */
+            attachments: components["schemas"]["VariantAttachment"][];
+        };
+        /** @description Запрос на прикрепление документа к товару. */
+        VariantAttachmentCreateRequest: {
+            /**
+             * Format: uuid
+             * @description Идентификатор файла.
+             *     Файл должен быть предварительно загружен с помощью запроса `POST /v1/files`.
+             * @example 019b21d9-c5d9-777d-80bd-d67c664bc6d9
+             */
+            file_id: string;
+            /**
+             * @description Название документа. Не должно содержать символы ':' и '/'.
+             * @example Инструкция по установке
+             */
+            title: string;
+            /**
+             * Format: uint
+             * @description Порядок отображения. Должен быть уникален среди документов товара.
+             *     Если не задан — используется следующий свободный.
+             * @example 1
+             */
+            display_sequence?: number;
+        };
+        /** @description Запрос на обновление документа товара. */
+        VariantAttachmentUpdateRequest: {
+            /**
+             * @description Новое название документа. Не должно содержать символы ':' и '/'.
+             * @example Инструкция по установке
+             */
+            title?: string;
+            /**
+             * Format: uint
+             * @description Новый порядок отображения. Должен быть свободен среди документов
+             *     товара, иначе возвращается ошибка 409. Остальные документы автоматически не переупорядочиваются.
+             * @example 2
+             */
+            display_sequence?: number;
         };
         Variant: {
             id: components["schemas"]["VariantID"];
@@ -4362,9 +4814,10 @@ export interface components {
          *     - `SORT_WEIGHT` — приоритет в каталоге.
          *     - `CHEAPEST` — дешевые.
          *     - `EXPENSIVE` — дорогие.
+         *     - `MANUAL` — ручная сортировка.
          * @enum {string}
          */
-        CollectionSort: "OLDEST" | "NEWEST" | "SORT_WEIGHT" | "CHEAPEST" | "EXPENSIVE";
+        CollectionSort: "OLDEST" | "NEWEST" | "SORT_WEIGHT" | "CHEAPEST" | "EXPENSIVE" | "MANUAL";
         /**
          * Format: uuid
          * @description Идентификатор коллекции.
@@ -4582,6 +5035,37 @@ export interface components {
              */
             product_card_ids: string[];
         };
+        CollectionCardsManualOrder: {
+            /**
+             * @description Список ID карточек статической коллекции в порядке ручной сортировки.
+             * @example [
+             *       "019b21d9-c5d9-777d-80bd-d67c664bc6d9",
+             *       "019b21d9-c5d9-777d-80bd-d67c664bc6d8"
+             *     ]
+             */
+            product_card_ids: string[];
+            /**
+             * Format: uint64
+             * @description Общее количество карточек в коллекции.
+             * @example 2
+             */
+            total_count: number;
+        };
+        MoveCollectionCardsRequest: {
+            /**
+             * @description Список ID карточек, принадлежащих коллекции, которые будут последовательно вставлены на указанную позицию.
+             * @example [
+             *       "019b21d9-c5d9-777d-80bd-d67c664bc6d9",
+             *       "019b21d9-c5d9-777d-80bd-d67c664bc6d8"
+             *     ]
+             */
+            card_ids: string[];
+            /**
+             * Format: uint64
+             * @example 1
+             */
+            position: number;
+        };
         UpdatePromocodeRequest: {
             /**
              * @description Код промокода.
@@ -4689,6 +5173,350 @@ export interface components {
             show_in_pdp: boolean;
         };
         /**
+         * Format: uuid
+         * @description Уникальный идентификатор группы промокодов.
+         * @example 019b21d9-c5d9-777d-80bd-d67c664bc6d9
+         */
+        PromocodeGroupID: string;
+        /**
+         * Format: uuid
+         * @description Уникальный идентификатор кода промокода.
+         * @example 019b21d9-c5d9-777d-80bd-d67c664bc6d0
+         */
+        PromocodeGroupCodeID: string;
+        /**
+         * @description Статус группы промокодов:
+         *     - `ACTIVE` — группа активна, коды применяются при оформлении заказа.
+         *     - `INACTIVE` — группа неактивна, коды не применяются.
+         * @enum {string}
+         */
+        PromocodeGroupStatus: "ACTIVE" | "INACTIVE";
+        /**
+         * @description Тип группы промокодов:
+         *     - `SINGLE` — группа с одним кодом (традиционный промокод), один код на всех покупателей.
+         *     - `MULTIPLE` — группа с набором кодов (каждый код предназначен для одного использования — купоны).
+         * @enum {string}
+         */
+        PromocodeGroupType: "SINGLE" | "MULTIPLE";
+        /**
+         * @description Тип промокода — к чему применяется скидка:
+         *     - `ORDER` — скидка на всю сумму заказа.
+         *     - `PRODUCTS` — скидка на конкретные товары (или все товары, в зависимости от `binding_mode`).
+         * @enum {string}
+         */
+        PromocodeGroupPromocodeType: "ORDER" | "PRODUCTS";
+        /**
+         * @description Режим применения скидки к товарам. Учитывается только для промокодов типа `PRODUCTS`:
+         *     - `ALL_VARIANTS` — скидка применяется ко всем товарам магазина.
+         *     - `SELECTED_VARIANTS` — скидка применяется к выбранным товарам.
+         *     - `SELECTED_CATEGORIES_COLLECTIONS` — скидка применяется к товарам из выбранных категорий и коллекций.
+         * @enum {string}
+         */
+        PromocodeGroupBindingMode: "ALL_VARIANTS" | "SELECTED_VARIANTS" | "SELECTED_CATEGORIES_COLLECTIONS";
+        /** @description Группа промокодов с правилами применения скидки и агрегированной статистикой. */
+        PromocodeGroup: {
+            id: components["schemas"]["PromocodeGroupID"];
+            /**
+             * @description Название группы промокодов.
+             * @example Скидка для новых клиентов
+             */
+            title: string;
+            discount_value: components["schemas"]["DiscountValue"];
+            /**
+             * Format: decimal
+             * @description Минимальная сумма заказа для применения промокода. Если не указана — ограничений нет.
+             * @example 1000.00
+             */
+            minimum_order_amount?: string;
+            /**
+             * Format: uint64
+             * @description Максимальное суммарное количество использований кодов группы. Если не указано — ограничений нет.
+             * @example 1000
+             */
+            max_usage?: number;
+            /**
+             * Format: decimal
+             * @description Максимальная сумма скидки за одно применение промокода. Если не указана — ограничений нет.
+             * @example 500.00
+             */
+            max_discount_amount?: string;
+            /**
+             * @description Ограничение одноразового использования — каждый код может быть использован не более одного раза.
+             * @example true
+             */
+            one_time_use: boolean;
+            /**
+             * @description Промокод применяется только к первому заказу покупателя.
+             * @example false
+             */
+            first_order_only: boolean;
+            /**
+             * Format: date-time
+             * @description Дата и время начала действия промокодов группы (RFC 3339).
+             * @example 2024-01-01T00:00:00Z
+             */
+            valid_from: string;
+            /**
+             * Format: date-time
+             * @description Дата и время окончания действия промокодов группы (RFC 3339). Если не указана — промокоды действуют бессрочно.
+             * @example 2024-12-31T23:59:59Z
+             */
+            valid_until?: string;
+            binding_mode: components["schemas"]["PromocodeGroupBindingMode"];
+            type: components["schemas"]["PromocodeGroupPromocodeType"];
+            group_type: components["schemas"]["PromocodeGroupType"];
+            /**
+             * @description Показывать ли промокоды группы на странице товара. Применимо только для промокодов типа `PRODUCTS`.
+             * @example false
+             */
+            show_in_pdp: boolean;
+            status: components["schemas"]["PromocodeGroupStatus"];
+            /**
+             * Format: uint64
+             * @description Суммарное количество использований всех кодов группы.
+             * @example 42
+             */
+            usage_count: number;
+            /**
+             * Format: uint64
+             * @description Количество кодов в группе.
+             * @example 100
+             */
+            code_count: number;
+            /**
+             * Format: date-time
+             * @description Дата и время создания группы (RFC 3339).
+             * @example 2024-01-01T00:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Дата и время последнего обновления группы (RFC 3339).
+             * @example 2024-06-01T12:00:00Z
+             */
+            updated_at: string;
+        };
+        PromocodeGroupCollection: {
+            /** @description Список групп промокодов. */
+            promocode_groups: components["schemas"]["PromocodeGroup"][];
+            /**
+             * Format: uint64
+             * @description Общее количество групп промокодов (без учета пагинации).
+             * @example 50
+             */
+            total_count: number;
+        };
+        /**
+         * @description Запрос на создание группы промокодов.
+         *
+         *     Операция выполняется за один шаг: если создание группы или добавление кодов завершается ошибкой — изменения не применяются.
+         *
+         *     Поле `codes` обязательно и должно содержать хотя бы один код.
+         */
+        CreatePromocodeGroupRequest: {
+            /**
+             * @description Название группы промокодов.
+             * @example Скидка для новых клиентов
+             */
+            title: string;
+            discount_value: components["schemas"]["DiscountValue"];
+            /**
+             * Format: decimal
+             * @description Минимальная сумма заказа для применения промокода. Не передавайте поле, чтобы не устанавливать ограничение.
+             * @example 1000.00
+             */
+            minimum_order_amount?: string;
+            /**
+             * Format: uint64
+             * @description Максимальное суммарное количество использований кодов группы. Не передавайте поле, чтобы не ограничивать.
+             * @example 1000
+             */
+            max_usage?: number;
+            /**
+             * Format: decimal
+             * @description Максимальная сумма скидки за одно применение. Не передавайте поле, чтобы не ограничивать.
+             * @example 500.00
+             */
+            max_discount_amount?: string;
+            /**
+             * @description Ограничение одноразового использования — каждый код может быть использован не более одного раза.
+             * @default false
+             * @example true
+             */
+            one_time_use: boolean;
+            /**
+             * @description Промокод применяется только к первому заказу покупателя.
+             * @default false
+             * @example false
+             */
+            first_order_only: boolean;
+            /**
+             * Format: date-time
+             * @description Дата и время начала действия промокодов группы (RFC 3339).
+             * @example 2024-01-01T00:00:00Z
+             */
+            valid_from: string;
+            /**
+             * Format: date-time
+             * @description Дата и время окончания действия промокодов группы (RFC 3339). Не передавайте поле для бессрочного действия.
+             * @example 2024-12-31T23:59:59Z
+             */
+            valid_until?: string;
+            binding_mode: components["schemas"]["PromocodeGroupBindingMode"];
+            type: components["schemas"]["PromocodeGroupPromocodeType"];
+            group_type: components["schemas"]["PromocodeGroupType"];
+            /**
+             * @description Показывать ли промокоды группы на странице товара. Применимо только для промокодов типа `PRODUCTS`.
+             * @default false
+             * @example false
+             */
+            show_in_pdp: boolean;
+            /**
+             * @description Список кодов промокодов. Должен содержать хотя бы один код.
+             *     Каждый код — уникальная строка длиной от 3 до 20 символов (заглавные латинские буквы, цифры и спецсимволы `!@#$%^&*()_-=+`).
+             */
+            codes: string[];
+        };
+        /** @description Код промокода внутри группы. */
+        PromocodeGroupCode: {
+            id: components["schemas"]["PromocodeGroupCodeID"];
+            /**
+             * @description Строковое значение кода промокода.
+             * @example WELCOME10
+             */
+            code: string;
+            /**
+             * Format: uint64
+             * @description Количество использований данного кода.
+             * @example 3
+             */
+            usage_count: number;
+            /**
+             * Format: date-time
+             * @description Дата и время создания кода (RFC 3339).
+             * @example 2024-01-01T00:00:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Дата и время последнего изменения кода (RFC 3339).
+             * @example 2024-06-01T12:00:00Z
+             */
+            updated_at: string;
+        };
+        PromocodeGroupCodeCollection: {
+            /** @description Список кодов промокодов в группе. */
+            codes: components["schemas"]["PromocodeGroupCode"][];
+            /**
+             * Format: uint64
+             * @description Общее количество кодов в группе (без учета пагинации).
+             * @example 500
+             */
+            total_count: number;
+        };
+        /** @description Запрос на добавление кода в группу промокодов. */
+        AddPromocodeGroupCodeRequest: {
+            /**
+             * @description Уникальный код промокода. Длина от 3 до 20 символов.
+             *     Допустимые символы:
+             *     - заглавные латинские буквы;
+             *     - цифры;
+             *     - `!@#$%^&*()_-=+`.
+             * @example SUMMER20
+             */
+            code: string;
+        };
+        /** @description Запрос на изменение строкового значения кода промокода. */
+        UpdatePromocodeGroupCodeRequest: {
+            /**
+             * @description Новое значение кода. Длина от 3 до 20 символов.
+             *     Допустимые символы:
+             *     - заглавные латинские буквы;
+             *     - цифры;
+             *     - `!@#$%^&*()_-=+`.
+             * @example SUMMER25
+             */
+            code: string;
+        };
+        /**
+         * @description Запрос на обновление группы промокодов. Все поля обязательны — передайте текущие значения для полей, которые не изменяются.
+         *
+         *     Привязку объектов (товаров, категорий, коллекций) выполняйте через отдельные методы
+         *     `POST /v1/promocode_groups/{id}/objects/add` и `POST /v1/promocode_groups/{id}/objects/remove`.
+         */
+        UpdatePromocodeGroupRequest: {
+            /**
+             * @description Название группы промокодов.
+             * @example Скидка для новых клиентов
+             */
+            title: string;
+            discount_value: components["schemas"]["DiscountValue"];
+            /**
+             * Format: decimal
+             * @description Минимальная сумма заказа для применения промокода. Не передавайте поле, чтобы снять ограничение.
+             * @example 1000.00
+             */
+            minimum_order_amount?: string;
+            /**
+             * Format: uint64
+             * @description Максимальное суммарное количество использований кодов группы. Не передавайте поле, чтобы снять ограничение.
+             * @example 1000
+             */
+            max_usage?: number;
+            /**
+             * Format: decimal
+             * @description Максимальная сумма скидки за одно применение. Не передавайте поле, чтобы снять ограничение.
+             * @example 500.00
+             */
+            max_discount_amount?: string;
+            /**
+             * @description Ограничение одноразового использования — каждый код может быть использован не более одного раза.
+             * @example true
+             */
+            one_time_use: boolean;
+            /**
+             * @description Промокод применяется только к первому заказу покупателя.
+             * @example false
+             */
+            first_order_only: boolean;
+            /**
+             * Format: date-time
+             * @description Дата и время начала действия промокодов группы (RFC 3339).
+             * @example 2024-01-01T00:00:00Z
+             */
+            valid_from: string;
+            /**
+             * Format: date-time
+             * @description Дата и время окончания действия промокодов группы (RFC 3339). Не передавайте поле для бессрочного действия.
+             * @example 2024-12-31T23:59:59Z
+             */
+            valid_until?: string;
+            binding_mode: components["schemas"]["PromocodeGroupBindingMode"];
+            type: components["schemas"]["PromocodeGroupPromocodeType"];
+            group_type: components["schemas"]["PromocodeGroupType"];
+            /**
+             * @description Показывать ли промокоды группы на странице товара. Применимо только для промокодов типа `PRODUCTS`.
+             * @example false
+             */
+            show_in_pdp: boolean;
+        };
+        /**
+         * @description Объекты, привязываемые к группе промокодов:
+         *     - `product_variant_ids` — для привязки конкретных товаров.
+         *     - `category_ids` — для привязки категорий.
+         *     - `collection_ids` — для привязки коллекций.
+         *
+         *     В одном запросе передавайте либо товары, либо категории и коллекции — не одновременно.
+         */
+        PromocodeGroupObjects: {
+            /** @description Идентификаторы товаров. */
+            product_variant_ids?: components["schemas"]["VariantID"][];
+            /** @description Идентификаторы категорий. */
+            category_ids?: components["schemas"]["CategoryID"][];
+            /** @description Идентификаторы коллекций. */
+            collection_ids?: components["schemas"]["CollectionID"][];
+        };
+        /**
          * @description Тип события:
          *     - `ORDER_STATUS_CHANGED` — изменился статус заказа.
          *     - `ORDER_PAYMENT_STATUS_CHANGED` — изменился статус оплаты заказа.
@@ -4788,18 +5616,18 @@ export interface components {
              */
             caption: string;
             /**
-             * @description Текст описания по клику
+             * @description Текст описания по клику.
              * @example Отображается при наличии скидки
              */
             tooltip: string;
             /**
              * Format: uint
-             * @description Приоритет бейджа
+             * @description Приоритет бейджа.
              * @example 1
              */
             priority: number;
             /**
-             * @description Является ли бейдж системным. Системные бейджи предсозданы и их нельзя обновлять
+             * @description Является ли бейдж системным. Системные бейджи предсозданы и их нельзя обновлять.
              * @example true
              */
             is_system: boolean;
@@ -4809,7 +5637,7 @@ export interface components {
             badges: components["schemas"]["Badge"][];
             /**
              * Format: uint64
-             * @description Общее количество бейджей
+             * @description Общее количество бейджей.
              * @example 100
              */
             total_count: number;
@@ -7341,6 +8169,313 @@ export interface operations {
             };
         };
     };
+    GetVariantAttachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["VariantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список документов товара. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantAttachmentCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateVariantAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["VariantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VariantAttachmentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Документ успешно прикреплен к товару. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantAttachment"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт данных. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteVariantAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["VariantID"];
+                file_id: components["schemas"]["FileID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Документ откреплён от товара */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateVariantAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["VariantID"];
+                file_id: components["schemas"]["FileID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/merge-patch+json": components["schemas"]["VariantAttachmentUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Документ успешно обновлён */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantAttachment"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт данных. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BulkUpdateStocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUpdateStocksRequest"];
+            };
+        };
+        responses: {
+            /** @description Остатки успешно обновлены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. Для невалидных элементов батча в поле `errors` перечислены идентификаторы, коды и описания ошибок. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkOperationError"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     GetWarehouses: {
         parameters: {
             query: {
@@ -8803,6 +9938,1355 @@ export interface operations {
             };
         };
     };
+    GetPromocodeGroups: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+                /** @description Фильтрация по статусу группы. */
+                status?: components["schemas"]["PromocodeGroupStatus"];
+                /** @description Поле для сортировки. */
+                sort_by?: "created_at" | "title" | "usage_count";
+                /** @description Направление сортировки. */
+                sort_direction?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список групп промокодов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroupCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreatePromocodeGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePromocodeGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Группа промокодов успешно создана. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroup"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт — один или несколько кодов уже используются в другой активной группе с пересекающимся периодом действия. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetPromocodeGroupByID: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Группа промокодов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroup"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdatePromocodeGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePromocodeGroupRequest"];
+            };
+        };
+        responses: {
+            /** @description Группа промокодов успешно обновлена. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroup"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт — новый период действия пересекается с периодом другой активной группы, содержащей одинаковые коды. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeletePromocodeGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Группа промокодов успешно удалена. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AddPromocodeGroupObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromocodeGroupObjects"];
+            };
+        };
+        responses: {
+            /** @description Объекты успешно привязаны к группе промокодов. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RemovePromocodeGroupObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PromocodeGroupObjects"];
+            };
+        };
+        responses: {
+            /** @description Объекты успешно отвязаны от группы промокодов. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetPromocodeGroupCodes: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+                /** @description Поле для сортировки. */
+                sort_by?: "code" | "created_at" | "usage_count";
+                /** @description Направление сортировки. */
+                sort_direction?: "asc" | "desc";
+                /** @description Поиск по коду (вхождение подстроки). */
+                search?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                group_id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список кодов группы промокодов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroupCodeCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AddPromocodeGroupCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                group_id: components["schemas"]["PromocodeGroupID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddPromocodeGroupCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Код успешно добавлен в группу. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroupCode"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт — код уже используется в другой активной группе с пересекающимся периодом действия. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeletePromocodeGroupCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                group_id: components["schemas"]["PromocodeGroupID"];
+                /** @description Уникальный идентификатор кода промокода. */
+                code_id: components["schemas"]["PromocodeGroupCodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Код успешно удален из группы. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdatePromocodeGroupCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Уникальный идентификатор группы промокодов. */
+                group_id: components["schemas"]["PromocodeGroupID"];
+                /** @description Уникальный идентификатор кода промокода. */
+                code_id: components["schemas"]["PromocodeGroupCodeID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePromocodeGroupCodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Код успешно обновлен. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PromocodeGroupCode"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт — новый код уже используется в другой активной группе с пересекающимся периодом действия. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetDiscounts: {
+        parameters: {
+            query: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+                /** @description Статус скидки. */
+                status: components["schemas"]["DiscountStatus"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список скидок. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscountCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateDiscount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDiscountRequest"];
+            };
+        };
+        responses: {
+            /** @description Скидка успешно создана. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Discount"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetDiscountById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Скидка. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Discount"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateDiscount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateDiscountRequest"];
+            };
+        };
+        responses: {
+            /** @description Скидка успешно обновлена. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Discount"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetDiscountCategoryIDs: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ID категорий скидки. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryIDCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetDiscountCollectionIDs: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ID коллекций скидки. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionIDCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetDiscountVariantIDs: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ID товаров скидки. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VariantIDCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ArchiveDiscount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Скидка успешно архивирована. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UnarchiveDiscount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Скидка успешно разархивирована */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AddDiscountObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountObjects"];
+            };
+        };
+        responses: {
+            /** @description Объекты успешно добавлены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RemoveDiscountObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["DiscountID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountObjects"];
+            };
+        };
+        responses: {
+            /** @description Объекты успешно удалены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     GetGifts: {
         parameters: {
             query?: {
@@ -9662,652 +12146,6 @@ export interface operations {
             };
         };
     };
-    GetDiscounts: {
-        parameters: {
-            query: {
-                /** @description Номер страницы. */
-                page?: number;
-                /** @description Количество элементов на странице. */
-                per_page?: number;
-                /** @description Статус скидки. */
-                status: components["schemas"]["DiscountStatus"][];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Список скидок. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DiscountCollection"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    CreateDiscount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateDiscountRequest"];
-            };
-        };
-        responses: {
-            /** @description Скидка успешно создана. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Discount"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    GetDiscountById: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Скидка. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Discount"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    UpdateDiscount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateDiscountRequest"];
-            };
-        };
-        responses: {
-            /** @description Скидка успешно обновлена. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Discount"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    GetDiscountCategoryIDs: {
-        parameters: {
-            query?: {
-                /** @description Номер страницы. */
-                page?: number;
-                /** @description Количество элементов на странице. */
-                per_page?: number;
-            };
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description ID категорий скидки. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CategoryIDCollection"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    GetDiscountCollectionIDs: {
-        parameters: {
-            query?: {
-                /** @description Номер страницы. */
-                page?: number;
-                /** @description Количество элементов на странице. */
-                per_page?: number;
-            };
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description ID коллекций скидки. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CollectionIDCollection"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    GetDiscountVariantIDs: {
-        parameters: {
-            query?: {
-                /** @description Номер страницы. */
-                page?: number;
-                /** @description Количество элементов на странице. */
-                per_page?: number;
-            };
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description ID товаров скидки. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VariantIDCollection"];
-                };
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    ArchiveDiscount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Скидка успешно архивирована. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    UnarchiveDiscount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Скидка успешно разархивирована */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    AddDiscountObjects: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DiscountObjects"];
-            };
-        };
-        responses: {
-            /** @description Объекты успешно добавлены. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    RemoveDiscountObjects: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["schemas"]["DiscountID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["DiscountObjects"];
-            };
-        };
-        responses: {
-            /** @description Объекты успешно удалены. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Некорректный запрос. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Не авторизован. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Внутренняя ошибка сервера. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     GetCollectionById: {
         parameters: {
             query?: never;
@@ -10560,6 +12398,127 @@ export interface operations {
         };
         responses: {
             /** @description Карточки успешно удалены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetCollectionCardsManualOrder: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                collection_id: components["schemas"]["CollectionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Идентификаторы карточек в сохраненном порядке ручной сортировки. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionCardsManualOrder"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MoveCollectionCards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: components["schemas"]["CollectionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveCollectionCardsRequest"];
+            };
+        };
+        responses: {
+            /** @description Карточки успешно перемещены. */
             204: {
                 headers: {
                     [name: string]: unknown;
