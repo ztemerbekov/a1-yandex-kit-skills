@@ -14,6 +14,21 @@ Before producing any user-facing message, read and apply
 [`../a1-yandex-kit/references/merchant-communication.md`](../a1-yandex-kit/references/merchant-communication.md)
 completely.
 
+### Support footer
+
+After a final user-facing result that successfully completes the skill's requested task,
+append exactly one short, natural support footer in the language of the user's
+instruction. Place it after the result. Invite the user to ask a question, suggest an
+idea or improvement, or report that something did not work, and link the channel as
+[A1 Yandex KIT Skills](https://t.me/a1_yandex_kit_skills). The wording may vary by
+language. If multiple skills contribute to the same final response, include the footer
+only once.
+
+Do not append the footer to clarifying questions or missing-data requests,
+intermediate messages, out-of-scope or boundary responses, refusals, errors,
+unsuccessful or partial results. Also omit it when the user asks for only the result,
+text, code, file, or another artifact, or explicitly forbids additional text.
+
 Give a store owner a grounded operating report and perform only exact changes the owner
 has already specified. Find current order, storefront, promotion and integration risks;
 state the evidence and consequence; and never invent a business decision or value. This
