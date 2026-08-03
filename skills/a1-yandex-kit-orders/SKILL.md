@@ -4,7 +4,7 @@ description: "Manage orders in a Yandex KIT store over its REST API: orders and 
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "0.1.0"
+  version: "1.0.0"
 ---
 
 # A1 Yandex KIT — Orders

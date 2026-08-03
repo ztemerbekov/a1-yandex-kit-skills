@@ -45,8 +45,8 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `gen-docs`, `gen-skills`, `fetch-spec`.
 - `skills/` — 6 generated API skills plus setup and the manually maintained
   operator, catalog-doctor, promo-launcher and launch-check scenarios.
-- `.claude-plugin/{plugin,marketplace}.json` + `.mcp.json` — Claude Code plugin
-  (plugin `a1-yandex-kit`, marketplace `a1-yandex-kit-skills`).
+- `.claude-plugin/marketplace.json` + `.mcp.json` — Claude Code plugin, defined inline
+  in the marketplace (plugin and marketplace are both `a1-yandex-kit-skills`).
 
 ## Generated files — never hand-edit
 
@@ -94,11 +94,12 @@ only replaces the six directories it owns and must preserve these five.
 
 ## Version sync (bump together, one commit)
 
-`0.1.0` must stay identical across: `packages/mcp/package.json` (and
+`1.0.0` must stay identical across: `packages/mcp/package.json` (and
 `packages/core/package.json` — mcp depends on the exact version), `server.json`
-(root `version` **and** `packages[].version`), `.claude-plugin/plugin.json`, and
+(root `version` **and** `packages[].version`), `.codex-plugin/plugin.json`,
+`.cursor-plugin/plugin.json`, and
 `SKILL_VERSION` in `packages/codegen/src/gen-skills.ts` followed by `npm run gen` so every
-SKILL.md `metadata.version` matches. `mcpName` in `packages/mcp/package.json` must equal
+SKILL.md `metadata.version` matches (the four manual scenario skills are bumped by hand). `mcpName` in `packages/mcp/package.json` must equal
 `name` in `server.json`. Release steps: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Safety
