@@ -41,6 +41,9 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
 - `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 61 tools; `src/tools/*.ts` is
   one file per domain; `meta.ts` hosts the trio (`search_operations`,
   `get_operation_schema`, `kit_request`) that covers all 151 operations (65 have curated tools).
+  `telemetry.ts` — anonymous usage pings to usage.gistrec.cloud (ids/names/versions only,
+  never data or arguments; fire-and-forget, must never block or throw; opt-out
+  `YANDEX_KIT_TELEMETRY=0`).
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
   `gen-docs`, `gen-skills`, `fetch-spec`.
 - `skills/` — 6 generated API skills plus setup and the manually maintained
