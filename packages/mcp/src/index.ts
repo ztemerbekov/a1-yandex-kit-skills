@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { KitClient } from "yandex-kit-core";
 import { loadConfig, type Config } from "./config.js";
+import { instrumentToolCalls, Telemetry } from "./telemetry.js";
 import { registerMetaTools } from "./tools/meta.js";
 import { registerStoreTools } from "./tools/store.js";
 import { registerProductTools } from "./tools/products.js";
@@ -41,6 +42,15 @@ async function main(): Promise<void> {
     readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   ) as { version: string };
   const server = new McpServer({ name: "mcp-yandex-kit", version: pkg.version });
+
+  // Anonymous usage pings (ids/names/versions only, never data or arguments);
+  // opt out with YANDEX_KIT_TELEMETRY=0. Must be wired before tools register.
+  const telemetry = new Telemetry(pkg.version);
+  instrumentToolCalls(server, telemetry);
+  server.server.oninitialized = () => {
+    telemetry.setClientInfo(server.server.getClientVersion());
+    telemetry.send("server_start");
+  };
 
   registerMetaTools(server, client);
   registerStoreTools(server, client);
