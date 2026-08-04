@@ -97,7 +97,7 @@ only replaces the six directories it owns and must preserve these five.
 
 ## Version sync (bump together, one commit)
 
-`1.0.0` must stay identical across: `packages/mcp/package.json` (and
+`1.1.0` must stay identical across: `packages/mcp/package.json` (and
 `packages/core/package.json` — mcp depends on the exact version), `server.json`
 (root `version` **and** `packages[].version`), `.codex-plugin/plugin.json`,
 `.cursor-plugin/plugin.json`, and

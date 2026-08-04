@@ -31,7 +31,7 @@ const SKILL_SRC_DIR = fileURLToPath(new URL("./skill-src/", import.meta.url));
 const CODEGEN_DIR = fileURLToPath(new URL("../", import.meta.url));
 const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 
-const SKILL_VERSION = "1.0.0";
+const SKILL_VERSION = "1.1.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
