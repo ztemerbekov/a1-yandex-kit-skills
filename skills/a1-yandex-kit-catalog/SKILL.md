@@ -4,7 +4,7 @@ description: "Manage the Yandex KIT store catalog over its REST API: products, v
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # A1 Yandex KIT — Catalog

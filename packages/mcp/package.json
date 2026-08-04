@@ -1,6 +1,6 @@
 {
   "name": "mcp-yandex-kit",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A1 Yandex KIT MCP server for the Yandex KIT e-commerce platform API",
   "mcpName": "io.github.gistrec/mcp-yandex-kit",
   "license": "MIT",
@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "yandex-kit-core": "1.0.0",
+    "yandex-kit-core": "1.1.0",
     "zod": "^3.25.0"
   }
 }
