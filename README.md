@@ -234,7 +234,7 @@
    ```bash
    codex mcp add yandex-kit \
      --env YANDEX_KIT_TOKEN=ваш_токен \
-     -- npx -y mcp-yandex-kit
+     -- npx -y mcp-yandex-kit@latest
    ```
 
 2. Начните новую задачу Codex.
@@ -284,7 +284,7 @@
    ```bash
    claude mcp add yandex-kit \
      -e YANDEX_KIT_TOKEN=ваш_токен \
-     -- npx -y mcp-yandex-kit
+     -- npx -y mcp-yandex-kit@latest
    ```
 
 2. Начните новую сессию Claude Code.
