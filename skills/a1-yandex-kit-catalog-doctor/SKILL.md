@@ -3,7 +3,7 @@ name: a1-yandex-kit-catalog-doctor
 description: "Audit and exactly repair a Yandex KIT catalog. Use for Russian requests such as «Проверь каталог», «Проведи глубокий аудит», «Проверь группировку, карточки, медиа или коллекции», «Поставь цену 4 990 для SKU-42», «Исправь остатки по этому файлу» and exact single or bulk catalog fixes. Audits are read-only; writes require an explicit command with an exact target, operation and owner value or named authoritative source. Use a1-yandex-kit-operator instead for a fast current store signal."
 metadata:
   author: Zinnur Temerbekov
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # A1 Yandex KIT Catalog Doctor

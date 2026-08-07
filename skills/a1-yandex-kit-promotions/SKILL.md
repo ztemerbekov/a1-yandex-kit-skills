@@ -4,7 +4,7 @@ description: "Manage promotions in a Yandex KIT store over its REST API: discoun
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # A1 Yandex KIT — Promotions
