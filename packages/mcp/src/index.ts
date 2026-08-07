@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { KitClient } from "yandex-kit-core";
-import { loadConfig, type Config } from "./config.js";
+import { ConfigError, loadConfig, type Config } from "./config.js";
 import { instrumentToolCalls, Telemetry } from "./telemetry.js";
 import { registerMetaTools } from "./tools/meta.js";
 import { registerStoreTools } from "./tools/store.js";
@@ -20,17 +20,34 @@ import { registerWarehouseTools } from "./tools/warehouses.js";
 import { registerCollectionTools } from "./tools/collections.js";
 import { registerFileTools } from "./tools/files.js";
 
-function loadConfigOrExit(): Config {
+/**
+ * Loads the config, reporting the drop-off if it is missing. An unconfigured
+ * server dies before the MCP handshake, so this ping is the only trace such an
+ * install ever leaves — and it has to be awaited, or process.exit() below would
+ * kill the request in flight.
+ */
+async function loadConfigOrExit(telemetry: Telemetry): Promise<Config> {
   try {
     return loadConfig();
   } catch (err) {
     console.error(err instanceof Error ? err.message : String(err));
+    if (err instanceof ConfigError) {
+      await telemetry.sendBlocking("startup_failed", { reason: err.reason });
+    }
     process.exit(1);
   }
 }
 
 async function main(): Promise<void> {
-  const config = loadConfigOrExit();
+  const pkg = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { version: string };
+
+  // Anonymous usage pings (ids/names/versions only, never data or arguments);
+  // opt out with YANDEX_KIT_TELEMETRY=0. Built before the config so a missing
+  // token can be reported; wired to the server before tools register.
+  const telemetry = new Telemetry(pkg.version);
+  const config = await loadConfigOrExit(telemetry);
   const client = new KitClient({
     token: config.token,
     baseUrl: config.baseUrl,
@@ -38,14 +55,7 @@ async function main(): Promise<void> {
     timeoutMs: config.timeoutMs,
   });
 
-  const pkg = JSON.parse(
-    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-  ) as { version: string };
   const server = new McpServer({ name: "mcp-yandex-kit", version: pkg.version });
-
-  // Anonymous usage pings (ids/names/versions only, never data or arguments);
-  // opt out with YANDEX_KIT_TELEMETRY=0. Must be wired before tools register.
-  const telemetry = new Telemetry(pkg.version);
   instrumentToolCalls(server, telemetry);
   server.server.oninitialized = () => {
     telemetry.setClientInfo(server.server.getClientVersion());

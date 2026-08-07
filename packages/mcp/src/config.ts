@@ -5,11 +5,25 @@ export interface Config {
   timeoutMs: number;
 }
 
+/**
+ * A missing or malformed environment variable. `reason` is the machine-readable
+ * code index.ts ships with the startup_failed ping (never a variable's value).
+ */
+export class ConfigError extends Error {
+  readonly reason: string;
+
+  constructor(message: string, reason: string) {
+    super(message);
+    this.name = "ConfigError";
+    this.reason = reason;
+  }
+}
+
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
   if (raw === undefined || raw === "") return fallback;
   const value = Number(raw);
   if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${name} must be a positive number, got: ${raw}`);
+    throw new ConfigError(`${name} must be a positive number, got: ${raw}`, "invalid_config");
   }
   return value;
 }
@@ -17,9 +31,10 @@ function positiveNumber(raw: string | undefined, fallback: number, name: string)
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const token = env.YANDEX_KIT_TOKEN;
   if (!token) {
-    throw new Error(
+    throw new ConfigError(
       "YANDEX_KIT_TOKEN is required. Generate a token in the Yandex KIT merchant cabinet: " +
         "Settings -> API -> Generate token (https://yandex.ru/dev/kit/ru/authorization).",
+      "missing_token",
     );
   }
   return {
