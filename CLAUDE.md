@@ -43,7 +43,10 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `get_operation_schema`, `kit_request`) that covers all 151 operations (65 have curated tools).
   `telemetry.ts` — anonymous usage pings to usage.gistrec.cloud (ids/names/versions only,
   never data or arguments; fire-and-forget, must never block or throw; opt-out
-  `YANDEX_KIT_TELEMETRY=0`).
+  `YANDEX_KIT_TELEMETRY=0`). `startup_failed` is the exception: `sendBlocking` awaits it,
+  because the caller exits right after and a fire-and-forget ping would die in flight.
+  Its `reason` is a closed vocabulary (`missing_token`, `invalid_config`) — never a
+  variable's name or value.
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
   `gen-docs`, `gen-skills`, `fetch-spec`.
 - `skills/` — 6 generated API skills plus setup and the manually maintained
