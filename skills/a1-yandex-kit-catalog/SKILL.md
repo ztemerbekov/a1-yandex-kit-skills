@@ -1,10 +1,10 @@
 ---
 name: a1-yandex-kit-catalog
-description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), variant documents (attachments), categories, characteristics, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store."
+description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), bulk price/stock sync, variant documents (attachments), categories, characteristics (including groups and colors), product videos, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # A1 Yandex KIT — Catalog
@@ -16,7 +16,7 @@ Before producing any user-facing message, read and apply
 completely.
 
 Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
-Категории товаров, Характеристики товаров, Коллекции, Контекстные коллекции, Бейджи.
+Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (`/v1/variants`) is the sellable unit carrying SKU, prices
 and per-warehouse stocks, and a product (`/v1/products`) groups variants, so most
 «товар» operations act on variants. A variant carries two **distinct** identifiers:
@@ -32,6 +32,24 @@ is reordered automatically). Mind the content types: `UpdateVariant`, `UpdateCat
 (`application/merge-patch+json` — send only the fields to change; `null` clears only
 the fields the schema marks nullable, see the `a1-yandex-kit` skill), while the other
 updates are plain `application/json`.
+
+For catalog-wide syncs prefer the bulk endpoints over per-variant PATCHes:
+`POST /v1/variants/prices/bulk_update` and `POST /v1/variants/stocks/bulk_update` take
+up to **5000 items** each and are synchronous and **atomic** — one invalid item (unknown or
+archived variant, a variant repeated in the batch, a malformed price) rejects the whole
+request with 400 and applies nothing, listing every offender in `errors`. In a price item
+both fields are optional: omit a key to keep the current value, send `null` to reset it
+(resetting `price` works only on unpublished variants).
+
+Product videos are a separate tag: upload via `POST /v1/videos`
+(`multipart/form-data`, max 100 MB, mp4/mov/webm/avi/flv, deduplicated by content), then
+poll `GET /v1/videos/{video_id}` — `UPLOADED` → `PROCESSING` → `READY` (poll at most
+once every 5 seconds) — and attach the ready video to a variant through `media` in
+`CreateVariant`/`UpdateVariant`. Characteristics carry two extras beyond the values
+themselves: groups (`/v1/characteristics/groups`, ordered by `display_sequence`) and
+colors (`/v1/characteristics/colors`), where `UpdateCharacteristicColor` recolors an
+**existing** value addressed by the value itself — there is no id — accepting a hex code or
+the special `multicoloured` / `transparent`.
 
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
@@ -74,7 +92,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (64 operations)
+## Endpoints (70 operations)
 
 ### Товары
 
@@ -102,6 +120,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | PATCH | `/v1/variants/{id}/attachments/{file_id}` | `UpdateVariantAttachment` | Обновление документа товара |
 | DELETE | `/v1/variants/{id}/attachments/{file_id}` | `DeleteVariantAttachment` | Открепление документа от товара |
 | POST | `/v1/variants/stocks/bulk_update` | `BulkUpdateStocks` | Массовое обновление остатков |
+| POST | `/v1/variants/prices/bulk_update` | `BulkUpdatePrices` | Массовое обновление цен |
 
 ### Категории товаров
 
@@ -129,6 +148,16 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | GET | `/v1/characteristics/groups/{id}` | `GetCharacteristicGroupById` | Получение группы характеристик по ID |
 | PATCH | `/v1/characteristics/groups/{id}` | `UpdateCharacteristicGroup` | Обновление группы характеристик |
 | DELETE | `/v1/characteristics/groups/{id}` | `DeleteCharacteristicGroup` | Удаление группы характеристик |
+| GET | `/v1/characteristics/colors` | `GetCharacteristicColors` | Получение списка цветов |
+| PATCH | `/v1/characteristics/colors` | `UpdateCharacteristicColor` | Обновление hex-кода для значения цветовой характеристики |
+
+### Видео
+
+| Method | Path | OperationId | Summary (RU) |
+| --- | --- | --- | --- |
+| GET | `/v1/videos` | `GetVideos` | Получение списка видео |
+| POST | `/v1/videos` | `UploadVideo` | Загрузка видео |
+| GET | `/v1/videos/{video_id}` | `GetVideoById` | Получение видео по идентификатору |
 
 ### Коллекции
 
@@ -174,7 +203,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-151 operations):
+160 operations):
 
 - `list_products` — List products of the store (paginated).
 - `get_product` — Get a single product by its ID, including its category bindings.
@@ -184,12 +213,18 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `get_variant` — Get a single variant by its ID (name, SKU, pricing, stocks, media, status).
 - `create_variant` — Create a new variant (sellable item) under an existing product.
 - `update_variant` — Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks); set a field to null to remove it.
+- `bulk_update_prices` — Update prices of up to 5000 variants in one synchronous, atomic request — the fast path for syncing a whole catalog instead of calling update_variant per item.
 - `variant_action` — Archive a variant (soft delete: status becomes ARCHIVED, item is hidden from the storefront but restorable) or unarchive it (status becomes HIDDEN; publish it afterwards via update_variant).
 - `list_categories` — List product categories of the store (paginated).
 - `get_category` — Get a single product category by its ID.
 - `create_category` — Create a new product category.
 - `update_category` — Update an existing category via JSON Merge Patch: send only the fields to change; set a field to null to remove it (e.g. parent_id: null makes the category top-level).
 - `category_action` — Archive a category (soft delete: hidden from the storefront, restorable) or unarchive it.
+- `list_characteristic_colors` — List the color values of the store's characteristics with their hex codes (paginated).
+- `update_characteristic_color` — Set the hex code of a color characteristic value.
+- `list_videos` — List product videos of the store (paginated), oldest upload first.
+- `get_video` — Get a single video by its ID with the current processing status.
+- `upload_video` — Upload a product video via multipart/form-data and queue it for processing.
 - `list_collections` — List collections of the store (paginated).
 - `get_collection` — Get a single collection by its ID (title, slug, status, type, SEO fields).
 - `create_collection` — Create a new collection.
@@ -197,4 +232,4 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `delete_collection` — Permanently delete a collection by its ID.
 - `manage_collection_cards` — Add product cards to a STATIC collection or remove them from it.
 
-Характеристики товаров, Контекстные коллекции and Бейджи have no dedicated tools — reach them through `search_operations` + `kit_request`.
+Характеристики товаров beyond the color tools, Контекстные коллекции and Бейджи have no dedicated tools — reach them through `search_operations` + `kit_request`.

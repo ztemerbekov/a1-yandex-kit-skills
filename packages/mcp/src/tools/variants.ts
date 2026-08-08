@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { validateRequestBody, type KitClient } from "yandex-kit-core";
+import { KitValidationError, validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import {
   archiveReadUnsupportedFailure,
@@ -14,6 +14,15 @@ import {
   validationFailure,
   type ToolResult,
 } from "../util.js";
+
+/**
+ * The API takes decimal prices as strings; a consumer LLM naturally sends
+ * numbers, and Ajv (no type coercion) would reject the whole batch for it.
+ * `null` is meaningful (reset the price) and must survive untouched.
+ */
+function normalizePrice(value: string | number | null | undefined): string | null | undefined {
+  return typeof value === "number" ? String(value) : value;
+}
 
 /**
  * Post-check for the known KIT API defect (issue #54): the server silently
@@ -170,6 +179,83 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
       if (!check.valid) return validationFailure(check.errors);
       try {
         return ok(await client.call("UpdateVariant", { pathParams: { id }, body: variant }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "bulk_update_prices",
+    {
+      title: "Bulk update prices",
+      description:
+        "Update prices of up to 5000 variants in one synchronous, atomic request — the fast path " +
+        "for syncing a whole catalog instead of calling update_variant per item. If a single item " +
+        "is invalid (variant unknown or archived, variant listed twice, price malformed, discount " +
+        "price above the base price) the whole request is rejected with 400 and NOTHING is " +
+        "applied; the response `errors` list names every offending variant. Both price fields are " +
+        "optional per item: omit a key to keep the current value, or send null to reset it " +
+        "(resetting `price` works only on unpublished variants). Changing `price` recomputes the " +
+        "promo price; promo membership is refreshed in the background afterwards.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              variant_id: z.string().describe("Variant ID (UUID). Must not repeat within a batch."),
+              price: z
+                .union([z.string(), z.number()])
+                .nullable()
+                .optional()
+                .describe(
+                  "New base price (before discounts), e.g. 1000 or \"1000.00\". Omit to keep the " +
+                    "current price; null resets it (unpublished variants only).",
+                ),
+              manual_discount_price: z
+                .union([z.string(), z.number()])
+                .nullable()
+                .optional()
+                .describe(
+                  "New manually set discounted price. Must not exceed price. Omit to keep the " +
+                    "current value; null clears the manual discount.",
+                ),
+            }),
+          )
+          .describe("Price updates, 1-5000 items, one entry per variant."),
+      },
+    },
+    async ({ items }) => {
+      const duplicates = [
+        ...new Set(
+          items
+            .map((item) => item.variant_id)
+            .filter((id, index, all) => all.indexOf(id) !== index),
+        ),
+      ];
+      if (duplicates.length > 0) {
+        // The API rejects the entire batch for a repeated variant; catch it here
+        // so a 5000-item payload is not sent just to be refused.
+        return fail(
+          new KitValidationError(
+            `Each variant may appear only once in a batch; repeated: ${duplicates.join(", ")}.`,
+            [],
+            "DUPLICATE_VARIANT_ID",
+          ),
+        );
+      }
+      const body = {
+        items: items.map((item) => ({
+          variant_id: item.variant_id,
+          ...("price" in item ? { price: normalizePrice(item.price) } : {}),
+          ...("manual_discount_price" in item
+            ? { manual_discount_price: normalizePrice(item.manual_discount_price) }
+            : {}),
+        })),
+      };
+      const check = validateRequestBody("BulkUpdatePrices", body);
+      if (!check.valid) return validationFailure(check.errors);
+      try {
+        return ok(await client.call("BulkUpdatePrices", { body }));
       } catch (e) {
         return fail(e);
       }

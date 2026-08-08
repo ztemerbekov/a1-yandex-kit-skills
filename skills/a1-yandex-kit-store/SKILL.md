@@ -1,10 +1,10 @@
 ---
 name: a1-yandex-kit-store
-description: "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, geo regions, file uploads, redirects and blog/news posts. Use when reading store metadata, managing warehouses or redirects, uploading files or publishing news in a Yandex KIT store."
+description: "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, geo regions, file uploads, redirects, blog/news posts and system alerts. Use when reading store metadata, managing warehouses or redirects, uploading files, publishing news or triaging store alerts in a Yandex KIT store."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # A1 Yandex KIT — Store
@@ -16,10 +16,17 @@ Before producing any user-facing message, read and apply
 completely.
 
 Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
-Склады, Пользователи, Гео, Файлы, Редиректы, Новости. This is where you read the store
+Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; `UpdateWarehouse`
-uses JSON Merge Patch), upload files (`POST /v1/files` is the API's only
-`multipart/form-data` endpoint), and maintain SEO redirects and blog/news posts.
+uses JSON Merge Patch), upload files (`POST /v1/files` — with `POST /v1/videos` in the
+catalog domain, one of the API's two `multipart/form-data` endpoints), and maintain SEO
+redirects and blog/news posts.
+
+Alerts are the store's system-problem feed: `GET /v1/alerts` **requires** a status filter
+(`ACTIVE`/`RESOLVED`) and returns `CRITICAL` before `WARNING`, newest first within a
+severity. Only `WARNING` alerts can be closed by hand via
+`POST /v1/alerts/{alert_id}/resolve`; an active `CRITICAL` one is rejected with 400 and
+clears itself once the underlying problem is fixed.
 
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
@@ -62,7 +69,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (21 operations)
+## Endpoints (23 operations)
 
 ### Магазин
 
@@ -120,11 +127,18 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | GET | `/v1/blogs` | `GetBlogs` | Получение списка новостей |
 | POST | `/v1/blogs` | `CreateBlog` | Создание новости |
 
+### Алерты
+
+| Method | Path | OperationId | Summary (RU) |
+| --- | --- | --- | --- |
+| GET | `/v1/alerts` | `GetAlerts` | Получение списка алертов |
+| POST | `/v1/alerts/{alert_id}/resolve` | `ResolveAlert` | Закрытие алерта |
+
 ## Related MCP tools
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-151 operations):
+160 operations):
 
 - `get_store` — Get information about the current store (id, slug, b2c_url).
 - `get_current_user` — Get the user that owns the API token.
@@ -136,5 +150,7 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `warehouse_action` — Archive a warehouse (soft delete: status becomes ARCHIVED, warehouse can no longer be used for stock) or unarchive it (status becomes ACTIVE again).
 - `upload_file` — Upload a file (e.g. an image for a variant or collection) via multipart/form-data.
 - `get_file` — Get metadata of a previously uploaded file by its ID (name, size, URL).
+- `list_alerts` — List system alerts of the store (paginated), CRITICAL ones first and newest first within the same severity.
+- `resolve_alert` — Mark an alert as resolved.
 
 Редиректы and Новости have no dedicated tools — manage them through `search_operations` + `kit_request`.

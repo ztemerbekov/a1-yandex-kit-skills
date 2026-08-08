@@ -2,7 +2,14 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 151 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 160 API operations, including those without a dedicated tool.
+
+## Alerts (`alerts.ts`)
+
+| Tool | Read-only | Description |
+| --- | --- | --- |
+| `list_alerts` | yes | List system alerts of the store (paginated), CRITICAL ones first and newest first within the same severity. |
+| `resolve_alert` | no | Mark an alert as resolved. |
 
 ## Categories (`categories.ts`)
 
@@ -13,6 +20,13 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 | `create_category` | no | Create a new product category. |
 | `update_category` | no | Update an existing category via JSON Merge Patch: send only the fields to change; set a field to null to remove it (e.g. parent_id: null makes the category top-level). |
 | `category_action` | no | Archive a category (soft delete: hidden from the storefront, restorable) or unarchive it. |
+
+## Characteristics (`characteristics.ts`)
+
+| Tool | Read-only | Description |
+| --- | --- | --- |
+| `list_characteristic_colors` | yes | List the color values of the store's characteristics with their hex codes (paginated). |
+| `update_characteristic_color` | no | Set the hex code of a color characteristic value. |
 
 ## Collections (`collections.ts`)
 
@@ -63,9 +77,9 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 151 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 160 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 151 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 160 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -75,6 +89,7 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 | `get_order` | yes | Get a single order by its ID, including line items, delivery chunks, payment and status. |
 | `confirm_order` | no | Confirm an order. |
 | `cancel_order` | no | Cancel an order. |
+| `complete_order_delivery` | no | Mark the delivery of an order as fully completed. |
 | `get_order_addons` | yes | List additional services (addons) attached to an order by the order ID. |
 
 ## Products (`products.ts`)
@@ -112,7 +127,16 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 | `get_variant` | yes | Get a single variant by its ID (name, SKU, pricing, stocks, media, status). |
 | `create_variant` | no | Create a new variant (sellable item) under an existing product. |
 | `update_variant` | no | Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks); set a field to null to remove it. |
+| `bulk_update_prices` | no | Update prices of up to 5000 variants in one synchronous, atomic request — the fast path for syncing a whole catalog instead of calling update_variant per item. |
 | `variant_action` | no | Archive a variant (soft delete: status becomes ARCHIVED, item is hidden from the storefront but restorable) or unarchive it (status becomes HIDDEN; publish it afterwards via update_variant). |
+
+## Videos (`videos.ts`)
+
+| Tool | Read-only | Description |
+| --- | --- | --- |
+| `list_videos` | yes | List product videos of the store (paginated), oldest upload first. |
+| `get_video` | yes | Get a single video by its ID with the current processing status. |
+| `upload_video` | no | Upload a product video via multipart/form-data and queue it for processing. |
 
 ## Warehouses (`warehouses.ts`)
 
@@ -137,7 +161,7 @@ The `mcp-yandex-kit` MCP server exposes **61 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**65 of 151 operations** have dedicated tools. The remaining 86 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**74 of 160 operations** have dedicated tools. The remaining 86 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 

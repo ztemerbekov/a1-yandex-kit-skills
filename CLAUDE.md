@@ -2,7 +2,7 @@
 
 npm-workspaces monorepo: typed client, MCP server (stdio) and Claude agent skills for the
 Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
-(`specs/kit-swagger.openapi.json` — 151 operations, 22 tag groups, the single source of truth).
+(`specs/kit-swagger.openapi.json` — 160 operations, 24 tag groups, the single source of truth).
 
 ## Commands
 
@@ -10,7 +10,7 @@ Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
 npm ci
 npm run typecheck   # builds core first, then checks every workspace
 npm run build       # core + mcp -> dist/
-npm test            # unit tests, no network (currently 310: core 34 + mcp 260 + setup 16)
+npm test            # unit tests, no network (currently 379: core 35 + codegen 3 + mcp 306 + setup 35)
 npm run gen         # regenerate registry/types/TOOLS.md/skills (deterministic)
 npm run spec:fetch  # refresh specs/ from Yandex + diff report
 npm run smoke       # live READ-ONLY calls (needs YANDEX_KIT_TOKEN)
@@ -38,9 +38,9 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   duplicate the change), auto-pagination via `listAll`, per-operation content type:
   merge-patch and multipart where the spec says so), `KitApiError`, ajv-based
   `validateRequestBody`/`resolveOperationSchema`, and `src/generated/{registry.json,types.ts}`.
-- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 61 tools; `src/tools/*.ts` is
+- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 70 tools; `src/tools/*.ts` is
   one file per domain; `meta.ts` hosts the trio (`search_operations`,
-  `get_operation_schema`, `kit_request`) that covers all 151 operations (65 have curated tools).
+  `get_operation_schema`, `kit_request`) that covers all 160 operations (74 have curated tools).
   `telemetry.ts` — anonymous usage pings to usage.gistrec.cloud (ids/names/versions only,
   never data or arguments; fire-and-forget, must never block or throw; opt-out
   `YANDEX_KIT_TELEMETRY=0`). `startup_failed` is the exception: `sendBlocking` awaits it,
@@ -100,7 +100,7 @@ only replaces the six directories it owns and must preserve these five.
 
 ## Version sync (bump together, one commit)
 
-`1.2.0` must stay identical across: `packages/mcp/package.json` (and
+`1.3.0` must stay identical across: `packages/mcp/package.json` (and
 `packages/core/package.json` — mcp depends on the exact version), `server.json`
 (root `version` **and** `packages[].version`), `.codex-plugin/plugin.json`,
 `.cursor-plugin/plugin.json`, and

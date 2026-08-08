@@ -17,6 +17,18 @@ interface VariantCollection {
   variants?: Array<{ status?: string }>;
 }
 
+interface AlertCollection {
+  alerts?: Array<{ severity?: string }>;
+}
+
+interface VideoCollection {
+  videos?: unknown[];
+}
+
+interface ColorCollection {
+  colors?: unknown[];
+}
+
 async function main(): Promise<void> {
   let config: Config;
   try {
@@ -72,6 +84,24 @@ async function main(): Promise<void> {
         : "archived-filter: indeterminate — the store has no variants to probe with",
     );
   }
+
+  // Endpoints added in the 2026-08 KIT release — read-only reachability check.
+  const alerts = await client.call<AlertCollection>("GetAlerts", {
+    query: { page: 1, per_page: 100, status: ["ACTIVE"] },
+  });
+  const active = alerts?.alerts ?? [];
+  const critical = active.filter((a) => a.severity === "CRITICAL").length;
+  console.log(`alerts: active=${active.length} critical=${critical}`);
+
+  const videos = await client.call<VideoCollection>("GetVideos", {
+    query: { page: 1, per_page: 1, status: ["UPLOADED", "PROCESSING", "READY", "ERROR"] },
+  });
+  console.log(`videos: fetched=${videos?.videos?.length ?? 0} (page=1 per_page=1)`);
+
+  const colors = await client.call<ColorCollection>("GetCharacteristicColors", {
+    query: { page: 1, per_page: 1 },
+  });
+  console.log(`characteristic colors: fetched=${colors?.colors?.length ?? 0} (page=1 per_page=1)`);
 
   console.log("smoke OK");
 }

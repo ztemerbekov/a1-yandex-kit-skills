@@ -31,7 +31,7 @@ const SKILL_SRC_DIR = fileURLToPath(new URL("./skill-src/", import.meta.url));
 const CODEGEN_DIR = fileURLToPath(new URL("../", import.meta.url));
 const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 
-const SKILL_VERSION = "1.2.0";
+const SKILL_VERSION = "1.3.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
@@ -93,8 +93,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 61) {
-  throw new Error(`Expected 61 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 70) {
+  throw new Error(`Expected 70 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,18 +153,23 @@ docs are in Russian; the full OpenAPI spec (${registry.opsCount} operations) is 
   \`null\` clears a field only where the schema marks it nullable — of these, that is
   just \`parent_id\` and \`file_id\` of \`UpdateCategory\`; elsewhere \`null\` fails
   validation (\`validate.mjs\` below will catch it). \`POST /v1/files\` (\`UploadFile\`)
-  is \`multipart/form-data\`.`;
+  and \`POST /v1/videos\` (\`UploadVideo\`) are \`multipart/form-data\`.
+- **Bulk writes**: \`BulkUpdatePrices\` and \`BulkUpdateStocks\` take up to 5000 items per
+  request and are atomic — a single invalid item rejects the whole batch (400) and applies
+  nothing. Prefer them over per-variant updates for catalog syncs.`;
 
 const ROUTER_DOMAIN_SKILLS = `## Domain skills
 
 Prefer the focused skill when the task clearly belongs to one domain — each bundles the
 same scripts and data, plus the endpoint tables of its tags:
 
-- \`a1-yandex-kit-catalog\` — products, variants (SKUs, prices, stocks), categories,
-  characteristics, collections, context collections, badges.
+- \`a1-yandex-kit-catalog\` — products, variants (SKUs, prices, stocks, bulk price/stock
+  sync), categories, characteristics (groups, colors), videos, collections, context
+  collections, badges.
 - \`a1-yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
 - \`a1-yandex-kit-promotions\` — discounts, promo codes, promocode groups, gifts.
-- \`a1-yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects, blog/news.
+- \`a1-yandex-kit-store\` — store profile, warehouses, users, geo, files, redirects,
+  blog/news, alerts.
 - \`a1-yandex-kit-webhooks\` — webhooks: order events, HTTPS callbacks, signing secret.`;
 
 const WEBHOOKS_OVERVIEW = `Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
@@ -209,11 +214,12 @@ const SKILLS: SkillDef[] = [
     name: "a1-yandex-kit-catalog",
     description:
       "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, " +
-      "stocks), variant documents (attachments), categories, characteristics, collections, " +
+      "stocks), bulk price/stock sync, variant documents (attachments), categories, " +
+      "characteristics (including groups and colors), product videos, collections, " +
       "context collections and badges. " +
       "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store.",
     overview: `Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
-Категории товаров, Характеристики товаров, Коллекции, Контекстные коллекции, Бейджи.
+Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
 and per-warehouse stocks, and a product (\`/v1/products\`) groups variants, so most
 «товар» operations act on variants. A variant carries two **distinct** identifiers:
@@ -230,12 +236,30 @@ is reordered automatically). Mind the content types: \`UpdateVariant\`, \`Update
 the fields the schema marks nullable, see the \`a1-yandex-kit\` skill), while the other
 updates are plain \`application/json\`.
 
+For catalog-wide syncs prefer the bulk endpoints over per-variant PATCHes:
+\`POST /v1/variants/prices/bulk_update\` and \`POST /v1/variants/stocks/bulk_update\` take
+up to **5000 items** each and are synchronous and **atomic** — one invalid item (unknown or
+archived variant, a variant repeated in the batch, a malformed price) rejects the whole
+request with 400 and applies nothing, listing every offender in \`errors\`. In a price item
+both fields are optional: omit a key to keep the current value, send \`null\` to reset it
+(resetting \`price\` works only on unpublished variants).
+
+Product videos are a separate tag: upload via \`POST /v1/videos\`
+(\`multipart/form-data\`, max 100 MB, mp4/mov/webm/avi/flv, deduplicated by content), then
+poll \`GET /v1/videos/{video_id}\` — \`UPLOADED\` → \`PROCESSING\` → \`READY\` (poll at most
+once every 5 seconds) — and attach the ready video to a variant through \`media\` in
+\`CreateVariant\`/\`UpdateVariant\`. Characteristics carry two extras beyond the values
+themselves: groups (\`/v1/characteristics/groups\`, ordered by \`display_sequence\`) and
+colors (\`/v1/characteristics/colors\`), where \`UpdateCharacteristicColor\` recolors an
+**existing** value addressed by the value itself — there is no id — accepting a hex code or
+the special \`multicoloured\` / \`transparent\`.
+
 ${DOMAIN_TRAILER}`,
-    tags: ["Товары", "Категории товаров", "Характеристики товаров", "Коллекции", "Контекстные коллекции", "Бейджи"],
-    toolFiles: ["products", "variants", "categories", "collections"],
+    tags: ["Товары", "Категории товаров", "Характеристики товаров", "Видео", "Коллекции", "Контекстные коллекции", "Бейджи"],
+    toolFiles: ["products", "variants", "categories", "characteristics", "videos", "collections"],
     toolsNote:
-      "Характеристики товаров, Контекстные коллекции and Бейджи have no dedicated tools — " +
-      "reach them through `search_operations` + `kit_request`.",
+      "Характеристики товаров beyond the color tools, Контекстные коллекции and Бейджи have " +
+      "no dedicated tools — reach them through `search_operations` + `kit_request`.",
     exampleQuery: "создать товар",
     exampleOp: "CreateProduct",
     executeToolsBullet:
@@ -250,9 +274,13 @@ ${DOMAIN_TRAILER}`,
       "KIT orders, or when looking up customers, their orders or gift cards.",
     overview: `Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
-through the API you list and inspect them, confirm or cancel them, and read the attached
-additional services (addons), customer records and gift cards. All datetimes are UTC,
-and list endpoints paginate with \`page\`/\`per_page\` (max 100).
+through the API you list and inspect them, confirm or cancel them, close out their delivery
+(\`POST /v1/orders/{id}/delivery/complete\` — for pickup and the store's own delivery when
+delivery automation is off), and read the attached additional services (addons), customer
+records and gift cards. A customer record also carries the marketing-consent pair
+\`agreement_for_promo\` + \`agreement_at\` — read it before adding anyone to a mailing list
+and mirror it into your CRM. All datetimes are UTC, and list endpoints paginate with
+\`page\`/\`per_page\` (max 100).
 
 ${DOMAIN_TRAILER}`,
     tags: ["Заказы", "Клиенты", "Подарочные карты", "Услуги"],
@@ -309,17 +337,25 @@ ${DOMAIN_TRAILER}`,
     name: "a1-yandex-kit-store",
     description:
       "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, " +
-      "geo regions, file uploads, redirects and blog/news posts. Use when reading store metadata, " +
-      "managing warehouses or redirects, uploading files or publishing news in a Yandex KIT store.",
+      "geo regions, file uploads, redirects, blog/news posts and system alerts. Use when reading " +
+      "store metadata, managing warehouses or redirects, uploading files, publishing news or " +
+      "triaging store alerts in a Yandex KIT store.",
     overview: `Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
-Склады, Пользователи, Гео, Файлы, Редиректы, Новости. This is where you read the store
+Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; \`UpdateWarehouse\`
-uses JSON Merge Patch), upload files (\`POST /v1/files\` is the API's only
-\`multipart/form-data\` endpoint), and maintain SEO redirects and blog/news posts.
+uses JSON Merge Patch), upload files (\`POST /v1/files\` — with \`POST /v1/videos\` in the
+catalog domain, one of the API's two \`multipart/form-data\` endpoints), and maintain SEO
+redirects and blog/news posts.
+
+Alerts are the store's system-problem feed: \`GET /v1/alerts\` **requires** a status filter
+(\`ACTIVE\`/\`RESOLVED\`) and returns \`CRITICAL\` before \`WARNING\`, newest first within a
+severity. Only \`WARNING\` alerts can be closed by hand via
+\`POST /v1/alerts/{alert_id}/resolve\`; an active \`CRITICAL\` one is rejected with 400 and
+clears itself once the underlying problem is fixed.
 
 ${DOMAIN_TRAILER}`,
-    tags: ["Магазин", "Склады", "Пользователи", "Гео", "Файлы", "Редиректы", "Новости"],
-    toolFiles: ["store", "warehouses", "files"],
+    tags: ["Магазин", "Склады", "Пользователи", "Гео", "Файлы", "Редиректы", "Новости", "Алерты"],
+    toolFiles: ["store", "warehouses", "files", "alerts"],
     toolsNote:
       "Редиректы and Новости have no dedicated tools — manage them through `search_operations` + `kit_request`.",
     exampleQuery: "создать склад",
