@@ -7,6 +7,7 @@ import {
   clampPerPage,
   emptyUpdateFailure,
   fail,
+  mixedArchivedFilterFailure,
   ok,
   READ_ONLY,
   statusesOutsideFilter,
@@ -26,27 +27,44 @@ function normalizePrice(value: string | number | null | undefined): string | nul
 
 /**
  * Post-check for the known KIT API defect (issue #54): the server silently
- * strips `ARCHIVED` from the GetVariants status filter, so the listing falls
- * back to the default non-archived catalog. Two observable shapes:
+ * strips `ARCHIVED` from the GetVariants status filter (honoring the rest), so
+ * the listing falls back to the non-archived slice. Observable shapes:
  * - items outside the requested filter — the filter was ignored;
- * - an empty page for a filter that includes ARCHIVED — ambiguous, so probe
- *   the unfiltered listing once: a non-empty probe proves the filter WAS
- *   honored (a stripped filter would have returned that same non-empty
- *   default listing), while an empty probe leaves the archive unprovable.
+ * - a mixed filter (ARCHIVED + other statuses) whose response has no archived
+ *   item — indistinguishable from an honored view with an empty archive, and
+ *   no probe can disambiguate a non-empty response: unprovable, so fail;
+ * - an empty FIRST page for a pure [ARCHIVED] filter — ambiguous, so probe the
+ *   listing once WITH the same scope filters (product_id/name): a non-empty
+ *   probe proves the filter WAS honored (a stripped filter would have returned
+ *   that same non-empty scoped listing), while an empty probe leaves the
+ *   archive unprovable. An unscoped probe would prove nothing for a scoped
+ *   request — other products' variants would make it non-empty. The proof only
+ *   holds for page 1: an empty LATER page is legitimate for the (stripped)
+ *   default listing even when the real archive is large, so for page > 1 an
+ *   empty [ARCHIVED] page is unprovable outright — no probe can help.
  * Returns the failure to surface instead of the response, or null when the
  * response can be trusted.
  */
 async function verifyStatusFilterHonored(
   client: KitClient,
   requested: string[] | undefined,
+  scope: { product_id?: string; name?: string },
+  page: number | undefined,
   items: unknown[],
 ): Promise<ToolResult | null> {
   if (!requested || requested.length === 0) return null;
   const outside = statusesOutsideFilter(requested, items);
   if (outside.length > 0) return statusFilterIgnoredFailure(requested, outside);
-  if (!requested.includes("ARCHIVED") || items.length > 0) return null;
+  if (!requested.includes("ARCHIVED")) return null;
+  const anyArchived = items.some(
+    (item) => (item as { status?: unknown } | null)?.status === "ARCHIVED",
+  );
+  if (anyArchived) return null; // archived items came back — the filter was honored
+  if (requested.length > 1) return mixedArchivedFilterFailure(requested);
+  if (items.length > 0) return null; // items without a readable status — trust as before
+  if ((page ?? 1) > 1) return archiveReadUnsupportedFailure();
   const probe = await client.call<{ variants?: unknown[] }>("GetVariants", {
-    query: { page: 1, per_page: 1 },
+    query: { page: 1, per_page: 1, ...scope },
   });
   const defaultListingNonEmpty = Array.isArray(probe?.variants) && probe.variants.length > 0;
   return defaultListingNonEmpty ? null : archiveReadUnsupportedFailure();
@@ -62,8 +80,9 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         "By default the API returns variants of all statuses except ARCHIVED. " +
         "Known KIT API defect: ARCHIVED is silently stripped from the status filter, so " +
         "archived variants cannot be listed (only read by ID via get_variant); the tool " +
-        "detects this and fails with STATUS_FILTER_IGNORED or ARCHIVE_READ_UNSUPPORTED " +
-        "instead of returning the wrong catalog slice.",
+        "detects this and fails with STATUS_FILTER_IGNORED, ARCHIVE_READ_UNSUPPORTED or " +
+        "MIXED_ARCHIVED_FILTER_UNSUPPORTED (for filters mixing ARCHIVED with other " +
+        "statuses) instead of returning the wrong catalog slice.",
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -89,17 +108,19 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
     },
     async ({ page, per_page, all, product_id, status, name }) => {
       const filters = { product_id, status, name };
+      const scope = { product_id, name };
       try {
         if (all) {
+          // listAll always starts at page 1, so the probe-proof is valid.
           const result = await client.listAll("GetVariants", { query: filters });
-          const guard = await verifyStatusFilterHonored(client, status, result.items);
+          const guard = await verifyStatusFilterHonored(client, status, scope, 1, result.items);
           return guard ?? ok(result);
         }
         const res = await client.call<{ variants?: unknown[] }>("GetVariants", {
           query: { page, per_page: clampPerPage(per_page), ...filters },
         });
         const items = Array.isArray(res?.variants) ? res.variants : [];
-        const guard = await verifyStatusFilterHonored(client, status, items);
+        const guard = await verifyStatusFilterHonored(client, status, scope, page, items);
         return guard ?? ok(res);
       } catch (e) {
         return fail(e);
@@ -159,7 +180,9 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
       title: "Update variant",
       description:
         "Update an existing variant via JSON Merge Patch: send only the fields to change " +
-        "(e.g. pricing or stocks); set a field to null to remove it. " +
+        "(e.g. pricing or stocks). No field of UpdateVariantRequest is nullable, so null " +
+        "values are rejected by validation before any call — to clear a price, use " +
+        "bulk_update_prices (its price/manual_discount_price accept null). " +
         'Call get_operation_schema("UpdateVariant") for the exact request shape.',
       inputSchema: {
         id: z.string().describe("Variant ID (UUID)."),

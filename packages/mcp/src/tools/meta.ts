@@ -16,6 +16,7 @@ import {
 
 import {
   READ_ONLY,
+  emptyUpdateFailure,
   fail,
   ok,
   statusesOutsideFilter,
@@ -36,7 +37,10 @@ function checkStatusFilterHonored(
   data: unknown,
 ): ToolResult | null {
   if (!op.paginated || !op.itemsProp || !query) return null;
-  const requested = query.status;
+  // A scalar string serializes to the same wire form as a one-element array
+  // (?status=X), so it must be guarded identically — normalize before checking.
+  const raw = query.status;
+  const requested = typeof raw === "string" ? [raw] : raw;
   if (!Array.isArray(requested) || requested.length === 0) return null;
   if (!requested.every((s): s is string => typeof s === "string")) return null;
   const items = (data as Record<string, unknown> | null | undefined)?.[op.itemsProp];
@@ -109,6 +113,12 @@ function suggestOperationIds(unknownId: string, limit = 3): string[] {
     .slice(0, limit)
     .map((s) => s.op.id);
 }
+
+/** Curated tools for the registry's multipart operations, keyed by operationId. */
+const MULTIPART_TOOLS: Record<string, string> = {
+  UploadFile: "upload_file",
+  UploadVideo: "upload_video",
+};
 
 function unknownOperationError(operationId: string): Error {
   const suggestions = suggestOperationIds(operationId);
@@ -258,14 +268,28 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
         const op = getRegistry().ops[operation_id];
         if (!op) return fail(unknownOperationError(operation_id));
         if (op.requestContentType === "multipart/form-data") {
+          const dedicatedTool =
+            MULTIPART_TOOLS[op.id] ?? "upload_file or upload_video";
           return fail(
             new KitValidationError(
-              "multipart operations are not supported by kit_request; " +
-                "UploadFile needs the dedicated upload_file tool (planned)",
+              `multipart operations are not supported by kit_request; ` +
+                `use the dedicated ${dedicatedTool} tool for ${op.id}`,
               [],
               "MULTIPART_NOT_SUPPORTED",
             ),
           );
+        }
+        // Merge-patch/PATCH updates have all-optional schemas, so an empty {}
+        // passes validation, hits the live store and "succeeds" as a server-side
+        // no-op. Curated update tools reject this locally — so must kit_request.
+        if (
+          op.method === "patch" &&
+          typeof body === "object" &&
+          body !== null &&
+          !Array.isArray(body) &&
+          Object.keys(body).length === 0
+        ) {
+          return emptyUpdateFailure();
         }
         if (validate !== false && body !== undefined) {
           const result = validateRequestBody(operation_id, body);

@@ -98,9 +98,10 @@ export function registerCategoryTools(server: McpServer, client: KitClient): voi
     {
       title: "Update category",
       description:
-        "Update an existing category via JSON Merge Patch: send only the fields to change; " +
-        "set a field to null to remove it (e.g. parent_id: null makes the category top-level). " +
-        'Call get_operation_schema("UpdateCategory") for the exact request shape.',
+        "Update an existing category via JSON Merge Patch: send only the fields to change. " +
+        "Only parent_id and file_id accept null (parent_id: null makes the category " +
+        "top-level, file_id: null removes the image); null on any other field is rejected " +
+        'by validation. Call get_operation_schema("UpdateCategory") for the exact request shape.',
       inputSchema: {
         id: z.string().describe("Category ID (UUID)."),
         category: z

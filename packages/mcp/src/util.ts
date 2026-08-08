@@ -165,6 +165,26 @@ export function statusFilterIgnoredFailure(
   );
 }
 
+/**
+ * Mixed status filter containing ARCHIVED (issue #54): the server strips
+ * ARCHIVED and honors the rest, so the response holds only in-filter statuses
+ * and no probe can tell the defective listing from an honored view with an
+ * empty archive. Unprovable — fail instead of returning an incomplete slice.
+ */
+export function mixedArchivedFilterFailure(requested: readonly string[]): ToolResult {
+  return fail(
+    new KitValidationError(
+      `A status filter mixing ARCHIVED with other statuses [${requested.join(", ")}] cannot ` +
+        "be trusted: the KIT API silently strips ARCHIVED from the GetVariants status filter " +
+        "(known defect), so the response would hold only the non-archived slice presented as " +
+        "the full filtered view. The response was discarded. Query the non-archived statuses " +
+        "without ARCHIVED; archived variants can only be read by ID (get_variant).",
+      [],
+      "MIXED_ARCHIVED_FILTER_UNSUPPORTED",
+    ),
+  );
+}
+
 /** Empty ARCHIVED listing that cannot be told apart from the filter defect (issue #54). */
 export function archiveReadUnsupportedFailure(): ToolResult {
   return fail(

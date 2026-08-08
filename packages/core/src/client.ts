@@ -62,6 +62,16 @@ export const SERVER_PER_PAGE_LIMITS = {
 /** Codes of a parsed KIT error body. LIMIT_EXCEEDED arrives with HTTP 400. */
 const RETRYABLE_400_CODE = "LIMIT_EXCEEDED";
 
+/**
+ * Ceiling for a server-provided Retry-After delay. The header value is
+ * otherwise unbounded and entirely server-controlled: a load-shedding LB
+ * answering `Retry-After: 3600` would silently hang the call for an hour per
+ * attempt (the per-attempt timeout covers only the fetch, not the sleep).
+ * Beyond the cap the client sleeps the cap and retries; if the server is
+ * still shedding, the remaining attempts drain quickly and the error surfaces.
+ */
+const RETRY_AFTER_CAP_MS = 30_000;
+
 // NOTE: the timer must stay ref'd — an in-flight request awaiting its backoff
 // delay has to keep the event loop (and thus the process) alive.
 function sleep(ms: number): Promise<void> {
@@ -266,7 +276,11 @@ export class KitClient {
         res.status >= 500 ||
         (res.status === 400 && parsed?.code === RETRYABLE_400_CODE);
       if (retryable && attempt < retryBudget) {
-        const delay = parseRetryAfterMs(res) ?? this.backoffDelayMs(attempt);
+        const headerMs = parseRetryAfterMs(res);
+        const delay =
+          headerMs !== undefined
+            ? Math.min(headerMs, RETRY_AFTER_CAP_MS)
+            : this.backoffDelayMs(attempt);
         await sleep(delay);
         continue;
       }

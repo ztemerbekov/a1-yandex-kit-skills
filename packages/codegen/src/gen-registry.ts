@@ -109,8 +109,21 @@ for (const [path, pathItem] of Object.entries<any>(spec.paths)) {
       ? (op.requestBody.content[requestContentType].schema?.$ref ?? null)
       : null;
 
+    // Prefer application/json, but fall back to the response's only declared
+    // content type: the spec marks UpdateProduct's 200 as merge-patch+json
+    // (an upstream spec quirk), and dropping its schema silently would strip
+    // the response shape from get_operation_schema for that operation.
     const successResponse = op.responses?.["200"] ?? op.responses?.["201"];
-    const responseSchemaRef = successResponse?.content?.["application/json"]?.schema?.$ref ?? null;
+    const responseContent: Record<string, any> = successResponse?.content ?? {};
+    const responseBody =
+      responseContent["application/json"] ?? Object.values(responseContent)[0];
+    const responseSchemaRef = responseBody?.schema?.$ref ?? null;
+    if (responseSchemaRef && !responseContent["application/json"]) {
+      console.error(
+        `gen-registry: ${op.operationId} success response declares ` +
+          `${Object.keys(responseContent).join(", ")} — using its schema as the response schema`,
+      );
+    }
 
     const paginated =
       queryParams.some((q) => q.name === "page") && queryParams.some((q) => q.name === "per_page");

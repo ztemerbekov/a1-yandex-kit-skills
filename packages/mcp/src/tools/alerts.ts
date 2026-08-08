@@ -55,7 +55,11 @@ export function registerAlertTools(server: McpServer, client: KitClient): void {
         "alert is rejected with 400 and clears itself once the underlying problem is fixed. " +
         "No request body is required.",
       inputSchema: {
-        alert_id: z.string().describe("Alert ID (UUID)."),
+        alert_id: z
+          .string()
+          .describe(
+            'Alert ID from the list_alerts response — a semantic string such as "certificateExpiry", not a UUID.',
+          ),
       },
     },
     async ({ alert_id }) => {
