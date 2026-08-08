@@ -647,9 +647,9 @@
       "queryParams": [],
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/UpdateProductRequest",
-      "responseSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Product",
       "paginated": false,
-      "itemsProp": null
+      "itemsProp": "category_ids"
     },
     "GetSimilarProductCardIDs": {
       "id": "GetSimilarProductCardIDs",

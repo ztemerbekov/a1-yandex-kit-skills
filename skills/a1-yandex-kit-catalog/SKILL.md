@@ -212,13 +212,13 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `list_variants` — List variants (sellable items / SKUs) of the store, with optional filters (paginated).
 - `get_variant` — Get a single variant by its ID (name, SKU, pricing, stocks, media, status).
 - `create_variant` — Create a new variant (sellable item) under an existing product.
-- `update_variant` — Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks); set a field to null to remove it.
+- `update_variant` — Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks).
 - `bulk_update_prices` — Update prices of up to 5000 variants in one synchronous, atomic request — the fast path for syncing a whole catalog instead of calling update_variant per item.
 - `variant_action` — Archive a variant (soft delete: status becomes ARCHIVED, item is hidden from the storefront but restorable) or unarchive it (status becomes HIDDEN; publish it afterwards via update_variant).
 - `list_categories` — List product categories of the store (paginated).
 - `get_category` — Get a single product category by its ID.
 - `create_category` — Create a new product category.
-- `update_category` — Update an existing category via JSON Merge Patch: send only the fields to change; set a field to null to remove it (e.g. parent_id: null makes the category top-level).
+- `update_category` — Update an existing category via JSON Merge Patch: send only the fields to change.
 - `category_action` — Archive a category (soft delete: hidden from the storefront, restorable) or unarchive it.
 - `list_characteristic_colors` — List the color values of the store's characteristics with their hex codes (paginated).
 - `update_characteristic_color` — Set the hex code of a color characteristic value.

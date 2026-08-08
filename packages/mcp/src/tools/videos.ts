@@ -61,7 +61,11 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
         "Poll at most once every 5 seconds — processing time scales with the video length.",
       annotations: READ_ONLY,
       inputSchema: {
-        video_id: z.string().describe("Video ID (UUID)."),
+        video_id: z
+          .string()
+          .describe(
+            "Video ID from the upload_video or list_videos response — an opaque string, not a UUID.",
+          ),
       },
     },
     async ({ video_id }) => {

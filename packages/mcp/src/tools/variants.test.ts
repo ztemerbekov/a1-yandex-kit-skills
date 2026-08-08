@@ -156,7 +156,78 @@ test("list_variants returns a provably empty archive when the unfiltered probe i
   assert.equal(calls.length, 2);
   const probeUrl = new URL(calls[1]!.url);
   assert.equal(probeUrl.searchParams.get("per_page"), "1");
-  assert.deepEqual(probeUrl.searchParams.getAll("status"), [], "the probe must be unfiltered");
+  assert.deepEqual(
+    probeUrl.searchParams.getAll("status"),
+    [],
+    "the probe must drop only the status filter",
+  );
+});
+
+test("list_variants keeps scope filters in the probe so a scoped archive is not mislabeled", async () => {
+  // Product P: all variants archived -> the defective server returns an empty
+  // non-archived slice for P. The probe must stay scoped to P (also empty), so
+  // the tool reports the archive unprovable instead of "provably empty".
+  const { calls, mcp } = await setup({ variants: [], total_count: 0 });
+  const res = await mcp.callTool({
+    name: "list_variants",
+    arguments: { product_id: "prod-P", status: ["ARCHIVED"] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "ARCHIVE_READ_UNSUPPORTED");
+  assert.equal(calls.length, 2);
+  const probeUrl = new URL(calls[1]!.url);
+  assert.equal(probeUrl.searchParams.get("product_id"), "prod-P", "the probe must keep the scope");
+  assert.deepEqual(probeUrl.searchParams.getAll("status"), []);
+});
+
+test("list_variants does not trust an empty ARCHIVED page beyond page 1", async () => {
+  // Defective server: page 2 of the (stripped) default listing is legitimately
+  // empty even when the archive is large, and the page-1 probe would be
+  // non-empty — the probe-proof is only sound for page 1, so page > 1 must
+  // fail as unprovable without probing at all.
+  const { calls, mcp } = await setup((call: number) =>
+    call === 0
+      ? { variants: [], total_count: 5 }
+      : { variants: [{ id: "v1", status: "PUBLISHED" }], total_count: 5 },
+  );
+  const res = await mcp.callTool({
+    name: "list_variants",
+    arguments: { status: ["ARCHIVED"], page: 2 },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "ARCHIVE_READ_UNSUPPORTED");
+  assert.equal(calls.length, 1, "no probe can disambiguate an empty later page");
+});
+
+test("list_variants rejects a mixed filter whose response has no archived item", async () => {
+  const { calls, mcp } = await setup({
+    variants: [{ id: "v1", status: "PUBLISHED" }],
+    total_count: 1,
+  });
+  const res = await mcp.callTool({
+    name: "list_variants",
+    arguments: { status: ["PUBLISHED", "ARCHIVED"] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "MIXED_ARCHIVED_FILTER_UNSUPPORTED");
+  assert.equal(calls.length, 1, "a non-empty mixed response cannot be disambiguated by a probe");
+});
+
+test("list_variants trusts a mixed filter once archived items come back", async () => {
+  const { calls, mcp } = await setup({
+    variants: [
+      { id: "v1", status: "PUBLISHED" },
+      { id: "v2", status: "ARCHIVED" },
+    ],
+    total_count: 2,
+  });
+  const res = await mcp.callTool({
+    name: "list_variants",
+    arguments: { status: ["PUBLISHED", "ARCHIVED"] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(JSON.parse(resultText(res)).variants.length, 2);
+  assert.equal(calls.length, 1);
 });
 
 test("list_variants fails with ARCHIVE_READ_UNSUPPORTED when both listings are empty", async () => {

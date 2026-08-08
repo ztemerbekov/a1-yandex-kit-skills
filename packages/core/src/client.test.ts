@@ -444,3 +444,30 @@ test("204 empty body -> undefined result", async () => {
 
   assert.equal(result, undefined);
 });
+
+test("large Retry-After header is capped instead of honored verbatim", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const { calls, fetchImpl } = stubFetch((_url, _init, idx) =>
+    idx === 0
+      ? jsonResponse({ code: "LIMIT_EXCEEDED", message: "slow down" }, 429, {
+          "retry-after": "7200",
+        })
+      : jsonResponse({ id: "s1" }),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
+
+  const promise = client.call<{ id: string }>("GetStore");
+  // Drain the microtask queue (setImmediate is not mocked) until the first
+  // attempt has hit the stub and the retry sleep is pending.
+  for (let i = 0; i < 50 && calls.length === 0; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(calls.length, 1);
+
+  // A verbatim Retry-After: 7200 would sleep two hours; the cap must fire
+  // within 30 s of fake time and let the retry proceed.
+  t.mock.timers.tick(30_000);
+  const store = await promise;
+  assert.deepEqual(store, { id: "s1" });
+  assert.equal(calls.length, 2);
+});

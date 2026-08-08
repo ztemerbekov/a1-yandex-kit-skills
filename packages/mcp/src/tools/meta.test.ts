@@ -147,7 +147,7 @@ test("kit_request with validate=false skips validation and sends the request", a
   assert.equal(calls[0]!.init?.method, "POST");
 });
 
-test("kit_request rejects multipart UploadFile", async () => {
+test("kit_request rejects multipart UploadFile pointing at upload_file", async () => {
   const { calls, mcpClient } = await setup();
   const res = await mcpClient.callTool({
     name: "kit_request",
@@ -155,7 +155,36 @@ test("kit_request rejects multipart UploadFile", async () => {
   });
   assert.equal((res as any).isError, true);
   assert.equal(parse(res).code, "MULTIPART_NOT_SUPPORTED");
+  // The hint is the consumer LLM's routing signal — it must name exactly the
+  // right tool (a generic "upload_file or upload_video" would be ambiguous).
+  assert.match(parse(res).error, /upload_file/);
+  assert.doesNotMatch(parse(res).error, /upload_video/);
+  assert.doesNotMatch(parse(res).error, /planned/);
   assert.equal(calls.length, 0);
+});
+
+test("kit_request rejects multipart UploadVideo pointing at upload_video, not upload_file", async () => {
+  const { calls, mcpClient } = await setup();
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: { operation_id: "UploadVideo" },
+  });
+  assert.equal((res as any).isError, true);
+  assert.equal(parse(res).code, "MULTIPART_NOT_SUPPORTED");
+  assert.match(parse(res).error, /upload_video/);
+  assert.doesNotMatch(parse(res).error, /upload_file/);
+  assert.equal(calls.length, 0);
+});
+
+test("kit_request rejects an empty {} PATCH body before any network call", async () => {
+  const { calls, mcpClient } = await setup();
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: { operation_id: "UpdateProduct", path_params: { id: "p1" }, body: {} },
+  });
+  assert.equal((res as any).isError, true);
+  assert.equal(parse(res).code, "EMPTY_UPDATE_BODY");
+  assert.equal(calls.length, 0, "an all-optional schema must not let {} reach the live store");
 });
 
 // Issue #54 guardrail: the live API silently strips ARCHIVED from the
@@ -172,6 +201,22 @@ test("kit_request rejects a list response with statuses outside the requested fi
       operation_id: "GetVariants",
       query: { status: ["ARCHIVED"], page: 1, per_page: 100 },
     },
+  });
+  assert.equal((res as any).isError, true);
+  assert.equal(parse(res).code, "STATUS_FILTER_IGNORED");
+  assert.equal(calls.length, 1);
+});
+
+test("kit_request guards a scalar-string status filter like a one-element array", async () => {
+  // ?status=ARCHIVED is the same wire form whether the agent sent "ARCHIVED"
+  // or ["ARCHIVED"] — the guard must not be bypassed by the scalar spelling.
+  const { calls, mcpClient } = await setup({
+    variants: [{ id: "v1", status: "PUBLISHED" }],
+    total_count: 1,
+  });
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: { operation_id: "GetVariants", query: { status: "ARCHIVED" } },
   });
   assert.equal((res as any).isError, true);
   assert.equal(parse(res).code, "STATUS_FILTER_IGNORED");

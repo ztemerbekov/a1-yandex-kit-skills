@@ -18,7 +18,7 @@ The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commer
 | `list_categories` | yes | List product categories of the store (paginated). |
 | `get_category` | yes | Get a single product category by its ID. |
 | `create_category` | no | Create a new product category. |
-| `update_category` | no | Update an existing category via JSON Merge Patch: send only the fields to change; set a field to null to remove it (e.g. parent_id: null makes the category top-level). |
+| `update_category` | no | Update an existing category via JSON Merge Patch: send only the fields to change. |
 | `category_action` | no | Archive a category (soft delete: hidden from the storefront, restorable) or unarchive it. |
 
 ## Characteristics (`characteristics.ts`)
@@ -126,7 +126,7 @@ The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commer
 | `list_variants` | yes | List variants (sellable items / SKUs) of the store, with optional filters (paginated). |
 | `get_variant` | yes | Get a single variant by its ID (name, SKU, pricing, stocks, media, status). |
 | `create_variant` | no | Create a new variant (sellable item) under an existing product. |
-| `update_variant` | no | Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks); set a field to null to remove it. |
+| `update_variant` | no | Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks). |
 | `bulk_update_prices` | no | Update prices of up to 5000 variants in one synchronous, atomic request — the fast path for syncing a whole catalog instead of calling update_variant per item. |
 | `variant_action` | no | Archive a variant (soft delete: status becomes ARCHIVED, item is hidden from the storefront but restorable) or unarchive it (status becomes HIDDEN; publish it afterwards via update_variant). |
 
