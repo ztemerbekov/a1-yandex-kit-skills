@@ -61,10 +61,17 @@ export interface ClientInfo {
  */
 export type TelemetryEvent = "server_start" | "tool_call" | "startup_failed";
 
+/**
+ * The closed vocabulary of startup_failed reasons — the privacy contract's
+ * "fixed-vocabulary failure reason". Widening this to `string` would let a
+ * variable's name or value ship in a ping; add new codes here explicitly.
+ */
+export type StartupFailedReason = "missing_token" | "invalid_config";
+
 /** `tool` rides with tool_call, `reason` with startup_failed. */
 export interface EventFields {
   tool?: string;
-  reason?: string;
+  reason?: StartupFailedReason;
 }
 
 export class Telemetry {

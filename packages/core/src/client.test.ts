@@ -471,3 +471,21 @@ test("large Retry-After header is capped instead of honored verbatim", async (t)
   assert.deepEqual(store, { id: "s1" });
   assert.equal(calls.length, 2);
 });
+
+test("listAll flags truncation when a short page contradicts total_count", async () => {
+  // A server that silently clamps per_page (returning 50 for a per_page=100
+  // request) ends the loop on the "short" first page; total_count says the
+  // listing has more — the result must not be presented as complete.
+  const { fetchImpl } = stubFetch(() =>
+    jsonResponse({
+      variants: Array.from({ length: 50 }, (_, i) => ({ id: `v${i}` })),
+      total_count: 120,
+    }),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  const result = await client.listAll<{ id: string }>("GetVariants");
+
+  assert.equal(result.items.length, 50);
+  assert.equal(result.truncated, true, "fewer items than total_count is an incomplete listing");
+});

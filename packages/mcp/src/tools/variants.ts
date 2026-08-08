@@ -244,17 +244,19 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
                 ),
             }),
           )
+          .min(1)
+          .max(5000)
           .describe("Price updates, 1-5000 items, one entry per variant."),
       },
     },
     async ({ items }) => {
-      const duplicates = [
-        ...new Set(
-          items
-            .map((item) => item.variant_id)
-            .filter((id, index, all) => all.indexOf(id) !== index),
-        ),
-      ];
+      const seen = new Set<string>();
+      const duplicateSet = new Set<string>();
+      for (const item of items) {
+        if (seen.has(item.variant_id)) duplicateSet.add(item.variant_id);
+        seen.add(item.variant_id);
+      }
+      const duplicates = [...duplicateSet];
       if (duplicates.length > 0) {
         // The API rejects the entire batch for a repeated variant; catch it here
         // so a 5000-item payload is not sent just to be refused.

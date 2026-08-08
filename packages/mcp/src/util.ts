@@ -94,8 +94,14 @@ export async function resolveUploadSource(input: {
     }
     // Buffer.from(..., "base64") silently skips invalid characters and drops
     // trailing bits, so a lenient decode would upload corrupt bytes; validate first.
+    // The empty string passes both checks below yet is exactly the truncation
+    // case they guard against — a zero-byte upload must never reach the network.
     const compact = content_base64.replace(/\s+/g, "");
-    if (compact.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
+    if (
+      compact.length === 0 ||
+      compact.length % 4 !== 0 ||
+      !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)
+    ) {
       return {
         failure: fail(
           new KitValidationError(

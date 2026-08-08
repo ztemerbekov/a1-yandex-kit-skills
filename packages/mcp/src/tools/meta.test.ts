@@ -106,6 +106,10 @@ test("get_operation_schema unknown id fails with suggestions", async () => {
     arguments: { operation_id: "CreateWebhooks" },
   });
   assert.equal((res as any).isError, true);
+  // The error always echoes the unknown id, and "CreateWebhooks" contains
+  // "CreateWebhook" as a substring — only the "Did you mean" prefix proves
+  // the suggestion machinery actually ran.
+  assert.ok(text(res).includes("Did you mean"), text(res));
   assert.ok(text(res).includes("CreateWebhook"), text(res));
 });
 

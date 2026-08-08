@@ -11,6 +11,12 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { instrumentToolCalls, Telemetry, telemetryEnabled } from "./telemetry.js";
 
+// Every enabled Telemetry() runs loadInstanceId(), which would otherwise
+// create ~/.config/mcp-yandex-kit in the developer's real home during a plain
+// `npm test` — keep the whole file hermetic. (node --test runs each test file
+// in its own process, so this cannot leak into other suites.)
+process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "telemetry-test-"));
+
 interface Sent {
   url: string;
   body: Record<string, unknown>;
@@ -43,12 +49,12 @@ test("opt-out sends nothing", () => {
 test("startup_failed carries the reason code and no client info", async () => {
   const sent: Sent[] = [];
   await new Telemetry("1.0.0", true, recordingFetch(sent)).sendBlocking("startup_failed", {
-    reason: "missing_folder_id",
+    reason: "invalid_config",
   });
   const [ping] = sent;
   assert.ok(ping, "the drop-off ping must be sent");
   assert.equal(ping.body.event, "startup_failed");
-  assert.equal(ping.body.reason, "missing_folder_id");
+  assert.equal(ping.body.reason, "invalid_config");
   // The process died before the handshake, so there is no client to report.
   assert.equal(ping.body.client_name, undefined);
   assert.equal(ping.body.tool, undefined);
