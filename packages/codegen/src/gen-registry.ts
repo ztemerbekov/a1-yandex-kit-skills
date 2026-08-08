@@ -109,10 +109,9 @@ for (const [path, pathItem] of Object.entries<any>(spec.paths)) {
       ? (op.requestBody.content[requestContentType].schema?.$ref ?? null)
       : null;
 
-    // Prefer application/json, but fall back to the response's only declared
-    // content type: the spec marks UpdateProduct's 200 as merge-patch+json
-    // (an upstream spec quirk), and dropping its schema silently would strip
-    // the response shape from get_operation_schema for that operation.
+    // Prefer application/json, else the only declared content type: the spec
+    // marks UpdateProduct's 200 as merge-patch+json (upstream quirk), and
+    // dropping its schema would silently break get_operation_schema for it.
     const successResponse = op.responses?.["200"] ?? op.responses?.["201"];
     const responseContent: Record<string, any> = successResponse?.content ?? {};
     const responseBody =

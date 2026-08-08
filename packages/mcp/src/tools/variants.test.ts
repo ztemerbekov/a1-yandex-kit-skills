@@ -164,9 +164,7 @@ test("list_variants returns a provably empty archive when the unfiltered probe i
 });
 
 test("list_variants keeps scope filters in the probe so a scoped archive is not mislabeled", async () => {
-  // Product P: all variants archived -> the defective server returns an empty
-  // non-archived slice for P. The probe must stay scoped to P (also empty), so
-  // the tool reports the archive unprovable instead of "provably empty".
+  // A global probe would falsely prove empty the archive of an all-archived product.
   const { calls, mcp } = await setup({ variants: [], total_count: 0 });
   const res = await mcp.callTool({
     name: "list_variants",
@@ -181,10 +179,8 @@ test("list_variants keeps scope filters in the probe so a scoped archive is not 
 });
 
 test("list_variants does not trust an empty ARCHIVED page beyond page 1", async () => {
-  // Defective server: page 2 of the (stripped) default listing is legitimately
-  // empty even when the archive is large, and the page-1 probe would be
-  // non-empty — the probe-proof is only sound for page 1, so page > 1 must
-  // fail as unprovable without probing at all.
+  // An empty later page of the stripped listing is legitimate — the probe-proof
+  // only holds for page 1, so page > 1 must fail without probing.
   const { calls, mcp } = await setup((call: number) =>
     call === 0
       ? { variants: [], total_count: 5 }

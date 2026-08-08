@@ -63,12 +63,8 @@ export const SERVER_PER_PAGE_LIMITS = {
 const RETRYABLE_400_CODE = "LIMIT_EXCEEDED";
 
 /**
- * Ceiling for a server-provided Retry-After delay. The header value is
- * otherwise unbounded and entirely server-controlled: a load-shedding LB
- * answering `Retry-After: 3600` would silently hang the call for an hour per
- * attempt (the per-attempt timeout covers only the fetch, not the sleep).
- * Beyond the cap the client sleeps the cap and retries; if the server is
- * still shedding, the remaining attempts drain quickly and the error surfaces.
+ * Ceiling for a server-provided Retry-After delay: the header is unbounded and
+ * server-controlled, and timeoutMs covers only the fetch — not this sleep.
  */
 const RETRY_AFTER_CAP_MS = 30_000;
 
@@ -104,9 +100,7 @@ class TokenBucket {
 
   private refill(): void {
     const now = Date.now();
-    // Clamp at 0: the wall clock is not monotonic (NTP correction, manual
-    // change), and a negative elapsed would drive tokens negative and stall
-    // every queued request for the length of the backward step.
+    // Clamp at 0: a backward wall-clock step (NTP) would drive tokens negative.
     const elapsedSec = Math.max(0, now - this.lastRefill) / 1000;
     this.lastRefill = now;
     // Cap at no less than 1 token: with rps < 1 a cap of exactly rps would
@@ -353,10 +347,8 @@ export class KitClient {
         break;
       }
     }
-    // A short page is the only termination signal, so a server that silently
-    // clamps per_page below what we asked for would end the loop early. When
-    // the response reports total_count, cross-check it: fewer items than
-    // promised means the listing is incomplete — never present it as complete.
+    // A server that silently clamps per_page ends the loop on a "short" page;
+    // fewer items than total_count must never be presented as complete.
     if (!truncated && totalCount !== undefined && items.length < totalCount) {
       truncated = true;
     }

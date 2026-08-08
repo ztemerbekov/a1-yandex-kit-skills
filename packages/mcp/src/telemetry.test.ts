@@ -11,10 +11,8 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { instrumentToolCalls, Telemetry, telemetryEnabled } from "./telemetry.js";
 
-// Every enabled Telemetry() runs loadInstanceId(), which would otherwise
-// create ~/.config/mcp-yandex-kit in the developer's real home during a plain
-// `npm test` — keep the whole file hermetic. (node --test runs each test file
-// in its own process, so this cannot leak into other suites.)
+// Hermetic: every enabled Telemetry() would otherwise create
+// ~/.config/mcp-yandex-kit in the developer's real home during npm test.
 process.env.XDG_CONFIG_HOME = mkdtempSync(join(tmpdir(), "telemetry-test-"));
 
 interface Sent {

@@ -37,8 +37,7 @@ function checkStatusFilterHonored(
   data: unknown,
 ): ToolResult | null {
   if (!op.paginated || !op.itemsProp || !query) return null;
-  // A scalar string serializes to the same wire form as a one-element array
-  // (?status=X), so it must be guarded identically — normalize before checking.
+  // A scalar serializes to the same wire form as a one-element array (?status=X).
   const raw = query.status;
   const requested = typeof raw === "string" ? [raw] : raw;
   if (!Array.isArray(requested) || requested.length === 0) return null;
@@ -279,9 +278,8 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
             ),
           );
         }
-        // Merge-patch/PATCH updates have all-optional schemas, so an empty {}
-        // passes validation, hits the live store and "succeeds" as a server-side
-        // no-op. Curated update tools reject this locally — so must kit_request.
+        // Every PATCH schema is all-optional, so {} passes validation and
+        // "succeeds" as a live-store no-op; reject it like the curated tools do.
         if (
           op.method === "patch" &&
           typeof body === "object" &&

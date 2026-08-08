@@ -457,15 +457,13 @@ test("large Retry-After header is capped instead of honored verbatim", async (t)
   const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
 
   const promise = client.call<{ id: string }>("GetStore");
-  // Drain the microtask queue (setImmediate is not mocked) until the first
-  // attempt has hit the stub and the retry sleep is pending.
+  // Drain microtasks (setImmediate is not mocked) until the retry sleep is pending.
   for (let i = 0; i < 50 && calls.length === 0; i++) {
     await new Promise((resolve) => setImmediate(resolve));
   }
   assert.equal(calls.length, 1);
 
-  // A verbatim Retry-After: 7200 would sleep two hours; the cap must fire
-  // within 30 s of fake time and let the retry proceed.
+  // A verbatim 7200 s would hang; the cap must fire within 30 s of fake time.
   t.mock.timers.tick(30_000);
   const store = await promise;
   assert.deepEqual(store, { id: "s1" });
@@ -473,9 +471,7 @@ test("large Retry-After header is capped instead of honored verbatim", async (t)
 });
 
 test("listAll flags truncation when a short page contradicts total_count", async () => {
-  // A server that silently clamps per_page (returning 50 for a per_page=100
-  // request) ends the loop on the "short" first page; total_count says the
-  // listing has more — the result must not be presented as complete.
+  // A silent per_page clamp ends the loop on a "short" page; total_count knows better.
   const { fetchImpl } = stubFetch(() =>
     jsonResponse({
       variants: Array.from({ length: 50 }, (_, i) => ({ id: `v${i}` })),
