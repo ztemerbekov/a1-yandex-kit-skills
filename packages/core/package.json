@@ -17,12 +17,12 @@
     "dist"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20.11"
   },
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && mkdir -p dist/generated && cp src/generated/*.json dist/generated/",
     "typecheck": "tsc -p tsconfig.check.json",
-    "test": "node --import tsx --test $(find src -name '*.test.ts')",
+    "test": "node --import tsx --test --test-timeout=60000 $(find src -name '*.test.ts')",
     "prepare": "npm run build"
   },
   "keywords": [

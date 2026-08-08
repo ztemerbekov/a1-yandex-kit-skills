@@ -104,7 +104,10 @@ class TokenBucket {
 
   private refill(): void {
     const now = Date.now();
-    const elapsedSec = (now - this.lastRefill) / 1000;
+    // Clamp at 0: the wall clock is not monotonic (NTP correction, manual
+    // change), and a negative elapsed would drive tokens negative and stall
+    // every queued request for the length of the backward step.
+    const elapsedSec = Math.max(0, now - this.lastRefill) / 1000;
     this.lastRefill = now;
     // Cap at no less than 1 token: with rps < 1 a cap of exactly rps would
     // never let tokens reach the 1 needed to dispatch (permanent stall).
@@ -325,6 +328,7 @@ export class KitClient {
     const items: T[] = [];
     let pages = 0;
     let truncated = false;
+    let totalCount: number | undefined;
 
     for (let page = 1; ; page++) {
       const res = await this.call<Record<string, unknown>>(operationId, {
@@ -334,6 +338,7 @@ export class KitClient {
       pages++;
       const raw = res?.[itemsProp];
       const pageItems = Array.isArray(raw) ? (raw as T[]) : [];
+      if (typeof res?.total_count === "number") totalCount = res.total_count;
 
       const room = maxItems - items.length;
       if (pageItems.length > room) {
@@ -347,6 +352,13 @@ export class KitClient {
         truncated = true; // cap hit exactly on a full page — more may exist
         break;
       }
+    }
+    // A short page is the only termination signal, so a server that silently
+    // clamps per_page below what we asked for would end the loop early. When
+    // the response reports total_count, cross-check it: fewer items than
+    // promised means the listing is incomplete — never present it as complete.
+    if (!truncated && totalCount !== undefined && items.length < totalCount) {
+      truncated = true;
     }
     return { items, pages, truncated };
   }

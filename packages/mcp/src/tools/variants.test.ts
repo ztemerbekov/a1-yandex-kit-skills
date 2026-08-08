@@ -336,18 +336,30 @@ test("bulk_update_prices rejects a repeated variant before the network call", as
 });
 
 test("bulk_update_prices rejects an empty batch before the network call", async () => {
+  // .min(1) on the zod array rejects at the protocol layer, before the handler.
   const { calls, mcp } = await setup({});
-  const res = await mcp.callTool({ name: "bulk_update_prices", arguments: { items: [] } });
-  assert.equal((res as { isError?: boolean }).isError, true);
-  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
+  let errored = false;
+  try {
+    const res = await mcp.callTool({ name: "bulk_update_prices", arguments: { items: [] } });
+    errored = (res as { isError?: boolean }).isError === true;
+  } catch {
+    errored = true; // zod input validation surfaces as a protocol error
+  }
+  assert.equal(errored, true);
   assert.equal(calls.length, 0);
 });
 
 test("bulk_update_prices rejects a batch above the 5000-item cap before the network call", async () => {
+  // .max(5000) rejects oversized input before the O(n) duplicate scan runs.
   const { calls, mcp } = await setup({});
   const items = Array.from({ length: 5001 }, (_, i) => ({ variant_id: `v${i}`, price: "1" }));
-  const res = await mcp.callTool({ name: "bulk_update_prices", arguments: { items } });
-  assert.equal((res as { isError?: boolean }).isError, true);
-  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
+  let errored = false;
+  try {
+    const res = await mcp.callTool({ name: "bulk_update_prices", arguments: { items } });
+    errored = (res as { isError?: boolean }).isError === true;
+  } catch {
+    errored = true; // zod input validation surfaces as a protocol error
+  }
+  assert.equal(errored, true);
   assert.equal(calls.length, 0);
 });

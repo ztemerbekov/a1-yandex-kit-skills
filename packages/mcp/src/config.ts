@@ -1,3 +1,5 @@
+import type { StartupFailedReason } from "./telemetry.js";
+
 export interface Config {
   token: string;
   baseUrl?: string;
@@ -7,16 +9,37 @@ export interface Config {
 
 /**
  * A missing or malformed environment variable. `reason` is the machine-readable
- * code index.ts ships with the startup_failed ping (never a variable's value).
+ * code index.ts ships with the startup_failed ping (never a variable's value);
+ * typing it as the telemetry vocabulary keeps free-form strings out of pings.
  */
 export class ConfigError extends Error {
-  readonly reason: string;
+  readonly reason: StartupFailedReason;
 
-  constructor(message: string, reason: string) {
+  constructor(message: string, reason: StartupFailedReason) {
     super(message);
     this.name = "ConfigError";
     this.reason = reason;
   }
+}
+
+/**
+ * A malformed base URL otherwise surfaces only as a confusing fetch error on
+ * the first tool call — and skips the startup_failed/invalid_config telemetry
+ * that exists precisely for misconfigured installs. The value itself is never
+ * echoed: a URL can carry userinfo credentials.
+ */
+function validBaseUrl(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw === "") return undefined;
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new ConfigError("YANDEX_KIT_BASE_URL must be a valid http(s) URL.", "invalid_config");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new ConfigError("YANDEX_KIT_BASE_URL must use http or https.", "invalid_config");
+  }
+  return raw;
 }
 
 function positiveNumber(raw: string | undefined, fallback: number, name: string): number {
@@ -39,7 +62,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   return {
     token,
-    baseUrl: env.YANDEX_KIT_BASE_URL || undefined,
+    baseUrl: validBaseUrl(env.YANDEX_KIT_BASE_URL),
     rps: positiveNumber(env.YANDEX_KIT_RPS, 3, "YANDEX_KIT_RPS"),
     timeoutMs: positiveNumber(env.YANDEX_KIT_TIMEOUT_MS, 30_000, "YANDEX_KIT_TIMEOUT_MS"),
   };

@@ -6,12 +6,12 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.11"
   },
   "scripts": {
     "gen": "tsx src/gen-registry.ts && tsx src/gen-types.ts && tsx src/gen-docs.ts && tsx src/gen-skills.ts",
     "fetch": "tsx src/fetch-spec.ts",
-    "test": "node --import tsx --test src/*.test.ts",
+    "test": "node --import tsx --test --test-timeout=60000 src/*.test.ts",
     "typecheck": "tsc -p tsconfig.check.json"
   },
   "dependencies": {
