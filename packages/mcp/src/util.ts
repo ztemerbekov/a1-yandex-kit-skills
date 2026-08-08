@@ -58,10 +58,8 @@ export function emptyUpdateFailure(): ToolResult {
 }
 
 /**
- * Resolves the bytes of a multipart upload from the mutually exclusive
- * `file_path` / `content_base64` pair shared by `upload_file` and
- * `upload_video`. Returns either the failure to surface (nothing was sent) or
- * the decoded bytes plus the file name to put in the form part.
+ * Bytes + file name of a multipart upload from the mutually exclusive
+ * `file_path` / `content_base64` pair, or the failure to surface (no network).
  */
 export async function resolveUploadSource(input: {
   file_path?: string;
@@ -93,9 +91,7 @@ export async function resolveUploadSource(input: {
       };
     }
     // Buffer.from(..., "base64") silently skips invalid characters and drops
-    // trailing bits, so a lenient decode would upload corrupt bytes; validate first.
-    // The empty string passes both checks below yet is exactly the truncation
-    // case they guard against — a zero-byte upload must never reach the network.
+    // trailing bits — a lenient decode would upload corrupt (or zero) bytes.
     const compact = content_base64.replace(/\s+/g, "");
     if (
       compact.length === 0 ||
@@ -172,10 +168,8 @@ export function statusFilterIgnoredFailure(
 }
 
 /**
- * Mixed status filter containing ARCHIVED (issue #54): the server strips
- * ARCHIVED and honors the rest, so the response holds only in-filter statuses
- * and no probe can tell the defective listing from an honored view with an
- * empty archive. Unprovable — fail instead of returning an incomplete slice.
+ * Mixed status filter with ARCHIVED (issue #54): the stripped listing is
+ * indistinguishable from an honored view with an empty archive — unprovable.
  */
 export function mixedArchivedFilterFailure(requested: readonly string[]): ToolResult {
   return fail(

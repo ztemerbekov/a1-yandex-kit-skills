@@ -62,8 +62,7 @@ test("upload_file with both file_path and content_base64 fails without any netwo
 });
 
 test("upload_file rejects empty content_base64 without any network call", async () => {
-  // "" satisfies both the length%4 and the charset checks, yet it is exactly
-  // the truncation case they guard against — a zero-byte upload is never valid.
+  // "" passes both format checks, yet a zero-byte upload is never valid.
   const { calls, mcp } = await setup();
   for (const empty of ["", "\n \t"]) {
     const res = await mcp.callTool({

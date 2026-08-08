@@ -8,9 +8,8 @@ export interface Config {
 }
 
 /**
- * A missing or malformed environment variable. `reason` is the machine-readable
- * code index.ts ships with the startup_failed ping (never a variable's value);
- * typing it as the telemetry vocabulary keeps free-form strings out of pings.
+ * A missing or malformed environment variable. `reason` ships with the
+ * startup_failed ping; its type keeps free-form strings out of telemetry.
  */
 export class ConfigError extends Error {
   readonly reason: StartupFailedReason;
@@ -23,10 +22,8 @@ export class ConfigError extends Error {
 }
 
 /**
- * A malformed base URL otherwise surfaces only as a confusing fetch error on
- * the first tool call — and skips the startup_failed/invalid_config telemetry
- * that exists precisely for misconfigured installs. The value itself is never
- * echoed: a URL can carry userinfo credentials.
+ * Fail at startup (with the invalid_config ping) instead of a confusing fetch
+ * error on the first call. Never echo the value: a URL can carry credentials.
  */
 function validBaseUrl(raw: string | undefined): string | undefined {
   if (raw === undefined || raw === "") return undefined;

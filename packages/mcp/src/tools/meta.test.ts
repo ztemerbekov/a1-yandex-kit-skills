@@ -106,9 +106,8 @@ test("get_operation_schema unknown id fails with suggestions", async () => {
     arguments: { operation_id: "CreateWebhooks" },
   });
   assert.equal((res as any).isError, true);
-  // The error always echoes the unknown id, and "CreateWebhooks" contains
-  // "CreateWebhook" as a substring — only the "Did you mean" prefix proves
-  // the suggestion machinery actually ran.
+  // The echoed id "CreateWebhooks" contains "CreateWebhook" as a substring —
+  // only "Did you mean" proves the suggestion machinery ran.
   assert.ok(text(res).includes("Did you mean"), text(res));
   assert.ok(text(res).includes("CreateWebhook"), text(res));
 });
@@ -159,8 +158,7 @@ test("kit_request rejects multipart UploadFile pointing at upload_file", async (
   });
   assert.equal((res as any).isError, true);
   assert.equal(parse(res).code, "MULTIPART_NOT_SUPPORTED");
-  // The hint is the consumer LLM's routing signal — it must name exactly the
-  // right tool (a generic "upload_file or upload_video" would be ambiguous).
+  // The hint must name exactly the right tool, not a generic both-names fallback.
   assert.match(parse(res).error, /upload_file/);
   assert.doesNotMatch(parse(res).error, /upload_video/);
   assert.doesNotMatch(parse(res).error, /planned/);
@@ -212,8 +210,7 @@ test("kit_request rejects a list response with statuses outside the requested fi
 });
 
 test("kit_request guards a scalar-string status filter like a one-element array", async () => {
-  // ?status=ARCHIVED is the same wire form whether the agent sent "ARCHIVED"
-  // or ["ARCHIVED"] — the guard must not be bypassed by the scalar spelling.
+  // A scalar spells the same wire form as ["ARCHIVED"] — the guard must hold.
   const { calls, mcpClient } = await setup({
     variants: [{ id: "v1", status: "PUBLISHED" }],
     total_count: 1,

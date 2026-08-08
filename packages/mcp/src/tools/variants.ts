@@ -17,9 +17,8 @@ import {
 } from "../util.js";
 
 /**
- * The API takes decimal prices as strings; a consumer LLM naturally sends
- * numbers, and Ajv (no type coercion) would reject the whole batch for it.
- * `null` is meaningful (reset the price) and must survive untouched.
+ * The API takes decimal prices as strings, but a consumer LLM naturally sends
+ * numbers; `null` is meaningful (reset the price) and must survive untouched.
  */
 function normalizePrice(value: string | number | null | undefined): string | null | undefined {
   return typeof value === "number" ? String(value) : value;
@@ -27,23 +26,16 @@ function normalizePrice(value: string | number | null | undefined): string | nul
 
 /**
  * Post-check for the known KIT API defect (issue #54): the server silently
- * strips `ARCHIVED` from the GetVariants status filter (honoring the rest), so
- * the listing falls back to the non-archived slice. Observable shapes:
- * - items outside the requested filter — the filter was ignored;
- * - a mixed filter (ARCHIVED + other statuses) whose response has no archived
- *   item — indistinguishable from an honored view with an empty archive, and
- *   no probe can disambiguate a non-empty response: unprovable, so fail;
- * - an empty FIRST page for a pure [ARCHIVED] filter — ambiguous, so probe the
- *   listing once WITH the same scope filters (product_id/name): a non-empty
- *   probe proves the filter WAS honored (a stripped filter would have returned
- *   that same non-empty scoped listing), while an empty probe leaves the
- *   archive unprovable. An unscoped probe would prove nothing for a scoped
- *   request — other products' variants would make it non-empty. The proof only
- *   holds for page 1: an empty LATER page is legitimate for the (stripped)
- *   default listing even when the real archive is large, so for page > 1 an
- *   empty [ARCHIVED] page is unprovable outright — no probe can help.
- * Returns the failure to surface instead of the response, or null when the
- * response can be trusted.
+ * strips `ARCHIVED` from the GetVariants status filter (honoring the rest).
+ * Shapes: out-of-filter items — the filter was ignored; a mixed filter with no
+ * archived item in the response — indistinguishable from an honored view with
+ * an empty archive, unprovable; an empty page-1 for a pure [ARCHIVED] filter —
+ * disambiguated by one probe carrying the same scope (product_id/name): if the
+ * scoped listing is non-empty, a stripped filter would have returned it, so
+ * the empty response proves an empty archive. The proof fails for other pages
+ * (an empty later page of the stripped listing is legitimate) and for an
+ * unscoped probe (other products would make it non-empty).
+ * Returns the failure to surface, or null when the response can be trusted.
  */
 async function verifyStatusFilterHonored(
   client: KitClient,

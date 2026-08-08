@@ -37,8 +37,7 @@ test("a malformed base URL reports invalid_config at startup, not on the first c
 });
 
 test("base URL error messages never echo the value (it can carry credentials)", () => {
-  // ftp:// fails the protocol check, so the throw is guaranteed and the
-  // assertions below always run — with a secret in the rejected value.
+  // ftp:// guarantees the throw, with a secret in the rejected value.
   try {
     loadConfig({ YANDEX_KIT_TOKEN: "t0ken", YANDEX_KIT_BASE_URL: "ftp://user:secret@x/" });
   } catch (err) {
