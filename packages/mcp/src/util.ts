@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
+
 import { KitApiError, KitValidationError } from "yandex-kit-core";
 
 export const READ_ONLY = { readOnlyHint: true } as const;
@@ -52,6 +55,72 @@ export function emptyUpdateFailure(): ToolResult {
       "EMPTY_UPDATE_BODY",
     ),
   );
+}
+
+/**
+ * Resolves the bytes of a multipart upload from the mutually exclusive
+ * `file_path` / `content_base64` pair shared by `upload_file` and
+ * `upload_video`. Returns either the failure to surface (nothing was sent) or
+ * the decoded bytes plus the file name to put in the form part.
+ */
+export async function resolveUploadSource(input: {
+  file_path?: string;
+  content_base64?: string;
+  filename?: string;
+}): Promise<{ failure: ToolResult } | { bytes: Buffer; name: string }> {
+  const { file_path, content_base64, filename } = input;
+  if ((file_path === undefined) === (content_base64 === undefined)) {
+    return {
+      failure: fail(
+        new KitValidationError(
+          "Provide exactly one of file_path or content_base64, not both and not neither.",
+          [],
+          "FILE_SOURCE_REQUIRED",
+        ),
+      ),
+    };
+  }
+  if (content_base64 !== undefined) {
+    if (!filename) {
+      return {
+        failure: fail(
+          new KitValidationError(
+            "filename is required when uploading via content_base64.",
+            [],
+            "FILENAME_REQUIRED",
+          ),
+        ),
+      };
+    }
+    // Buffer.from(..., "base64") silently skips invalid characters and drops
+    // trailing bits, so a lenient decode would upload corrupt bytes; validate first.
+    const compact = content_base64.replace(/\s+/g, "");
+    if (compact.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) {
+      return {
+        failure: fail(
+          new KitValidationError(
+            "content_base64 is not valid base64 (check for truncation or invalid characters).",
+            [],
+            "INVALID_BASE64",
+          ),
+        ),
+      };
+    }
+    return { bytes: Buffer.from(compact, "base64"), name: filename };
+  }
+  try {
+    return { bytes: await readFile(file_path!), name: filename ?? basename(file_path!) };
+  } catch (e) {
+    return { failure: fail(e) };
+  }
+}
+
+/** Multipart body with a single `file` part, as both upload endpoints expect. */
+export function fileFormData(bytes: Buffer, name: string): FormData {
+  const form = new FormData();
+  // Copy into a plain-ArrayBuffer-backed view: Buffer is not a valid BlobPart type.
+  form.append("file", new Blob([new Uint8Array(bytes)]), name);
+  return form;
 }
 
 export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): number {

@@ -4,7 +4,7 @@ description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store b
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # A1 Yandex KIT Skills
@@ -18,7 +18,7 @@ completely.
 Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
 prices and for managing orders between a merchant's backend and the platform. The official
-docs are in Russian; the full OpenAPI spec (151 operations) is bundled with this skill in
+docs are in Russian; the full OpenAPI spec (160 operations) is bundled with this skill in
 `data/kit_v1.json.gz` and searchable offline with the scripts below.
 
 ## API essentials
@@ -43,7 +43,10 @@ docs are in Russian; the full OpenAPI spec (151 operations) is bundled with this
   `null` clears a field only where the schema marks it nullable — of these, that is
   just `parent_id` and `file_id` of `UpdateCategory`; elsewhere `null` fails
   validation (`validate.mjs` below will catch it). `POST /v1/files` (`UploadFile`)
-  is `multipart/form-data`.
+  and `POST /v1/videos` (`UploadVideo`) are `multipart/form-data`.
+- **Bulk writes**: `BulkUpdatePrices` and `BulkUpdateStocks` take up to 5000 items per
+  request and are atomic — a single invalid item rejects the whole batch (400) and applies
+  nothing. Prefer them over per-variant updates for catalog syncs.
 
 ## Workflow
 
@@ -89,19 +92,21 @@ Run the bundled scripts from this skill's directory — they are self-contained
 Prefer the focused skill when the task clearly belongs to one domain — each bundles the
 same scripts and data, plus the endpoint tables of its tags:
 
-- `a1-yandex-kit-catalog` — products, variants (SKUs, prices, stocks), categories,
-  characteristics, collections, context collections, badges.
+- `a1-yandex-kit-catalog` — products, variants (SKUs, prices, stocks, bulk price/stock
+  sync), categories, characteristics (groups, colors), videos, collections, context
+  collections, badges.
 - `a1-yandex-kit-orders` — orders, customers, gift cards, additional services (addons).
 - `a1-yandex-kit-promotions` — discounts, promo codes, promocode groups, gifts.
-- `a1-yandex-kit-store` — store profile, warehouses, users, geo, files, redirects, blog/news.
+- `a1-yandex-kit-store` — store profile, warehouses, users, geo, files, redirects,
+  blog/news, alerts.
 - `a1-yandex-kit-webhooks` — webhooks: order events, HTTPS callbacks, signing secret.
 
 ## Related MCP tools
 
-The bundled `mcp-yandex-kit` MCP server exposes **61 tools**. Curated tools
+The bundled `mcp-yandex-kit` MCP server exposes **70 tools**. Curated tools
 cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
-in the domain skills); the meta trio below reaches **all 151 operations**:
+in the domain skills); the meta trio below reaches **all 160 operations**:
 
-- `search_operations` — Search the full catalog of all 151 Yandex KIT API operations by keyword.
+- `search_operations` — Search the full catalog of all 160 Yandex KIT API operations by keyword.
 - `get_operation_schema` — Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response.
-- `kit_request` — Escape hatch that executes ANY of the 151 Yandex KIT API operations by operationId, including operations without a dedicated tool.
+- `kit_request` — Escape hatch that executes ANY of the 160 Yandex KIT API operations by operationId, including operations without a dedicated tool.

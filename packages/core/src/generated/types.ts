@@ -247,6 +247,30 @@ export interface paths {
         patch: operations["UpdateCharacteristicGroup"];
         trace?: never;
     };
+    "/v1/characteristics/colors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение списка цветов
+         * @description Возвращает список цветов значений характеристик с пагинацией и поиском.
+         */
+        get: operations["GetCharacteristicColors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Обновление hex-кода для значения цветовой характеристики
+         * @description Обновляет hex-код для строкового значения цветовой характеристики.
+         */
+        patch: operations["UpdateCharacteristicColor"];
+        trace?: never;
+    };
     "/v1/files": {
         parameters: {
             query?: never;
@@ -286,6 +310,75 @@ export interface paths {
          * @description Возвращает информацию о ранее загруженном файле по его уникальному идентификатору.
          */
         get: operations["GetFileById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/videos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение списка видео
+         * @description Возвращает список видео с фильтром по статусу обработки и пагинацией.
+         *     Видео отсортированы по возрастанию даты загрузки.
+         */
+        get: operations["GetVideos"];
+        put?: never;
+        /**
+         * Загрузка видео
+         * @description Загружает видео и ставит его в очередь на обработку.
+         *
+         *     В ответе возвращается идентификатор загруженного видео — используйте его, чтобы
+         *     отслеживать статус обработки через `GET /v1/videos/{video_id}` и привязывать видео
+         *     к товару через `media` в `POST /v1/variants` и `PATCH /v1/variants/{id}`.
+         *
+         *     {% note info "Ограничения" %}
+         *
+         *     - максимальный размер файла — 100 МБ;
+         *     - поддерживаемые форматы: mp4, mov, webm, avi, flv;
+         *     - видео дедуплицируются по содержимому: повторная загрузка того же файла не создает
+         *       дубликат, а возвращает уже загруженное видео;
+         *
+         *     {% endnote %}
+         */
+        post: operations["UploadVideo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/videos/{video_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["schemas"]["VideoID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение видео по идентификатору
+         * @description Возвращает видео и текущий статус его обработки.
+         *
+         *     Используйте метод, чтобы дождаться готовности видео после загрузки: статус меняется
+         *     `UPLOADED` → `PROCESSING` → `READY`. В статусе `READY` заполнено поле `content`
+         *     со ссылкой на плеер, в статусе `ERROR` — поле `error` с описанием ошибки.
+         *
+         *     Опрашивайте метод не чаще одного раза в 5 секунд: обработка занимает время,
+         *     пропорциональное длительности видео, а на магазин действует общий лимит запросов.
+         *
+         *     Видео в статусе `ERROR` удаляются автоматически, после удаления метод возвращает `404`.
+         */
+        get: operations["GetVideoById"];
         put?: never;
         post?: never;
         delete?: never;
@@ -640,12 +733,11 @@ export interface paths {
         post?: never;
         /**
          * Открепление документа от товара
-         * @description Открепляет документ от товара. Операция локальна: удаляется только
-         *     связь документа с данным товаром. Если этот же файл прикреплён
-         *     к другим товарам, те документы не затрагиваются. Сам файл
-         *     не удаляется и остаётся доступным для повторного прикрепления.
+         * @description Операция открепляет документ от товара — удаляется только связь.
+         *     Файл сохраняется и остается доступным для повторного прикрепления.
+         *     Если документ привязан к другим товарам, их связи не затрагиваются.
          *
-         *     Если документ не прикреплён к товару (в том числе при повторном
+         *     Если документ не прикреплен к товару (в том числе при повторном
          *     удалении), возвращается ошибка 404.
          *
          *     У архивного товара удалять документы нельзя — возвращается ошибка 400.
@@ -694,6 +786,43 @@ export interface paths {
          *     Остатки на складах, не упомянутых в батче, не затрагиваются.
          */
         post: operations["BulkUpdateStocks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/variants/prices/bulk_update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Массовое обновление цен
+         * @description Массово обновляет цены товаров. За один запрос можно передать
+         *     до 5000 элементов — товар с новыми ценами.
+         *
+         *     Операция синхронная и атомарная. Если хотя бы один элемент батча
+         *     недействителен (товар не найден или архивирован, товар передан в батче более одного раза, цена некорректна),
+         *     весь запрос отклоняется с ошибкой 400, и ни одно изменение не применяется.
+         *     В поле `errors` ответа перечислены все недействительные элементы с идентификаторами товара.
+         *
+         *     Оба поля цен необязательные. Чтобы не менять текущее значение, не передавайте соответствующий ключ.
+         *     Чтобы установить новое значение, передайте его.
+         *     `manual_discount_price: null` — сбрасывает цену со скидкой.
+         *     `price: null` — сбрасывает базовую цену (доступно только для неопубликованных товаров, для опубликованных товаров сброс цены запрещен).
+         *
+         *     Если цена со скидкой превышает цену до скидки, элемент отклоняется с ошибкой `INVALID_PRICE`.
+         *     Передайте новую цену со скидкой либо `null` для ее сброса.
+         *
+         *     При смене цены до скидки цена по акции пересчитывается.
+         *     Если новая цена меняет вхождение товара в акцию, состав акций актуализируется позже — в фоновом режиме.
+         */
+        post: operations["BulkUpdatePrices"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1011,6 +1140,29 @@ export interface paths {
          * @description Отменяет заказ. Возможность отмены зависит от текущего статуса заказа.
          */
         post: operations["CancelOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{id}/delivery/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Завершение доставки заказа
+         * @description Полностью завершает доставку заказа.
+         *     Подходит для самовывоза и собственной доставки магазина, когда автоматизация доставки отключена.
+         */
+        post: operations["CompleteOrderDelivery"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2461,6 +2613,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение списка алертов
+         * @description Возвращает системные алерты магазина. Фильтр по статусу обязателен.
+         *
+         *     Порядок: сначала критичные алерты, внутри одной важности — новые сверху.
+         */
+        get: operations["GetAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/alerts/{alert_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Идентификатор алерта из ответа `GET /v1/alerts`. */
+                alert_id: components["schemas"]["AlertID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Закрытие алерта
+         * @description Помечает алерт решенным. Повторный вызов для уже закрытого алерта также вернет ошибку `204`.
+         *
+         *     Активные алерты с важностью `CRITICAL` закрыть вручную нельзя — метод вернет ошибку `400`.
+         */
+        post: operations["ResolveAlert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2496,6 +2695,7 @@ export interface components {
              *     - `WAREHOUSE_ARCHIVED` — склад архивирован.
              *     - `DUPLICATE_ITEM` — элемент с таким идентификатором передан более одного раза.
              *     - `INVALID_QUANTITY` — некорректное количество.
+             *     - `INVALID_PRICE` — некорректная цена.
              * @example VARIANT_NOT_FOUND
              */
             code: string;
@@ -2519,6 +2719,31 @@ export interface components {
         BulkUpdateStocksRequest: {
             /** @description Элементы обновления. Пара товар + склад не может повторяться. */
             items: components["schemas"]["BulkStockItem"][];
+        };
+        /** @description Элемент массового обновления цен — новые цены товара */
+        BulkPriceItem: {
+            variant_id: components["schemas"]["VariantID"];
+            /**
+             * Format: decimal
+             * @description Цена до скидки (поле опционально). Не передавайте ключ, чтобы
+             *     не менять текущую цену; `null` — сбросить цену (только
+             *     у неопубликованного товара).
+             * @example 1000
+             */
+            price?: string | null;
+            /**
+             * Format: decimal
+             * @description Цена со скидкой, установленная вручную (поле опционально).
+             *     Не передавайте ключ, чтобы не менять текущую цену со скидкой;
+             *     `null` — сбросить ее.
+             * @example 900
+             */
+            manual_discount_price?: string | null;
+        };
+        /** @description Запрос массового обновления цен. */
+        BulkUpdatePricesRequest: {
+            /** @description Элементы обновления. Товар не может повторяться. */
+            items: components["schemas"]["BulkPriceItem"][];
         };
         /**
          * Format: uuid
@@ -2833,6 +3058,40 @@ export interface components {
              */
             title?: string;
         };
+        CharacteristicColor: {
+            /**
+             * @description Значение характеристики.
+             * @example Красный
+             */
+            value: string;
+            /**
+             * @description Цвет в формате hex, `multicoloured` или `transparent`
+             * @example #FF0000
+             */
+            color_hex: string;
+        };
+        /** @description Список цветов значений характеристик. */
+        CharacteristicColorCollection: {
+            colors: components["schemas"]["CharacteristicColor"][];
+            /**
+             * Format: uint64
+             * @description Общее количество цветов.
+             * @example 42
+             */
+            total_count: number;
+        };
+        UpdateCharacteristicColorRequest: {
+            /**
+             * @description Значение характеристики.
+             * @example Красный
+             */
+            value: string;
+            /**
+             * @description Цвет в формате hex, `multicoloured` или `transparent`
+             * @example #FF0000
+             */
+            color_hex: string;
+        };
         /**
          * @description Тип значения характеристики.
          * @enum {string}
@@ -2917,6 +3176,89 @@ export interface components {
              * @example https://example.com/files/550e8400-e29b-41d4-a716-446655440000.png
              */
             url: string;
+        };
+        /**
+         * @description Идентификатор видео.
+         * @example vplvusemmooxmhpwiqli
+         */
+        VideoID: string;
+        /**
+         * @description Статус обработки видео:
+         *     - `UPLOADED` — видео загружено и поставлено в очередь на обработку.
+         *     - `PROCESSING` — видео обрабатывается.
+         *     - `READY` — видео готово к показу, заполнено поле `content`.
+         *     - `ERROR` — обработка завершилась ошибкой, детали в поле `error`.
+         * @enum {string}
+         */
+        VideoStatus: "UPLOADED" | "PROCESSING" | "READY" | "ERROR";
+        /** @description Видео товара. */
+        Video: {
+            id: components["schemas"]["VideoID"];
+            status: components["schemas"]["VideoStatus"];
+            /**
+             * @description Название видео. Совпадает с именем загруженного файла.
+             * @example promo.mp4
+             */
+            title: string;
+            /**
+             * Format: date-time
+             * @description Дата загрузки видео
+             * @example 2020-01-01T00:00:00Z
+             */
+            created_at: string;
+            /** @description Ссылки на видео. Заполняется только в статусе `READY`. */
+            content?: components["schemas"]["VideoContent"];
+            /** @description Описание ошибки обработки. Заполняется только в статусе `ERROR`. */
+            error?: components["schemas"]["VideoError"];
+        };
+        /** @description Ссылки на готовое видео. */
+        VideoContent: {
+            /**
+             * Format: uri
+             * @description Ссылка на плеер видео.
+             * @example https://example.com/player/vplvusemmooxmhpwiqli
+             */
+            player_url: string;
+            /**
+             * Format: uri
+             * @description Ссылка на превью — первый кадр видео.
+             * @example https://example.com/first-frame.jpg
+             */
+            first_frame_url?: string;
+            /**
+             * Format: uint64
+             * @description Длительность видео в секундах.
+             * @example 15
+             */
+            duration_seconds?: number;
+        };
+        /** @description Ошибка обработки видео. */
+        VideoError: {
+            /**
+             * @description Код ошибки. Может отсутствовать — не используйте его как однозначный
+             *     признак причины сбоя.
+             * @example TRANSCODING_FAILED
+             */
+            code?: string;
+            /**
+             * @description Описание ошибки.
+             * @example Не удалось обработать видео
+             */
+            message: string;
+        };
+        /** @description Список видео. */
+        VideoCollection: {
+            videos: components["schemas"]["Video"][];
+            /**
+             * Format: uint64
+             * @description Общее количество видео, подходящих под фильтр.
+             * @example 100
+             */
+            total_count: number;
+        };
+        /** @description Идентификатор загруженного видео. */
+        UploadedVideo: {
+            video_id: components["schemas"]["VideoID"];
         };
         /**
          * @description Таблица размеров для товара. Содержит изображение с размерной сеткой
@@ -3961,6 +4303,19 @@ export interface components {
              * @example Клиент часто покупает товары в нашем магазине
              */
             note: string;
+            /**
+             * @description Согласие клиента на получение рекламных материалов.
+             * @example true
+             */
+            agreement_for_promo: boolean;
+            /**
+             * Format: date-time
+             * @description Дата и время получения последнего согласия на рекламные материалы.
+             *     Отсутствует, если клиент никогда не давал согласия. Поле не обнуляется при отзыве согласия —
+             *     актуальность согласия определяется полем `agreement_for_promo`.
+             * @example 2024-05-20T12:30:00Z
+             */
+            agreement_at?: string;
         };
         CustomerCollection: {
             customers: components["schemas"]["Customer"][];
@@ -6051,6 +6406,57 @@ export interface components {
              */
             total_count: number;
         };
+        /**
+         * @description Идентификатор алерта.
+         * @example certificateExpiry
+         */
+        AlertID: string;
+        /**
+         * @description Статус алерта:
+         *     - `ACTIVE` — проблема актуальна.
+         *     - `RESOLVED` — алерт закрыт.
+         * @enum {string}
+         */
+        AlertStatus: "ACTIVE" | "RESOLVED";
+        /**
+         * @description Важность алерта:
+         *     - `WARNING` — предупреждение, можно закрыть вручную.
+         *     - `CRITICAL` — критичная проблема, закрывается только автоматически.
+         * @enum {string}
+         */
+        AlertSeverity: "WARNING" | "CRITICAL";
+        Alert: {
+            id: components["schemas"]["AlertID"];
+            /**
+             * @description Текст алерта.
+             * @example Срок действия SSL-сертификата истекает через 7 дней
+             */
+            message: string;
+            severity: components["schemas"]["AlertSeverity"];
+            /**
+             * Format: date-time
+             * @description Дата и время создания алерта.
+             * @example 2026-01-15T10:30:00Z
+             */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description Дата и время закрытия алерта. Отсутствует у активных алертов.
+             * @example 2026-01-16T09:00:00Z
+             */
+            resolved_at?: string;
+        };
+        /** @description Список алертов. */
+        AlertCollection: {
+            /** @description Список алертов. */
+            alerts: components["schemas"]["Alert"][];
+            /**
+             * Format: uint64
+             * @description Общее количество алертов.
+             * @example 3
+             */
+            total_count: number;
+        };
     };
     responses: {
         /** @description Некорректный запрос. */
@@ -7082,6 +7488,120 @@ export interface operations {
             };
         };
     };
+    GetCharacteristicColors: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+                /** @description Поиск по значению цвета. */
+                search_text?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список цветов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacteristicColorCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateCharacteristicColor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCharacteristicColorRequest"];
+            };
+        };
+        responses: {
+            /** @description Цвет для значения характеристики успешно сохранен. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CharacteristicColor"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     UploadFile: {
         parameters: {
             query?: never;
@@ -7157,6 +7677,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["File"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetVideos: {
+        parameters: {
+            query: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+                /** @description Фильтр по статусу обработки видео. */
+                status: components["schemas"]["VideoStatus"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список видео. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /**
+                     * Format: binary
+                     * @description Файл видео для загрузки
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Видео успешно загружено */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedVideo"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetVideoById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                video_id: components["schemas"]["VideoID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Видео */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Video"];
                 };
             };
             /** @description Некорректный запрос. */
@@ -8310,7 +8999,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Документ откреплён от товара */
+            /** @description Документ откреплен от товара */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -8371,7 +9060,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Документ успешно обновлён */
+            /** @description Документ успешно обновлен */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8441,6 +9130,55 @@ export interface operations {
         };
         responses: {
             /** @description Остатки успешно обновлены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. Для невалидных элементов батча в поле `errors` перечислены идентификаторы, коды и описания ошибок. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkOperationError"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BulkUpdatePrices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUpdatePricesRequest"];
+            };
+        };
+        responses: {
+            /** @description Цены успешно обновлены. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -8896,6 +9634,11 @@ export interface operations {
                 page?: number;
                 /** @description Количество элементов на странице. */
                 per_page?: number;
+                /**
+                 * @description Фильтр по согласию клиента на получение рекламных материалов.
+                 *     Не передавайте параметр, чтобы получить всех клиентов.
+                 */
+                agreement_for_promo?: boolean;
             };
             header?: never;
             path?: never;
@@ -9360,6 +10103,62 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Заказ успешно отменен. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CompleteOrderDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Доставка успешно завершена. */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -14841,6 +15640,117 @@ export interface operations {
         };
         responses: {
             /** @description Объекты успешно удалены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetAlerts: {
+        parameters: {
+            query: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+                /** @description Фильтр по статусу алерта. */
+                status: components["schemas"]["AlertStatus"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список алертов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ResolveAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Идентификатор алерта из ответа `GET /v1/alerts`. */
+                alert_id: components["schemas"]["AlertID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Алерт закрыт. */
             204: {
                 headers: {
                     [name: string]: unknown;

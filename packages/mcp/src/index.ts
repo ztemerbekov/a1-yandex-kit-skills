@@ -19,6 +19,9 @@ import { registerWebhookTools } from "./tools/webhooks.js";
 import { registerWarehouseTools } from "./tools/warehouses.js";
 import { registerCollectionTools } from "./tools/collections.js";
 import { registerFileTools } from "./tools/files.js";
+import { registerCharacteristicTools } from "./tools/characteristics.js";
+import { registerVideoTools } from "./tools/videos.js";
+import { registerAlertTools } from "./tools/alerts.js";
 
 /**
  * Loads the config, reporting the drop-off if it is missing. An unconfigured
@@ -76,6 +79,9 @@ async function main(): Promise<void> {
   registerWarehouseTools(server, client);
   registerCollectionTools(server, client);
   registerFileTools(server, client);
+  registerCharacteristicTools(server, client);
+  registerVideoTools(server, client);
+  registerAlertTools(server, client);
 
   await server.connect(new StdioServerTransport());
   // stdout belongs to the stdio transport — diagnostics go to stderr.

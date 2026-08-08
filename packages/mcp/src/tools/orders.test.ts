@@ -34,12 +34,13 @@ async function setup(payload: unknown = { ok: true }) {
   return { calls, mcp };
 }
 
-test("registers exactly the five order tools with correct annotations", async () => {
+test("registers exactly the six order tools with correct annotations", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   const names = tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
     "cancel_order",
+    "complete_order_delivery",
     "confirm_order",
     "get_order",
     "get_order_addons",
@@ -128,4 +129,14 @@ test("get_order_addons hits /v1/orders/{id}/addons", async () => {
   assert.equal(calls.length, 1);
   assert.equal(new URL(calls[0]!.url).pathname, "/v1/orders/abc-123/addons");
   assert.equal(calls[0]!.init?.method, "GET");
+});
+
+test("complete_order_delivery POSTs to /v1/orders/{id}/delivery/complete without a body", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({ name: "complete_order_delivery", arguments: { id: "abc-123" } });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/orders/abc-123/delivery/complete");
+  assert.equal(calls[0]!.init?.method, "POST");
+  assert.equal(calls[0]!.init?.body, undefined);
 });

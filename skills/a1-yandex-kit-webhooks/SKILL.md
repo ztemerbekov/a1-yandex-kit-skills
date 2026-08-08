@@ -4,7 +4,7 @@ description: "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endp
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # A1 Yandex KIT — Webhooks
@@ -91,7 +91,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-151 operations):
+160 operations):
 
 - `list_webhooks` — List all webhooks of the store (not paginated).
 - `get_webhook` — Get a single webhook by its ID (URL, subscribed events, status).

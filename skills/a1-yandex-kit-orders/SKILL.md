@@ -4,7 +4,7 @@ description: "Manage orders in a Yandex KIT store over its REST API: orders and 
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # A1 Yandex KIT — Orders
@@ -17,9 +17,13 @@ completely.
 
 Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
-through the API you list and inspect them, confirm or cancel them, and read the attached
-additional services (addons), customer records and gift cards. All datetimes are UTC,
-and list endpoints paginate with `page`/`per_page` (max 100).
+through the API you list and inspect them, confirm or cancel them, close out their delivery
+(`POST /v1/orders/{id}/delivery/complete` — for pickup and the store's own delivery when
+delivery automation is off), and read the attached additional services (addons), customer
+records and gift cards. A customer record also carries the marketing-consent pair
+`agreement_for_promo` + `agreement_at` — read it before adding anyone to a mailing list
+and mirror it into your CRM. All datetimes are UTC, and list endpoints paginate with
+`page`/`per_page` (max 100).
 
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
 
@@ -62,7 +66,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (21 operations)
+## Endpoints (22 operations)
 
 ### Заказы
 
@@ -74,6 +78,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | GET | `/v1/orders/{id}/addons` | `GetOrderAddons` | Получение списка услуг заказа |
 | POST | `/v1/orders/{id}/confirm` | `ConfirmOrder` | Подтверждение заказа |
 | POST | `/v1/orders/{id}/cancel` | `CancelOrder` | Отмена заказа |
+| POST | `/v1/orders/{id}/delivery/complete` | `CompleteOrderDelivery` | Завершение доставки заказа |
 
 ### Клиенты
 
@@ -109,12 +114,13 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-151 operations):
+160 operations):
 
 - `list_orders` — List orders of the store (paginated), newest first.
 - `get_order` — Get a single order by its ID, including line items, delivery chunks, payment and status.
 - `confirm_order` — Confirm an order.
 - `cancel_order` — Cancel an order.
+- `complete_order_delivery` — Mark the delivery of an order as fully completed.
 - `get_order_addons` — List additional services (addons) attached to an order by the order ID.
 - `list_customers` — List customers of the store (paginated).
 - `get_customer` — Get a single customer by their ID.

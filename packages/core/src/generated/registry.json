@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KIT API",
   "specVersion": "1.0.0",
-  "opsCount": 151,
+  "opsCount": 160,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -390,6 +390,67 @@
       "paginated": false,
       "itemsProp": null
     },
+    "GetCharacteristicColors": {
+      "id": "GetCharacteristicColors",
+      "method": "get",
+      "path": "/v1/characteristics/colors",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Получение списка цветов",
+      "descriptionRu": "Возвращает список цветов значений характеристик с пагинацией и поиском.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "search_text",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Поиск по значению цвета."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CharacteristicColorCollection",
+      "paginated": true,
+      "itemsProp": "colors"
+    },
+    "UpdateCharacteristicColor": {
+      "id": "UpdateCharacteristicColor",
+      "method": "patch",
+      "path": "/v1/characteristics/colors",
+      "tag": "Характеристики товаров",
+      "summaryRu": "Обновление hex-кода для значения цветовой характеристики",
+      "descriptionRu": "Обновляет hex-код для строкового значения цветовой характеристики.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateCharacteristicColorRequest",
+      "responseSchemaRef": "#/components/schemas/CharacteristicColor",
+      "paginated": false,
+      "itemsProp": null
+    },
     "UploadFile": {
       "id": "UploadFile",
       "method": "post",
@@ -419,6 +480,89 @@
       "requestContentType": null,
       "requestSchemaRef": null,
       "responseSchemaRef": "#/components/schemas/File",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetVideos": {
+      "id": "GetVideos",
+      "method": "get",
+      "path": "/v1/videos",
+      "tag": "Видео",
+      "summaryRu": "Получение списка видео",
+      "descriptionRu": "Возвращает список видео с фильтром по статусу обработки и пагинацией.\nВидео отсортированы по возрастанию даты загрузки.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "UPLOADED",
+            "PROCESSING",
+            "READY",
+            "ERROR"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу обработки видео."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/VideoCollection",
+      "paginated": true,
+      "itemsProp": "videos"
+    },
+    "UploadVideo": {
+      "id": "UploadVideo",
+      "method": "post",
+      "path": "/v1/videos",
+      "tag": "Видео",
+      "summaryRu": "Загрузка видео",
+      "descriptionRu": "Загружает видео и ставит его в очередь на обработку.\n\nВ ответе возвращается идентификатор загруженного видео — используйте его, чтобы\nотслеживать статус обработки через `GET /v1/videos/{video_id}` и привязывать видео\nк товару через `media` в `POST /v1/variants` и `PATCH /v1/variants/{id}`.\n\n{% note info \"Ограничения\" %}\n\n- максимальный размер файла — 100 МБ;\n- поддерживаемые форматы: mp4, mov, webm, avi, flv;\n- видео дедуплицируются по содержимому: повторная загрузка того же файла не создает\n  дубликат, а возвращает уже загруженное видео;\n\n{% endnote %}",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "multipart/form-data",
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/UploadedVideo",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetVideoById": {
+      "id": "GetVideoById",
+      "method": "get",
+      "path": "/v1/videos/{video_id}",
+      "tag": "Видео",
+      "summaryRu": "Получение видео по идентификатору",
+      "descriptionRu": "Возвращает видео и текущий статус его обработки.\n\nИспользуйте метод, чтобы дождаться готовности видео после загрузки: статус меняется\n`UPLOADED` → `PROCESSING` → `READY`. В статусе `READY` заполнено поле `content`\nсо ссылкой на плеер, в статусе `ERROR` — поле `error` с описанием ошибки.\n\nОпрашивайте метод не чаще одного раза в 5 секунд: обработка занимает время,\nпропорциональное длительности видео, а на магазин действует общий лимит запросов.\n\nВидео в статусе `ERROR` удаляются автоматически, после удаления метод возвращает `404`.",
+      "pathParams": [
+        "video_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/Video",
       "paginated": false,
       "itemsProp": null
     },
@@ -870,7 +1014,7 @@
       "path": "/v1/variants/{id}/attachments/{file_id}",
       "tag": "Товары",
       "summaryRu": "Открепление документа от товара",
-      "descriptionRu": "Открепляет документ от товара. Операция локальна: удаляется только\nсвязь документа с данным товаром. Если этот же файл прикреплён\nк другим товарам, те документы не затрагиваются. Сам файл\nне удаляется и остаётся доступным для повторного прикрепления.\n\nЕсли документ не прикреплён к товару (в том числе при повторном\nудалении), возвращается ошибка 404.\n\nУ архивного товара удалять документы нельзя — возвращается ошибка 400.",
+      "descriptionRu": "Операция открепляет документ от товара — удаляется только связь.\nФайл сохраняется и остается доступным для повторного прикрепления.\nЕсли документ привязан к другим товарам, их связи не затрагиваются.\n\nЕсли документ не прикреплен к товару (в том числе при повторном\nудалении), возвращается ошибка 404.\n\nУ архивного товара удалять документы нельзя — возвращается ошибка 400.",
       "pathParams": [
         "id",
         "file_id"
@@ -893,6 +1037,21 @@
       "queryParams": [],
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/BulkUpdateStocksRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "BulkUpdatePrices": {
+      "id": "BulkUpdatePrices",
+      "method": "post",
+      "path": "/v1/variants/prices/bulk_update",
+      "tag": "Товары",
+      "summaryRu": "Массовое обновление цен",
+      "descriptionRu": "Массово обновляет цены товаров. За один запрос можно передать\nдо 5000 элементов — товар с новыми ценами.\n\nОперация синхронная и атомарная. Если хотя бы один элемент батча\nнедействителен (товар не найден или архивирован, товар передан в батче более одного раза, цена некорректна),\nвесь запрос отклоняется с ошибкой 400, и ни одно изменение не применяется.\nВ поле `errors` ответа перечислены все недействительные элементы с идентификаторами товара.\n\nОба поля цен необязательные. Чтобы не менять текущее значение, не передавайте соответствующий ключ.\nЧтобы установить новое значение, передайте его.\n`manual_discount_price: null` — сбрасывает цену со скидкой.\n`price: null` — сбрасывает базовую цену (доступно только для неопубликованных товаров, для опубликованных товаров сброс цены запрещен).\n\nЕсли цена со скидкой превышает цену до скидки, элемент отклоняется с ошибкой `INVALID_PRICE`.\nПередайте новую цену со скидкой либо `null` для ее сброса.\n\nПри смене цены до скидки цена по акции пересчитывается.\nЕсли новая цена меняет вхождение товара в акцию, состав акций актуализируется позже — в фоновом режиме.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/BulkUpdatePricesRequest",
       "responseSchemaRef": null,
       "paginated": false,
       "itemsProp": null
@@ -1087,6 +1246,16 @@
           "maximum": 100,
           "default": 25,
           "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "agreement_for_promo",
+          "required": false,
+          "type": "boolean",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по согласию клиента на получение рекламных материалов.\nНе передавайте параметр, чтобы получить всех клиентов."
         }
       ],
       "requestContentType": null,
@@ -1261,6 +1430,23 @@
       "tag": "Заказы",
       "summaryRu": "Отмена заказа",
       "descriptionRu": "Отменяет заказ. Возможность отмены зависит от текущего статуса заказа.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "CompleteOrderDelivery": {
+      "id": "CompleteOrderDelivery",
+      "method": "post",
+      "path": "/v1/orders/{id}/delivery/complete",
+      "tag": "Заказы",
+      "summaryRu": "Завершение доставки заказа",
+      "descriptionRu": "Полностью завершает доставку заказа.\nПодходит для самовывоза и собственной доставки магазина, когда автоматизация доставки отключена.",
       "pathParams": [
         "id"
       ],
@@ -3602,6 +3788,72 @@
       "queryParams": [],
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/AddonObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetAlerts": {
+      "id": "GetAlerts",
+      "method": "get",
+      "path": "/v1/alerts",
+      "tag": "Алерты",
+      "summaryRu": "Получение списка алертов",
+      "descriptionRu": "Возвращает системные алерты магазина. Фильтр по статусу обязателен.\n\nПорядок: сначала критичные алерты, внутри одной важности — новые сверху.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        },
+        {
+          "name": "status",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "ACTIVE",
+            "RESOLVED"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по статусу алерта."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/AlertCollection",
+      "paginated": true,
+      "itemsProp": "alerts"
+    },
+    "ResolveAlert": {
+      "id": "ResolveAlert",
+      "method": "post",
+      "path": "/v1/alerts/{alert_id}/resolve",
+      "tag": "Алерты",
+      "summaryRu": "Закрытие алерта",
+      "descriptionRu": "Помечает алерт решенным. Повторный вызов для уже закрытого алерта также вернет ошибку `204`.\n\nАктивные алерты с важностью `CRITICAL` закрыть вручную нельзя — метод вернет ошибку `400`.",
+      "pathParams": [
+        "alert_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
       "responseSchemaRef": null,
       "paginated": false,
       "itemsProp": null

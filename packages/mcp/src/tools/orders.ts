@@ -109,6 +109,27 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
   );
 
   server.registerTool(
+    "complete_order_delivery",
+    {
+      title: "Complete order delivery",
+      description:
+        "Mark the delivery of an order as fully completed. Intended for pickup and the store's own " +
+        "delivery when delivery automation is off — with automation on, the platform moves the " +
+        "order itself. No request body is required.",
+      inputSchema: {
+        id: z.string().describe("Order ID (UUID)."),
+      },
+    },
+    async ({ id }) => {
+      try {
+        return ok(await client.call("CompleteOrderDelivery", { pathParams: { id } }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
     "get_order_addons",
     {
       title: "Get order addons",

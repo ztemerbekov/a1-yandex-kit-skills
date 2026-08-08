@@ -200,3 +200,83 @@ test("variant_action rejects an invalid action value", async () => {
   assert.equal(errored, true);
   assert.equal(calls.length, 0);
 });
+
+test("bulk_update_prices POSTs the batch to /v1/variants/prices/bulk_update", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({
+    name: "bulk_update_prices",
+    arguments: {
+      items: [
+        { variant_id: "v1", price: "1000.00" },
+        { variant_id: "v2", price: "900", manual_discount_price: null },
+      ],
+    },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/variants/prices/bulk_update");
+  assert.equal(calls[0]!.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+    items: [
+      { variant_id: "v1", price: "1000.00" },
+      { variant_id: "v2", price: "900", manual_discount_price: null },
+    ],
+  });
+});
+
+test("bulk_update_prices stringifies numeric prices the API only accepts as decimals", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({
+    name: "bulk_update_prices",
+    arguments: { items: [{ variant_id: "v1", price: 1000, manual_discount_price: 899.5 }] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+    items: [{ variant_id: "v1", price: "1000", manual_discount_price: "899.5" }],
+  });
+});
+
+test("bulk_update_prices omits price keys that were not provided", async () => {
+  const { calls, mcp } = await setup({});
+  await mcp.callTool({
+    name: "bulk_update_prices",
+    arguments: { items: [{ variant_id: "v1", manual_discount_price: "10" }] },
+  });
+  const body = JSON.parse(String(calls[0]!.init?.body));
+  assert.deepEqual(Object.keys(body.items[0]), ["variant_id", "manual_discount_price"]);
+});
+
+test("bulk_update_prices rejects a repeated variant before the network call", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({
+    name: "bulk_update_prices",
+    arguments: {
+      items: [
+        { variant_id: "v1", price: "1" },
+        { variant_id: "v1", price: "2" },
+      ],
+    },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  const payload = JSON.parse(resultText(res));
+  assert.equal(payload.code, "DUPLICATE_VARIANT_ID");
+  assert.match(payload.error, /v1/);
+  assert.equal(calls.length, 0);
+});
+
+test("bulk_update_prices rejects an empty batch before the network call", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({ name: "bulk_update_prices", arguments: { items: [] } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
+  assert.equal(calls.length, 0);
+});
+
+test("bulk_update_prices rejects a batch above the 5000-item cap before the network call", async () => {
+  const { calls, mcp } = await setup({});
+  const items = Array.from({ length: 5001 }, (_, i) => ({ variant_id: `v${i}`, price: "1" }));
+  const res = await mcp.callTool({ name: "bulk_update_prices", arguments: { items } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
+  assert.equal(calls.length, 0);
+});
