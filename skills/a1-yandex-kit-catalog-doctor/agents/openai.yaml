@@ -1,4 +1,5 @@
 interface:
+  icon_large: "./assets/a1-logo.png"
   display_name: "A1 Yandex KIT Catalog Doctor"
   short_description: "Находит проблемы в каталоге и исправляет их по команде"
   default_prompt: "$a1-yandex-kit-catalog-doctor проверь мой каталог и покажи, что нужно исправить!"

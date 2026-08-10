@@ -1,3 +1,4 @@
 interface:
+  icon_large: "./assets/a1-logo.png"
   display_name: "A1 Yandex KIT API"
   short_description: "Помогает безопасно работать с API Яндекс KIT"

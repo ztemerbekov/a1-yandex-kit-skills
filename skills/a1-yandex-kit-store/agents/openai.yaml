@@ -1,3 +1,4 @@
 interface:
+  icon_large: "./assets/a1-logo.png"
   display_name: "A1 Yandex KIT Store"
   short_description: "Управляет складами, файлами и данными магазина"

@@ -1,4 +1,5 @@
 interface:
+  icon_large: "./assets/a1-logo.png"
   display_name: "A1 Yandex KIT Operator"
   short_description: "Показывает состояние магазина и выполняет точные команды"
   default_prompt: "$a1-yandex-kit-operator как дела в моём магазине? Что требует моего внимания?"
