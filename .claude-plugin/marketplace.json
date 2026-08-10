@@ -6,13 +6,13 @@
     "url": "https://t.me/a1_yandex_kit_skills"
   },
   "metadata": {
-    "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды."
+    "description": "Управляйте магазином на Яндекс КИТ (Yandex KIT) словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды."
   },
   "plugins": [
     {
       "name": "a1-yandex-kit-skills",
-      "displayName": "A1 Яндекс KIT",
-      "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
+      "displayName": "A1 Яндекс КИТ",
+      "description": "Управляйте магазином на Яндекс КИТ (Yandex KIT) словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
       "author": {
         "name": "Aleksandr Kovalko & Zinnur Temerbekov",
         "url": "https://t.me/a1_yandex_kit_skills"
@@ -22,6 +22,7 @@
       "license": "MIT",
       "category": "productivity",
       "keywords": [
+        "Яндекс КИТ",
         "yandex",
         "яндекс",
         "yandex-kit",

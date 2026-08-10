@@ -1,8 +1,8 @@
 {
   "name": "a1-yandex-kit-skills",
-  "displayName": "A1 Яндекс KIT",
+  "displayName": "A1 Яндекс КИТ",
   "version": "1.3.1",
-  "description": "Управляйте магазином на Яндекс KIT словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
+  "description": "Управляйте магазином на Яндекс КИТ (Yandex KIT) словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
   "author": {
     "name": "Aleksandr Kovalko & Zinnur Temerbekov"
   },
@@ -11,6 +11,7 @@
   "license": "MIT",
   "logo": "assets/marketplaces/cursor/logo.png",
   "keywords": [
+    "Яндекс КИТ",
     "yandex",
     "яндекс",
     "yandex-kit",
@@ -36,6 +37,7 @@
   "tags": [
     "yandex-kit",
     "яндекс-кит",
+    "яндекс кит",
     "интернет-магазин",
     "ecommerce",
     "mcp"
