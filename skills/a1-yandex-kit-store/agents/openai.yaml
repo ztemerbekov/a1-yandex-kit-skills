@@ -1,4 +1,6 @@
 interface:
-  icon_large: "./assets/a1-logo.png"
+  icon_small: "./assets/icon-small.svg"
+  icon_large: "./assets/icon-large.svg"
+  brand_color: "#FF6A00"
   display_name: "A1 Yandex KIT Store"
   short_description: "Управляет складами, файлами и данными магазина"

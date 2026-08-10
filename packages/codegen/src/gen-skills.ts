@@ -30,7 +30,8 @@ const TOOLS_MD_PATH = fileURLToPath(new URL("../../../docs/TOOLS.md", import.met
 const SKILL_SRC_DIR = fileURLToPath(new URL("./skill-src/", import.meta.url));
 const CODEGEN_DIR = fileURLToPath(new URL("../", import.meta.url));
 const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
-const LOGO_PATH = fileURLToPath(new URL("../../../assets/images/a1-logo.png", import.meta.url));
+const ICON_LARGE_PATH = fileURLToPath(new URL("../../../assets/images/icon-large.svg", import.meta.url));
+const ICON_SMALL_PATH = fileURLToPath(new URL("../../../assets/images/icon-small.svg", import.meta.url));
 
 const SKILL_VERSION = "1.3.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
@@ -625,7 +626,9 @@ function renderOpenAiInterface(skill: SkillDef): string {
   if (!iface) throw new Error(`No agents/openai.yaml interface defined for ${skill.name}`);
   return [
     "interface:",
-    '  icon_large: "./assets/a1-logo.png"',
+    '  icon_small: "./assets/icon-small.svg"',
+    '  icon_large: "./assets/icon-large.svg"',
+    '  brand_color: "#FF6A00"',
     `  display_name: ${yamlQuote(iface.displayName)}`,
     `  short_description: ${yamlQuote(iface.shortDescription)}`,
     "",
@@ -700,7 +703,8 @@ for (const skill of SKILLS) {
   mkdirSync(dir + "scripts", { recursive: true });
   writeFileSync(dir + "SKILL.md", renderSkillMd(skill));
   writeFileSync(dir + "agents/openai.yaml", renderOpenAiInterface(skill));
-  copyFileSync(LOGO_PATH, dir + "assets/a1-logo.png");
+  copyFileSync(ICON_LARGE_PATH, dir + "assets/icon-large.svg");
+  copyFileSync(ICON_SMALL_PATH, dir + "assets/icon-small.svg");
   writeFileSync(dir + "data/kit_v1.json.gz", specGz);
   writeFileSync(dir + "scripts/search_docs.mjs", searchDocsScript);
   writeFileSync(dir + "scripts/validate.mjs", validateScript);
