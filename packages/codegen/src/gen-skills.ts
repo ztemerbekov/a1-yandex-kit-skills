@@ -30,8 +30,8 @@ const TOOLS_MD_PATH = fileURLToPath(new URL("../../../docs/TOOLS.md", import.met
 const SKILL_SRC_DIR = fileURLToPath(new URL("./skill-src/", import.meta.url));
 const CODEGEN_DIR = fileURLToPath(new URL("../", import.meta.url));
 const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
-const ICON_LARGE_PATH = fileURLToPath(new URL("../../../assets/images/icon-large.svg", import.meta.url));
-const ICON_SMALL_PATH = fileURLToPath(new URL("../../../assets/images/icon-small.svg", import.meta.url));
+const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
+const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
 const SKILL_VERSION = "1.3.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
