@@ -100,13 +100,14 @@ only replaces the six directories it owns and must preserve these five.
 
 ## Version sync (bump together, one commit)
 
-`1.3.0` must stay identical across: `packages/mcp/package.json` (and
-`packages/core/package.json` — mcp depends on the exact version), `server.json`
-(root `version` **and** `packages[].version`), `.codex-plugin/plugin.json`,
-`.cursor-plugin/plugin.json`, and
-`SKILL_VERSION` in `packages/codegen/src/gen-skills.ts` followed by `npm run gen` so every
-SKILL.md `metadata.version` matches (the four manual scenario skills are bumped by hand). `mcpName` in `packages/mcp/package.json` must equal
-`name` in `server.json`. Release steps: [docs/PUBLISHING.md](docs/PUBLISHING.md).
+Keep MCP release versions aligned across `packages/mcp/package.json`,
+`packages/core/package.json` (mcp depends on the exact version), and `server.json`
+(root `version` **and** `packages[].version`). Keep plugin and skill release versions
+aligned across `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, and
+`SKILL_VERSION` in `packages/codegen/src/gen-skills.ts`; then run `npm run gen` so every
+SKILL.md `metadata.version` matches (the four manual scenario skills are bumped by hand).
+`mcpName` in `packages/mcp/package.json` must equal `name` in `server.json`.
+Release steps: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Safety
 
