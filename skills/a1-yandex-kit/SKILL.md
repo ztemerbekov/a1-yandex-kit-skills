@@ -107,6 +107,6 @@ The bundled `mcp-yandex-kit` MCP server exposes **70 tools**. Curated tools
 cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
 in the domain skills); the meta trio below reaches **all 160 operations**:
 
-- `search_operations` — Search the full catalog of all 151 Yandex KIT API operations by keyword.
+- `search_operations` — Search the full catalog of all 160 Yandex KIT API operations by keyword.
 - `get_operation_schema` — Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response.
-- `kit_request` — Escape hatch that executes ANY of the 151 Yandex KIT API operations by operationId, including operations without a dedicated tool.
+- `kit_request` — Escape hatch that executes ANY of the 160 Yandex KIT API operations by operationId, including operations without a dedicated tool.
