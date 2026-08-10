@@ -1,4 +1,7 @@
 interface:
+  icon_small: "./assets/icon-small.svg"
+  icon_large: "./assets/icon-large.svg"
+  brand_color: "#FF6A00"
   display_name: "A1 Yandex KIT Setup"
   short_description: "Подключает ваш магазин на Яндекс KIT к AI-клиенту"
   default_prompt: "$a1-yandex-kit-setup давай подключим мой магазин!"

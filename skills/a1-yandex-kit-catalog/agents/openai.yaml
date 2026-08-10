@@ -1,3 +1,6 @@
 interface:
+  icon_small: "./assets/icon-small.svg"
+  icon_large: "./assets/icon-large.svg"
+  brand_color: "#FF6A00"
   display_name: "A1 Yandex KIT Catalog"
   short_description: "Управляет товарами, ценами, остатками и категориями магазина"
