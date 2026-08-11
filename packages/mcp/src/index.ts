@@ -58,7 +58,11 @@ async function main(): Promise<void> {
     timeoutMs: config.timeoutMs,
   });
 
-  const server = new McpServer({ name: "mcp-yandex-kit", version: pkg.version });
+  const server = new McpServer({
+    name: "mcp-yandex-kit",
+    title: "Yandex KIT",
+    version: pkg.version,
+  });
   instrumentToolCalls(server, telemetry);
   server.server.oninitialized = () => {
     telemetry.setClientInfo(server.server.getClientVersion());
