@@ -7,12 +7,14 @@ GitHub Release → Glama → awesome-mcp-servers.
 Публикуются два пакета: `yandex-kit-core` (клиент) и `mcp-yandex-kit`
 (MCP-сервер, зависит от core). Остальные воркспейсы приватные.
 
-## 0. Синхронный bump версии
+## 0. Синхронный bump версий
 
-Версия должна совпадать во всех местах сразу — bump выполняется одним коммитом:
+В репозитории есть отдельные линии версий для portable plugin/skills и MCP-пакетов.
+Каждая линия bump выполняется одним коммитом:
 
 | Где | Что менять |
 |---|---|
+| `plugin.json` | `version` portable Agent Plugins package |
 | `packages/core/package.json` | `version` |
 | `packages/mcp/package.json` | `version` **и** версия зависимости `yandex-kit-core` (она точная, без `^`) |
 | `server.json` (корень репозитория) | `version` в корне **и** в `packages[].version` |
@@ -20,12 +22,16 @@ GitHub Release → Glama → awesome-mcp-servers.
 | `.cursor-plugin/plugin.json` | `version` |
 | `packages/codegen/src/gen-skills.ts` | константа `SKILL_VERSION`, затем `npm run gen` — обновит метаданные всех 6 скиллов |
 
+`plugin.json`, `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json` и
+`SKILL_VERSION` должны совпадать. `packages/core`, `packages/mcp` и `server.json`
+образуют отдельную MCP release line и также должны совпадать между собой.
 После bump: `git diff` — убедиться, что нигде не осталось старой версии
 (в помощь: `grep -rn "<старая версия>" packages/*/package.json server.json .codex-plugin/plugin.json .cursor-plugin/plugin.json skills/*/SKILL.md`).
 
 ## 1. Предпубликационные проверки
 
 ```bash
+npm run validate:agent-plugin
 npm run typecheck && npm test && npm run build   # 236 тестов, всё зелёное
 npm run gen && git diff --exit-code              # нет дрейфа сгенерированного
 npm publish --dry-run -w packages/core -w packages/mcp
