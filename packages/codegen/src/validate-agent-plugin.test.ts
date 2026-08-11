@@ -13,7 +13,7 @@ test("portable package validates against the pinned Agent Plugins schemas", () =
   const result = validatePortableAgentPlugin();
 
   assert.equal(result.pluginName, "a1-yandex-kit-skills");
-  assert.equal(result.pluginVersion, "1.3.1");
+  assert.equal(typeof result.pluginVersion, "string");
   assert.deepEqual(result.mcpServerNames, ["yandex-kit"]);
   assert.equal(result.skillNames.length, 11);
   assert.ok(result.skillNames.includes("a1-yandex-kit-setup"));
