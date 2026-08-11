@@ -17,6 +17,7 @@
     "test": "npm run test -w packages/core && npm run test -w packages/codegen && npm run test -w packages/mcp && npm run test:setup-skill",
     "test:setup-skill": "node --test --test-timeout=60000 skills/a1-yandex-kit-setup/scripts/setup.test.mjs skills/a1-yandex-kit-setup/scripts/modules.test.mjs",
     "gen": "npm run gen -w packages/codegen",
+    "validate:agent-plugin": "npm run validate -w packages/codegen",
     "spec:fetch": "npm run fetch -w packages/codegen",
     "smoke": "npm run smoke -w packages/mcp",
     "e2e": "npm run build && npm run e2e -w packages/mcp"

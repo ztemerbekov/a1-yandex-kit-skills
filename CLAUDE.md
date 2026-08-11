@@ -12,6 +12,7 @@ npm run typecheck   # builds core first, then checks every workspace
 npm run build       # core + mcp -> dist/
 npm test            # unit tests, no network (currently 379: core 35 + codegen 3 + mcp 306 + setup 35)
 npm run gen         # regenerate registry/types/TOOLS.md/skills (deterministic)
+npm run validate:agent-plugin # validate root Agent Plugins manifest, MCP config and skills
 npm run spec:fetch  # refresh specs/ from Yandex + diff report
 npm run smoke       # live READ-ONLY calls (needs YANDEX_KIT_TOKEN)
 npm run e2e         # live WRITE calls — TEST store only (needs YANDEX_KIT_E2E_WRITE=1)
@@ -48,11 +49,13 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   Its `reason` is a closed vocabulary (`missing_token`, `invalid_config`) — never a
   variable's name or value.
 - `packages/codegen` — private generators run via tsx: `gen-registry`, `gen-types`,
-  `gen-docs`, `gen-skills`, `fetch-spec`.
+  `gen-docs`, `gen-skills`, `fetch-spec`, plus the offline Agent Plugins validator.
 - `skills/` — 6 generated API skills plus setup and the manually maintained
   operator, catalog-doctor, promo-launcher and launch-check scenarios.
-- `.claude-plugin/marketplace.json` + `.mcp.json` — Claude Code plugin, defined inline
-  in the marketplace (plugin and marketplace are both `a1-yandex-kit-skills`).
+- `plugin.json` + `mcp.json` — portable Agent Plugins package; `mcp.json` deliberately
+  contains no store token.
+- `.codex-plugin/`, `.cursor-plugin/`, `.claude-plugin/`, `.agents/` and `.mcp.json` —
+  client-specific or compatibility artifacts retained alongside the portable core.
 
 ## Generated files — never hand-edit
 
@@ -103,7 +106,7 @@ only replaces the six directories it owns and must preserve these five.
 Keep MCP release versions aligned across `packages/mcp/package.json`,
 `packages/core/package.json` (mcp depends on the exact version), and `server.json`
 (root `version` **and** `packages[].version`). Keep plugin and skill release versions
-aligned across `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, and
+aligned across `plugin.json`, `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json`, and
 `SKILL_VERSION` in `packages/codegen/src/gen-skills.ts`; then run `npm run gen` so every
 SKILL.md `metadata.version` matches (the four manual scenario skills are bumped by hand).
 `mcpName` in `packages/mcp/package.json` must equal `name` in `server.json`.

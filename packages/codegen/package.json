@@ -12,10 +12,12 @@
     "gen": "tsx src/gen-registry.ts && tsx src/gen-types.ts && tsx src/gen-docs.ts && tsx src/gen-skills.ts",
     "fetch": "tsx src/fetch-spec.ts",
     "test": "node --import tsx --test --test-timeout=60000 src/*.test.ts",
+    "validate": "node --import tsx src/validate-agent-plugin.ts",
     "typecheck": "tsc -p tsconfig.check.json"
   },
   "dependencies": {
     "@types/pako": "2.0.4",
+    "ajv": "^8.20.0",
     "esbuild": "^0.28.1",
     "openapi-typescript": "^7.13.0",
     "pako": "3.0.1"

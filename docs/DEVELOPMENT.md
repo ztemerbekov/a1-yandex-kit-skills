@@ -16,6 +16,7 @@ npm run build          # сборка packages/core и packages/mcp в dist/
 npm run typecheck      # проверка типов всех воркспейсов: исходники + тесты (без эмита)
 npm test               # юнит-тесты core + mcp + setup-скилл (node --test, без сети)
 npm run gen            # перегенерация: registry.json, types.ts, docs/TOOLS.md, skills/*
+npm run validate:agent-plugin # проверка portable Agent Plugins package и MCP-конфига
 npm run spec:fetch     # обновить снапшот specs/kit-swagger.openapi.json с официального URL
 npm run smoke          # живые read-only вызовы к боевому API (нужен YANDEX_KIT_TOKEN)
 
@@ -26,17 +27,39 @@ npm run dev -w packages/mcp   # запуск MCP-сервера из исход�
 
 ```
 specs/kit-swagger.openapi.json   # снапшот OpenAPI-спеки — единственный source of truth
+plugin.json                       # portable Agent Plugins manifest v1.0.0
+mcp.json                          # portable MCP configuration v1.0.0, без токена
+specs/agent-plugins/              # pinned schemas для offline-проверки
 packages/core/                   # yandex-kit-core: клиент (Bearer, ретраи, 3 rps, ajv-валидация)
 packages/mcp/                    # mcp-yandex-kit: MCP-сервер (stdio), 70 тулов
 packages/codegen/                # генераторы: спека → registry / types / скиллы / TOOLS.md
 skills/                          # 6 сгенерированных доменных + 5 вручную поддерживаемых скиллов
-.claude-plugin/ + .mcp.json      # манифесты плагина Claude Code
+.codex-plugin/ + .cursor-plugin/ # client-specific manifests, сохраняются для совместимости
+.claude-plugin/ + .agents/       # client-specific marketplace metadata
+.mcp.json                        # client-specific MCP config с токеном
 docs/TOOLS.md                    # справочник тулов (СГЕНЕРИРОВАН)
 ```
 
 Сервер отдаёт 70 тулов: 74 из 160 операций API покрыты кураторскими тулами, а мета-трио
 `search_operations` / `get_operation_schema` / `kit_request` даёт доступ ко всем
 операциям спеки — их 160 в 24 группах тегов.
+
+## Portable Agent Plugins package
+
+Репозиторий содержит переносимое ядро [Agent Plugins 1.0.0](https://agent-plugins.org/):
+корневой `plugin.json`, корневой `mcp.json` и непосредственные дочерние каталоги
+`skills/*/SKILL.md`. Схемы закреплены локально в `specs/agent-plugins/`, поэтому
+проверка не зависит от сети:
+
+```bash
+npm run validate:agent-plugin
+```
+
+Корневой `mcp.json` намеренно не содержит `YANDEX_KIT_TOKEN`, `${...:-...}` или
+других секретных значений. Токен передаётся через setup-сценарий и конфигурацию
+конкретного клиента. `.codex-plugin/`, `.cursor-plugin/`, `.claude-plugin/`,
+`.agents/` и `.mcp.json` не объявляются устаревшими: это client-specific или
+compatibility-артефакты, которые пока сохраняются отдельно от portable core.
 
 ## Сгенерированные файлы — не править руками
 
