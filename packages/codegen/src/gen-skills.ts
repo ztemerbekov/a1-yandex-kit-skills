@@ -33,7 +33,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
 const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
-const SKILL_VERSION = "1.3.1";
+const SKILL_VERSION = "1.3.2";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
