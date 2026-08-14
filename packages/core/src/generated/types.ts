@@ -356,6 +356,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/videos/from_url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Загрузка видео по ссылке
+         * @description Загружает видео по публичной ссылке и ставит его в очередь на обработку.
+         *
+         *     Поддерживаются:
+         *
+         *     - публичная ссылка Яндекс.Диска на видеофайл;
+         *     - прямая ссылка на видеофайл;
+         *     - ссылка на плеер видеоплатформы Яндекс KITᵝ — возвращается ранее загруженное видео.
+         *
+         *     Ссылка должна быть доступна без авторизации. Если по ссылке нет видео,
+         *     метод вернет ошибку `400`.
+         *
+         *     В ответе возвращается идентификатор видео — используйте его, чтобы отслеживать
+         *     статус обработки через `GET /v1/videos/{video_id}` и привязывать видео
+         *     к товару через `media` в `POST /v1/variants` и `PATCH /v1/variants/{id}`.
+         *
+         *     {% note info "Ограничения" %}
+         *
+         *     - максимальный размер файла — 100 МБ;
+         *     - поддерживаемые форматы: mp4, mov, webm, avi, flv;
+         *     - видео дедуплицируются по содержимому: повторная загрузка того же файла не создает
+         *       дубликат, а возвращает уже загруженное видео;
+         *
+         *     {% endnote %}
+         */
+        post: operations["UploadVideoFromUrl"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/videos/{video_id}": {
         parameters: {
             query?: never;
@@ -3260,6 +3302,16 @@ export interface components {
         UploadedVideo: {
             video_id: components["schemas"]["VideoID"];
         };
+        /** @description Ссылка на видео для загрузки. */
+        UploadVideoFromUrlRequest: {
+            /**
+             * Format: uri
+             * @description Публичная ссылка на видео: ссылка на видеофайл с Яндекс Диска, прямая ссылка
+             *     на видеофайл или ссылка на плеер видеоплатформы Яндекс KITᵝ.
+             * @example https://disk.yandex.ru/i/abcdef123456
+             */
+            url: string;
+        };
         /**
          * @description Таблица размеров для товара. Содержит изображение с размерной сеткой
          *     (размеры одежды, обуви и т.д.). Применяется ко всем вариантам продукта.
@@ -3463,8 +3515,16 @@ export interface components {
             display_sequence: number;
             image_id?: components["schemas"]["FileID"];
             /**
-             * @description Идентификатор видео (для VIDEO).
-             * @example abc123xyz
+             * @description Идентификатор видео (для `type: VIDEO`). Видео нужно предварительно загрузить
+             *     через `POST /v1/videos` или `POST /v1/videos/from_url`.
+             *
+             *
+             *     Максимум одно видео на товар. В `media` требуется минимум одно изображение:
+             *     при отсутствии элемента `type: IMAGE` запрос завершится с ошибкой.
+             *
+             *     Привязанное видео может быть в любом статусе, но покупателям оно доступно
+             *     для просмотра только после перехода в статус `READY`.
+             * @example vplvusemmooxmhpwiqli
              */
             video_id?: string;
         };
@@ -3521,7 +3581,7 @@ export interface components {
          * @description Внешняя система идентификатора.
          * @enum {string}
          */
-        ExternalSystemType: "moysklad" | "1C" | "wildberries" | "ozon" | "yml" | "yandex_market" | "external_store";
+        ExternalSystemType: "moysklad" | "1C" | "wildberries" | "ozon" | "yml" | "yandex_market" | "external_store" | "external_store_api";
         /** @description Список внешних идентификаторов товара. */
         VariantExternalIDsCollection: {
             /** @description Список внешних идентификаторов товара. */
@@ -3678,17 +3738,17 @@ export interface components {
             cargo_boxes: components["schemas"]["VariantCargoBox"][];
             /**
              * @description Заголовок страницы в поиске (Title).
-             * @example iPhone 15 Pro Черный - купить в интернет-магазине.
+             * @example iPhone 15 Pro Черный - купить в интернет-магазине
              */
             seo_title: string;
             /**
              * @description Заголовок на странице товара (H1).
-             * @example iPhone 15 Pro Черный.
+             * @example iPhone 15 Pro Черный
              */
             seo_h1: string;
             /**
              * @description Описание страницы в поиске (Description).
-             * @example Купить iPhone 15 Pro Черный по выгодной цене.
+             * @example Купить iPhone 15 Pro Черный по выгодной цене
              */
             seo_description: string;
             /**
@@ -3715,7 +3775,7 @@ export interface components {
             barcode?: string;
             /**
              * @description Название товара.
-             * @example iPhone 15 Pro Черный.
+             * @example iPhone 15 Pro Черный
              */
             name: string;
             /**
@@ -3734,7 +3794,11 @@ export interface components {
             characteristics?: components["schemas"]["VariantCharacteristic"][];
             /** @description Остатки на складах. */
             stocks?: components["schemas"]["VariantStock"][];
-            /** @description Изображения и видео. */
+            /**
+             * @description Изображения и видео. Видео можно передать, только если в списке есть
+             *     хотя бы одно изображение. При обновлении товара список заменяется целиком,
+             *     поэтому в `PATCH /v1/variants/{id}` изображения нужно передавать вместе с видео.
+             */
             media?: components["schemas"]["VariantMedia"][];
             pricing?: components["schemas"]["VariantPricingRequest"];
             /**
@@ -3799,7 +3863,10 @@ export interface components {
             status?: components["schemas"]["VariantActiveStatus"];
             /** @description Характеристики товара. При обновлении заменяет все существующие значения. */
             characteristics?: components["schemas"]["VariantCharacteristic"][];
-            /** @description Остатки на складах. При обновлении заменяет все существующие значения. */
+            /**
+             * @description Изображения и видео. При обновлении все старые данные заменяются.
+             *     Чтобы добавить видео, сначала загрузите хотя бы одно изображение и включите его в тот же запрос — иначе система выдаст ошибку.
+             */
             stocks?: components["schemas"]["VariantStock"][];
             /** @description Изображения и видео. При обновлении заменяет все существующие значения. */
             media?: components["schemas"]["VariantMedia"][];
@@ -3813,7 +3880,7 @@ export interface components {
             cargo_boxes?: components["schemas"]["VariantCargoBox"][];
             /**
              * @description Заголовок страницы в поиске (Title)
-             * @example iPhone 15 Pro Черный - купить в интернет-магазине.
+             * @example iPhone 15 Pro Черный - купить в интернет-магазине
              */
             seo_title?: string;
             /**
@@ -6200,7 +6267,7 @@ export interface components {
             is_price_enabled: boolean;
             /**
              * @description НДС в процентах. Специальное значение -1 означает, что товар не облагается НДС.
-             * @example 22
+             * @example 20
              */
             vat: number;
             binding_mode: components["schemas"]["AddonBindingMode"];
@@ -6291,7 +6358,7 @@ export interface components {
             is_price_enabled: boolean;
             /**
              * @description НДС в процентах. Специальное значение -1 означает, что товар не облагается НДС.
-             * @example 22
+             * @example 20
              */
             vat?: number;
             binding_mode: components["schemas"]["AddonBindingMode"];
@@ -6326,7 +6393,7 @@ export interface components {
             is_price_enabled?: boolean;
             /**
              * @description НДС в процентах. Специальное значение -1 означает, что товар не облагается НДС.
-             * @example 22
+             * @example 20
              */
             vat?: number;
             binding_mode?: components["schemas"]["AddonBindingMode"];
@@ -7810,6 +7877,66 @@ export interface operations {
             };
             /** @description Не авторизован. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadVideoFromUrl: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadVideoFromUrlRequest"];
+            };
+        };
+        responses: {
+            /** @description Видео успешно загружено. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedVideo"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

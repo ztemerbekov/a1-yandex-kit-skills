@@ -27,16 +27,16 @@ npm run dev -w packages/mcp   # запуск MCP-сервера из исход�
 ```
 specs/kit-swagger.openapi.json   # снапшот OpenAPI-спеки — единственный source of truth
 packages/core/                   # yandex-kit-core: клиент (Bearer, ретраи, 3 rps, ajv-валидация)
-packages/mcp/                    # mcp-yandex-kit: MCP-сервер (stdio), 70 тулов
+packages/mcp/                    # mcp-yandex-kit: MCP-сервер (stdio), 71 тул
 packages/codegen/                # генераторы: спека → registry / types / скиллы / TOOLS.md
 skills/                          # 6 сгенерированных доменных + 5 вручную поддерживаемых скиллов
 .claude-plugin/ + .mcp.json      # манифесты плагина Claude Code
 docs/TOOLS.md                    # справочник тулов (СГЕНЕРИРОВАН)
 ```
 
-Сервер отдаёт 70 тулов: 74 из 160 операций API покрыты кураторскими тулами, а мета-трио
+Сервер отдаёт 71 тул: 75 из 161 операции API покрыты кураторскими тулами, а мета-трио
 `search_operations` / `get_operation_schema` / `kit_request` даёт доступ ко всем
-операциям спеки — их 160 в 24 группах тегов.
+операциям спеки — их 161 в 24 группах тегов.
 
 ## Сгенерированные файлы — не править руками
 

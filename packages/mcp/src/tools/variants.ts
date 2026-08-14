@@ -145,6 +145,9 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
       title: "Create variant",
       description:
         "Create a new variant (sellable item) under an existing product. Required: name and product_id. " +
+        "`media` holds images and at most ONE video: a video entry is accepted only when the same " +
+        "`media` list also carries at least one image, and its video_id must already be READY " +
+        "(upload_video / upload_video_from_url, then poll get_video). " +
         'Call get_operation_schema("CreateVariant") for the exact request shape (pricing, stocks, media, ...).',
       inputSchema: {
         variant: z
@@ -175,7 +178,13 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         "(e.g. pricing or stocks). No field of UpdateVariantRequest is nullable, so null " +
         "values are rejected by validation before any call — to clear a price, use " +
         "bulk_update_prices (its price/manual_discount_price accept null). " +
-        'Call get_operation_schema("UpdateVariant") for the exact request shape.',
+        "`media` is an exception to merge-patch granularity: sending it REPLACES the whole list, " +
+        "so resend the existing images alongside anything you add. At most ONE video per variant, " +
+        "and a video is accepted only when the same list carries at least one image — sending a " +
+        "video alone wipes the images and fails. `stocks` replaces the whole list too. " +
+        'Call get_operation_schema("UpdateVariant") for the exact request shape — but ignore its ' +
+        "prose for `stocks`: upstream the spec pasted the media wording there, while the field " +
+        "still takes VariantStock entries (per-warehouse quantities).",
       inputSchema: {
         id: z.string().describe("Variant ID (UUID)."),
         variant: z

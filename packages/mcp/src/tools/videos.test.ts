@@ -41,12 +41,12 @@ function resultText(res: unknown): string {
   return (res as { content: { text: string }[] }).content[0]!.text;
 }
 
-test("registers exactly the three video tools with correct annotations", async () => {
+test("registers exactly the four video tools with correct annotations", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   assert.deepEqual(
     tools.map((t) => t.name).sort(),
-    ["get_video", "list_videos", "upload_video"],
+    ["get_video", "list_videos", "upload_video", "upload_video_from_url"],
   );
   const readOnly = new Set(["list_videos", "get_video"]);
   for (const tool of tools) {
@@ -140,6 +140,29 @@ test("upload_video with content_base64 but no filename fails without any network
   });
   assert.equal((res as { isError?: boolean }).isError, true);
   assert.equal(JSON.parse(resultText(res)).code, "FILENAME_REQUIRED");
+  assert.equal(calls.length, 0);
+});
+
+test("upload_video_from_url POSTs the link as JSON to /v1/videos/from_url", async () => {
+  const { calls, mcp } = await setup({ id: "v1", status: "UPLOADED" });
+  const res = await mcp.callTool({
+    name: "upload_video_from_url",
+    arguments: { url: "https://disk.yandex.ru/i/abcdef123456" },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/videos/from_url");
+  assert.equal(calls[0]!.init?.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), {
+    url: "https://disk.yandex.ru/i/abcdef123456",
+  });
+});
+
+test("upload_video_from_url rejects an empty link without any network call", async () => {
+  const { calls, mcp } = await setup();
+  const res = await mcp.callTool({ name: "upload_video_from_url", arguments: { url: "" } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "LOCAL_VALIDATION_ERROR");
   assert.equal(calls.length, 0);
 });
 

@@ -1,8 +1,16 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { type KitClient } from "yandex-kit-core";
+import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, fail, fileFormData, ok, READ_ONLY, resolveUploadSource } from "../util.js";
+import {
+  clampPerPage,
+  fail,
+  fileFormData,
+  ok,
+  READ_ONLY,
+  resolveUploadSource,
+  validationFailure,
+} from "../util.js";
 
 const VIDEO_STATUSES = ["UPLOADED", "PROCESSING", "READY", "ERROR"] as const;
 
@@ -86,7 +94,8 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
         "100 MB; formats mp4, mov, webm, avi, flv. Videos are deduplicated by content: uploading " +
         "identical bytes returns the existing video. The response carries the video ID — poll it " +
         "with get_video until the status is READY, then attach the video to a variant through " +
-        "`media` in create_variant / update_variant. Provide exactly one source: file_path or " +
+        "`media` in create_variant / update_variant (at most one video per variant, and the same " +
+        "`media` list must also carry at least one image). Provide exactly one source: file_path or " +
         "content_base64.",
       inputSchema: {
         file_path: z
@@ -119,6 +128,41 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
         return ok(
           await client.call("UploadVideo", { body: fileFormData(source.bytes, source.name) }),
         );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "upload_video_from_url",
+    {
+      title: "Upload video from URL",
+      description:
+        "Upload a product video by public link and queue it for processing — use it instead of " +
+        "upload_video when the file lives on the web rather than on this machine. Accepts a public " +
+        "Yandex.Disk link to a video file, a direct link to a video file, or a link to the Yandex " +
+        "KIT player (which returns the already uploaded video). The link must be reachable without " +
+        "authentication, otherwise the API answers 400. Same limits as upload_video: max 100 MB, " +
+        "formats mp4, mov, webm, avi, flv, deduplicated by content. The response carries the video " +
+        "ID — poll it with get_video until the status is READY, then attach the video to a variant " +
+        "through `media` in create_variant / update_variant (at most one video per variant, and the " +
+        "same `media` list must also carry at least one image).",
+      inputSchema: {
+        url: z
+          .string()
+          .describe(
+            "Public link to the video: a Yandex.Disk link to a video file, a direct file link, " +
+              "or a Yandex KIT player link.",
+          ),
+      },
+    },
+    async ({ url }) => {
+      const body = { url };
+      const check = validateRequestBody("UploadVideoFromUrl", body);
+      if (!check.valid) return validationFailure(check.errors);
+      try {
+        return ok(await client.call("UploadVideoFromUrl", { body }));
       } catch (e) {
         return fail(e);
       }
