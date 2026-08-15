@@ -98,7 +98,7 @@ function collection(
   };
 }
 
-test("structural audit finds grouping, characteristic, media and collection defects from API facts", async () => {
+test("structural audit remains read-only across mixed catalog defects", async () => {
   const mcp = new FakeCatalogDoctorMcp({
     pageSize: 1,
     products: [
@@ -194,30 +194,12 @@ test("structural audit finds grouping, characteristic, media and collection defe
     },
   });
 
-  const { report } = await runCatalogDoctorScenario({
+  await runCatalogDoctorScenario({
     request:
       "Проверь структурное качество каталога. Обязательные поля владельца: бренд, описание.",
     mcp,
   });
 
-  for (const fact of [
-    "одинаковая комбинация группирующих характеристик",
-    "не задано значение группирующей характеристики characteristic-color",
-    "архивн.+characteristic-archived",
-    "сломанная ссылка на характеристику characteristic-missing",
-    "сломанная ссылка на характеристику characteristic-broken-reference",
-    "обязательное поле владельца «бренд» не заполнено",
-    "обязательное поле владельца «описание» не заполнено",
-    "медиа IMAGE без image_id",
-    "медиа VIDEO без video_id",
-    "повторяется медиа image-duplicate",
-    "повторяется порядок медиа 2",
-    "нет главного изображения с display_sequence 1",
-    "активная коллекция collection-empty пуста",
-    "активная коллекция collection-hidden содержит 1 скрытую карточку",
-    "variant-missing",
-  ]) {
-  }
   assert.equal(mcp.writeCalls.length, 0);
 });
 
@@ -388,6 +370,63 @@ test("media OTHER does not require a video identifier", async () => {
     mcp,
   });
 
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("media audit exposes stable findings for the video limit and image prerequisite", async () => {
+  const mcp = new FakeCatalogDoctorMcp({
+    products: [product()],
+    variants: [
+      variant({
+        id: "variant-two-videos",
+        sku: "SKU-TWO-VIDEOS",
+        media: [
+          { type: "IMAGE", image_id: "image-1", display_sequence: 1 },
+          { type: "VIDEO", video_id: "video-1", display_sequence: 2 },
+          { type: "VIDEO", video_id: "video-2", display_sequence: 3 },
+        ],
+      }),
+      variant({
+        id: "variant-video-without-image",
+        sku: "SKU-VIDEO-WITHOUT-IMAGE",
+        media: [
+          { type: "VIDEO", video_id: "video-3", display_sequence: 1 },
+        ],
+      }),
+    ],
+    categories: [category()],
+    warehouses: [warehouse()],
+    characteristics: [characteristic()],
+    collections: [],
+  });
+
+  const { findings } = await runCatalogDoctorScenario({
+    request: "Проверь медиа каталога",
+    mcp,
+  });
+
+  assert.deepEqual(
+    findings
+      .filter((finding) => finding.code?.startsWith("MEDIA_"))
+      .map(({ code, level, objectId }) => ({ code, level, objectId })),
+    [
+      {
+        code: "MEDIA_VIDEO_LIMIT_EXCEEDED",
+        level: "risk",
+        objectId: "variant-two-videos",
+      },
+      {
+        code: "MEDIA_IMAGE_MISSING",
+        level: "blocker",
+        objectId: "variant-video-without-image",
+      },
+      {
+        code: "MEDIA_VIDEO_REQUIRES_IMAGE",
+        level: "risk",
+        objectId: "variant-video-without-image",
+      },
+    ],
+  );
   assert.equal(mcp.writeCalls.length, 0);
 });
 
