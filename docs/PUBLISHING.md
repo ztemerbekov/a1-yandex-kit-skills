@@ -15,8 +15,10 @@ GitHub Release → Glama → awesome-mcp-servers.
 | Где | Что менять |
 |---|---|
 | `plugin.json` | `version` portable Agent Plugins package |
+| `package.json` (корень) | `version` |
 | `packages/core/package.json` | `version` |
 | `packages/mcp/package.json` | `version` **и** версия зависимости `yandex-kit-core` (она точная, без `^`) |
+| `packages/codegen/package.json` | `version` (пакет приватный, но версия держится в общей линии) |
 | `server.json` (корень репозитория) | `version` в корне **и** в `packages[].version` |
 | `.codex-plugin/plugin.json` | `version` |
 | `.cursor-plugin/plugin.json` | `version` |
@@ -25,14 +27,22 @@ GitHub Release → Glama → awesome-mcp-servers.
 `plugin.json`, `.codex-plugin/plugin.json`, `.cursor-plugin/plugin.json` и
 `SKILL_VERSION` должны совпадать. `packages/core`, `packages/mcp` и `server.json`
 образуют отдельную MCP release line и также должны совпадать между собой.
-После bump: `git diff` — убедиться, что нигде не осталось старой версии
-(в помощь: `grep -rn "<старая версия>" packages/*/package.json server.json .codex-plugin/plugin.json .cursor-plugin/plugin.json skills/*/SKILL.md`).
+После bump: `npm install --package-lock-only` — версии воркспейсов продублированы в
+`package-lock.json`. Затем `git diff` и проверка, что старой версии нигде не осталось:
+
+```bash
+grep -rn "<старая версия>" --include="*.json" --include="*.ts" --include="*.md" . | grep -v node_modules
+```
+
+Версии четырёх сценарных скиллов (`operator`, `catalog-doctor`, `promo-launcher`,
+`launch-check`) живут в их `SKILL.md` и бампаются вручную — только когда меняется
+содержимое самого скилла, поэтому они намеренно отстают от версии пакетов.
 
 ## 1. Предпубликационные проверки
 
 ```bash
 npm run validate:agent-plugin
-npm run typecheck && npm test && npm run build   # 236 тестов, всё зелёное
+npm run typecheck && npm test && npm run build   # 397 тестов, всё зелёное
 npm run gen && git diff --exit-code              # нет дрейфа сгенерированного
 npm publish --dry-run -w packages/core -w packages/mcp
 ```
