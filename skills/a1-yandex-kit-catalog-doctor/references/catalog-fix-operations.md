@@ -147,6 +147,18 @@ write objects, each with its own verification. If only linking was authorized,
 require an existing `image_id`. Never choose a replacement image or invent a
 file source.
 
+A public-link video addition requires an exact variant, public URL and free
+`display_sequence`. Read the variant before upload and require at least one
+usable image in its current `media`. An add command preserves an existing video;
+replacement or removal requires an explicit owner command. Call
+`upload_video_from_url` once, then poll `get_video` at intervals of at least five
+seconds for at most 60 reads. `READY` verifies the upload and permits one
+`update_variant` with the complete preserved `media` list plus the new video.
+`ERROR`, a failed status read or the exhausted poll bound leaves `Variant.media`
+unchanged and reports the uploaded video separately. Re-read the variant and
+compare the complete `media` list after linking. Treat video upload and variant
+linking as separate write objects, each with its own verification evidence.
+
 ## Bulk report
 
 Split resolved targets into local chunks of at most 100 while still applying the

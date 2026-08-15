@@ -10,13 +10,17 @@ import {
 } from "./skill-mutation-protocol.js";
 
 export const CATALOG_FIX_BATCH_LIMIT = 100;
+export const CATALOG_VIDEO_POLL_LIMIT = 60;
+export const CATALOG_VIDEO_POLL_INTERVAL_MS = 5_000;
+
+type CatalogVideoStatus = "UPLOADED" | "PROCESSING" | "READY" | "ERROR";
 
 interface CatalogDoctorFixToolCall {
   name: string;
   arguments: Record<string, unknown>;
 }
 
-const READ_TOOLS = new Set(["list_variants", "get_variant"]);
+const READ_TOOLS = new Set(["list_variants", "get_variant", "get_video"]);
 
 function notFound(message: string): Error {
   const error = new Error(message);
@@ -34,10 +38,14 @@ function cloneVariant(variant: CatalogVariant): CatalogVariant {
 
 export class FakeCatalogDoctorFixMcp {
   readonly calls: CatalogDoctorFixToolCall[] = [];
+  readonly videoPollDelays: number[] = [];
   readonly #variants = new Map<string, CatalogVariant>();
   readonly #listVariants: CatalogVariant[] | undefined;
   readonly #mutationErrors: Record<string, Error>;
   readonly #readErrors: Record<string, Error>;
+  readonly #uploadedVideoId: string;
+  readonly #videoStatusSequence: CatalogVideoStatus[];
+  #videoStatusIndex = 0;
   finalAnswer: string | undefined;
 
   constructor({
@@ -45,11 +53,15 @@ export class FakeCatalogDoctorFixMcp {
     listVariants,
     mutationErrors = {},
     readErrors = {},
+    uploadedVideoId = "video-from-url",
+    videoStatusSequence = ["READY"],
   }: {
     variants: CatalogVariant[];
     listVariants?: CatalogVariant[];
     mutationErrors?: Record<string, Error>;
     readErrors?: Record<string, Error>;
+    uploadedVideoId?: string;
+    videoStatusSequence?: CatalogVideoStatus[];
   }) {
     for (const variant of variants) {
       this.#variants.set(variant.id, cloneVariant(variant));
@@ -57,6 +69,8 @@ export class FakeCatalogDoctorFixMcp {
     this.#listVariants = listVariants?.map(cloneVariant);
     this.#mutationErrors = mutationErrors;
     this.#readErrors = readErrors;
+    this.#uploadedVideoId = uploadedVideoId;
+    this.#videoStatusSequence = [...videoStatusSequence];
   }
 
   get writeCalls(): CatalogDoctorFixToolCall[] {
@@ -135,6 +149,30 @@ export class FakeCatalogDoctorFixMcp {
       return this.variantById(id);
     }
 
+    if (name === "upload_video_from_url") {
+      const url = String(arguments_.url);
+      const preparedError = this.#mutationErrors[`upload_video_from_url:${url}`];
+      if (preparedError) throw preparedError;
+      return { video_id: this.#uploadedVideoId };
+    }
+
+    if (name === "get_video") {
+      const videoId = String(arguments_.video_id);
+      const preparedError =
+        this.#readErrors[`get_video:${videoId}:${this.#videoStatusIndex + 1}`] ??
+        this.#readErrors[`get_video:${videoId}`];
+      if (preparedError) throw preparedError;
+      const status =
+        this.#videoStatusSequence[
+          Math.min(
+            this.#videoStatusIndex,
+            Math.max(0, this.#videoStatusSequence.length - 1),
+          )
+        ] ?? "PROCESSING";
+      this.#videoStatusIndex += 1;
+      return { id: videoId, status };
+    }
+
     if (
       name === "kit_request" &&
       arguments_.operation_id === "DeleteVariant"
@@ -152,6 +190,10 @@ export class FakeCatalogDoctorFixMcp {
     }
 
     throw new Error(`Unsupported FakeCatalogDoctorFixMcp tool: ${name}`);
+  }
+
+  async waitForVideoPollInterval(milliseconds: number): Promise<void> {
+    this.videoPollDelays.push(milliseconds);
   }
 
   finish(report: string): void {
@@ -348,6 +390,146 @@ function sameMedia(
   right: CatalogVariant["media"],
 ): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+async function executeVideoFromUrlAddition(
+  mcp: FakeCatalogDoctorFixMcp,
+  reference: string,
+  url: string,
+  displaySequence: number,
+): Promise<MutationOutcome> {
+  const resolved = await resolveOneVariant(mcp, reference);
+  if ("outcome" in resolved) return resolved.outcome;
+
+  let before = resolved.variant;
+  if (!resolved.fromDetail) {
+    try {
+      before = (await mcp.call("get_variant", {
+        id: before.id,
+      })) as CatalogVariant;
+    } catch (error) {
+      return {
+        kind: "failed",
+        message: `SKU ${before.sku} (${before.id}): чтение media не удалось — ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      };
+    }
+  }
+
+  if (!before.media.some((media) => media.type === "IMAGE" && media.image_id)) {
+    return {
+      kind: "failed",
+      message: `SKU ${before.sku} (${before.id}): видео требует хотя бы одно пригодное изображение в media`,
+    };
+  }
+  if (before.media.some((media) => media.type === "VIDEO")) {
+    return {
+      kind: "failed",
+      message: `SKU ${before.sku} (${before.id}): видео уже существует; для замены нужно явное разрешение владельца`,
+    };
+  }
+  if (
+    before.media.some(
+      (media) => media.display_sequence === displaySequence,
+    )
+  ) {
+    return {
+      kind: "failed",
+      message: `SKU ${before.sku} (${before.id}): позиция ${displaySequence} уже занята; нужен точный порядок перемещения существующего media`,
+    };
+  }
+
+  let uploaded: unknown;
+  try {
+    uploaded = await mcp.call("upload_video_from_url", { url });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      kind: mutationResultIsAmbiguous(error) ? "ambiguous" : "failed",
+      message: `SKU ${before.sku} (${before.id}): загрузка видео вызвана один раз и завершилась ошибкой «${message}»; вариант не изменён`,
+    };
+  }
+  const videoId =
+    uploaded &&
+    typeof uploaded === "object" &&
+    "video_id" in uploaded &&
+    typeof uploaded.video_id === "string"
+      ? uploaded.video_id
+      : undefined;
+  if (!videoId) {
+    return {
+      kind: "failed",
+      message: `SKU ${before.sku} (${before.id}): загрузка видео не вернула video_id; вариант не изменён`,
+    };
+  }
+
+  let ready = false;
+  for (let attempt = 1; attempt <= CATALOG_VIDEO_POLL_LIMIT; attempt += 1) {
+    if (attempt > 1) {
+      await mcp.waitForVideoPollInterval(CATALOG_VIDEO_POLL_INTERVAL_MS);
+    }
+    let video: unknown;
+    try {
+      video = await mcp.call("get_video", { video_id: videoId });
+    } catch (error) {
+      return {
+        kind: "failed",
+        message: `SKU ${before.sku} (${before.id}): video_id ${videoId} загружен, но проверка обработки не удалась — ${
+          error instanceof Error ? error.message : String(error)
+        }; вариант не изменён`,
+      };
+    }
+    const status =
+      video && typeof video === "object" && "status" in video
+        ? String(video.status)
+        : undefined;
+    if (status === "READY") {
+      ready = true;
+      break;
+    }
+    if (status === "ERROR") {
+      return {
+        kind: "failed",
+        message: `SKU ${before.sku} (${before.id}): обработка video_id ${videoId} завершилась ERROR; вариант не изменён`,
+      };
+    }
+  }
+  if (!ready) {
+    return {
+      kind: "failed",
+      message: `SKU ${before.sku} (${before.id}): video_id ${videoId} не достиг READY за ${CATALOG_VIDEO_POLL_LIMIT} проверок; вариант не изменён`,
+    };
+  }
+
+  const expected: CatalogVariant["media"] = [
+    ...before.media,
+    {
+      type: "VIDEO",
+      video_id: videoId,
+      display_sequence: displaySequence,
+    },
+  ];
+  const linked = await executeVerifiedVariantMutation({
+    mcp,
+    variant: before,
+    fromDetail: true,
+    write: () =>
+      mcp.call("update_variant", {
+        id: before.id,
+        variant: { media: expected },
+      }),
+    verify: (after) => ({
+      valid: sameMedia(after.media, expected),
+      message: sameMedia(after.media, expected)
+        ? `SKU ${after.sku} (${after.id}): video_id ${videoId} добавлен на позицию ${displaySequence}, полный media подтверждён`
+        : `SKU ${after.sku} (${after.id}): повторное чтение не совпало с полным сохранённым массивом media`,
+    }),
+  });
+  return {
+    ...linked,
+    message: `video_id ${videoId} достиг READY; ${linked.message}`,
+  };
 }
 
 async function executePermanentVariantDeletion(
@@ -634,6 +816,21 @@ export async function runCatalogDoctorFixScenario({
       },
     });
     return finish(mcp, [outcome]);
+  }
+
+  const exactVideoFromUrl =
+    /добавь\s+видео(?:\s+по\s+ссылке)?\s+(https?:\/\/[^\s,]+)\s+на\s+позици(?:ю|и)\s+(\d+)\s+для\s+(?:SKU\s+)?([^\s,]+)/iu.exec(
+      request,
+    );
+  if (exactVideoFromUrl) {
+    return finish(mcp, [
+      await executeVideoFromUrlAddition(
+        mcp,
+        exactVideoFromUrl[3],
+        exactVideoFromUrl[1],
+        Number(exactVideoFromUrl[2]),
+      ),
+    ]);
   }
 
   const permanentDelete =

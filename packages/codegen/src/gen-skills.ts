@@ -252,11 +252,14 @@ request with 400 and applies nothing, listing every offender in \`errors\`. In a
 both fields are optional: omit a key to keep the current value, send \`null\` to reset it
 (resetting \`price\` works only on unpublished variants).
 
-Product videos are a separate tag: upload via \`POST /v1/videos\`
-(\`multipart/form-data\`, max 100 MB, mp4/mov/webm/avi/flv, deduplicated by content), then
-poll \`GET /v1/videos/{video_id}\` — \`UPLOADED\` → \`PROCESSING\` → \`READY\` (poll at most
-once every 5 seconds) — and attach the ready video to a variant through \`media\` in
-\`CreateVariant\`/\`UpdateVariant\`. Characteristics carry two extras beyond the values
+Product videos are a separate tag: use \`POST /v1/videos\` for a local file
+(\`multipart/form-data\`) or \`POST /v1/videos/from_url\` for a public link. Both accept
+videos up to 100 MB in mp4/mov/webm/avi/flv and deduplicate by content. Poll
+\`GET /v1/videos/{video_id}\` — \`UPLOADED\` → \`PROCESSING\` → \`READY\`, at most once every
+5 seconds — and link only a ready video. A variant accepts at most one video and only
+alongside at least one image in the same \`media\` list. Sending \`media\` to
+\`UpdateVariant\` replaces the whole list, so preserve every existing image and untouched
+entry. Characteristics carry two extras beyond the values
 themselves: groups (\`/v1/characteristics/groups\`, ordered by \`display_sequence\`) and
 colors (\`/v1/characteristics/colors\`), where \`UpdateCharacteristicColor\` recolors an
 **existing** value addressed by the value itself — there is no id — accepting a hex code or
@@ -377,7 +380,8 @@ ${DOMAIN_TRAILER}`,
     description:
       "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, " +
       "payment and delivery events and handle the one-time signing secret. Use when creating, " +
-      "updating, validating or deleting KIT webhooks, or when verifying incoming webhook calls.",
+      "updating, validating or deleting KIT webhooks, verifying incoming calls, diagnosing " +
+      "missing order-status callbacks or migrating receipt-status automations.",
     overview: WEBHOOKS_OVERVIEW,
     tags: ["Вебхуки"],
     toolFiles: ["webhooks"],

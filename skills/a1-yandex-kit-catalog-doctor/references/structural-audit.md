@@ -70,6 +70,9 @@ structural read.
   `VIDEO`; `OTHER` has no such identifier requirement. Flag duplicate
   `(type, id)` pairs, duplicate display sequences and a usable image set with no
   image at `display_sequence: 1`.
+- Count every `VIDEO` entry. Flag more than one video and flag any video set
+  without at least one usable `IMAGE` carrying `image_id`; these are separate
+  media-contract findings even when the core missing-image rule also applies.
 - `display_sequence` is required and numeric in the response schema. Compare
   returned numeric positions; never turn omitted projections into repeated
   `null` positions.
@@ -90,9 +93,9 @@ structural read.
   characteristic reference: blocker for a PUBLISHED SKU/product, risk for
   HIDDEN.
 - Duplicate grouping combination, grouping that does not separate variants,
-  invalid splitting subset, duplicate media/order, no main image, empty active
-  collection, hidden card, archived collection relation or broken optional
-  relation: risk.
+  invalid splitting subset, duplicate media/order, more than one video, a video
+  without a usable image, no main image, empty active collection, hidden card,
+  archived collection relation or broken optional relation: risk.
 - An IMAGE/VIDEO without its required identifier: risk when another usable
   image remains; if no usable image remains, the core missing-image rule
   determines blocker/risk by SKU status.
