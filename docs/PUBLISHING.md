@@ -42,7 +42,7 @@ grep -rn "<старая версия>" --include="*.json" --include="*.ts" --inc
 
 ```bash
 npm run validate:agent-plugin
-npm run typecheck && npm test && npm run build   # 397 тестов, всё зелёное
+npm run typecheck && npm test && npm run build   # 403 теста, всё зелёное
 npm run gen && git diff --exit-code              # нет дрейфа сгенерированного
 npm publish --dry-run -w packages/core -w packages/mcp
 ```
