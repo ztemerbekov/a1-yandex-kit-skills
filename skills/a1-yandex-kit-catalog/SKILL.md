@@ -92,7 +92,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (70 operations)
+## Endpoints (71 operations)
 
 ### Товары
 
@@ -157,6 +157,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 | --- | --- | --- | --- |
 | GET | `/v1/videos` | `GetVideos` | Получение списка видео |
 | POST | `/v1/videos` | `UploadVideo` | Загрузка видео |
+| POST | `/v1/videos/from_url` | `UploadVideoFromUrl` | Загрузка видео по ссылке |
 | GET | `/v1/videos/{video_id}` | `GetVideoById` | Получение видео по идентификатору |
 
 ### Коллекции
@@ -203,7 +204,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-160 operations):
+161 operations):
 
 - `list_products` — List products of the store (paginated).
 - `get_product` — Get a single product by its ID, including its category bindings.
@@ -225,6 +226,7 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `list_videos` — List product videos of the store (paginated), oldest upload first.
 - `get_video` — Get a single video by its ID with the current processing status.
 - `upload_video` — Upload a product video via multipart/form-data and queue it for processing.
+- `upload_video_from_url` — Upload a product video by public link and queue it for processing — use it instead of upload_video when the file lives on the web rather than on this machine.
 - `list_collections` — List collections of the store (paginated).
 - `get_collection` — Get a single collection by its ID (title, slug, status, type, SEO fields).
 - `create_collection` — Create a new collection.

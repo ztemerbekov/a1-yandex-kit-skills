@@ -23,6 +23,12 @@ Key facts:
 - Callback URLs must be **HTTPS** — plain `http://` URLs are rejected.
 - Exactly **three event types** exist: `ORDER_STATUS_CHANGED`,
   `ORDER_PAYMENT_STATUS_CHANGED` and `ORDER_DELIVERY_STATUS_CHANGED`.
+- **`ORDER_STATUS_CHANGED` is being narrowed** (Yandex announced it; no cutoff date given):
+  it will stop firing for the two receipt-technical statuses `CREATING_INITIAL_RECEIPT`
+  and `CREATING_FINAL_RECEIPTS`. An integration triggered by those two events must move to
+  `ORDER_PLACED` and `COMPLETED` respectively. An integration that merely stores the
+  order's current status needs no change — both statuses stay in the `OrderStatus` enum
+  and in `GET /v1/orders/{order_id}`; only the callback disappears.
 - Creating a webhook (`CreateWebhook`) returns a signing `secret` that is shown
   **only once** — persist it immediately; it cannot be retrieved later (delete and
   recreate the webhook if lost).
@@ -91,7 +97,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-160 operations):
+161 operations):
 
 - `list_webhooks` — List all webhooks of the store (not paginated).
 - `get_webhook` — Get a single webhook by its ID (URL, subscribed events, status).
