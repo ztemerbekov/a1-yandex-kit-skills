@@ -511,9 +511,16 @@ async function readEveryOperationPage<T>({
 
 type FindingLevel = "blocker" | "risk" | "recommendation";
 
-interface CatalogFinding {
+export type CatalogFindingCode =
+  | "MEDIA_IMAGE_MISSING"
+  | "MEDIA_VIDEO_LIMIT_EXCEEDED"
+  | "MEDIA_VIDEO_REQUIRES_IMAGE";
+
+export interface CatalogFinding {
+  code?: CatalogFindingCode;
   level: FindingLevel;
   object: string;
+  objectId?: string;
   fact: string;
 }
 
@@ -528,8 +535,9 @@ function addFinding(
   level: FindingLevel,
   object: string,
   fact: string,
+  structured?: { code: CatalogFindingCode; objectId: string },
 ): void {
-  findings.push({ level, object, fact });
+  findings.push({ level, object, fact, ...structured });
 }
 
 function problemLevel(variant: CatalogVariant): "blocker" | "risk" {
@@ -672,7 +680,7 @@ export async function runCatalogDoctorScenario({
 }: {
   request: string;
   mcp: FakeCatalogDoctorMcp;
-}): Promise<{ report: string }> {
+}): Promise<{ report: string; findings: CatalogFinding[] }> {
   const includeArchive = /(?:включая|проверь|аудит).{0,20}архив|архив.{0,20}(?:каталог|сущност)/iu.test(
     request,
   );
@@ -913,8 +921,41 @@ export async function runCatalogDoctorScenario({
       }
     }
 
-    if (!variant.media.some((media) => media.type === "IMAGE" && media.image_id)) {
-      addFinding(findings, level, object, "нет изображения");
+    const hasUsableImage = variant.media.some(
+      (media) => media.type === "IMAGE" && media.image_id,
+    );
+    const videoCount = variant.media.filter(
+      (media) => media.type === "VIDEO",
+    ).length;
+    if (!hasUsableImage) {
+      addFinding(findings, level, object, "нет изображения", {
+        code: "MEDIA_IMAGE_MISSING",
+        objectId: variant.id,
+      });
+    }
+    if (videoCount > 1) {
+      addFinding(
+        findings,
+        "risk",
+        object,
+        `в media находится ${videoCount} видео при допустимом максимуме 1`,
+        {
+          code: "MEDIA_VIDEO_LIMIT_EXCEEDED",
+          objectId: variant.id,
+        },
+      );
+    }
+    if (videoCount > 0 && !hasUsableImage) {
+      addFinding(
+        findings,
+        "risk",
+        object,
+        "видео находится в media без пригодного изображения",
+        {
+          code: "MEDIA_VIDEO_REQUIRES_IMAGE",
+          objectId: variant.id,
+        },
+      );
     }
     const mediaIds = new Map<string, number>();
     const mediaSequences = new Map<number, number>();
@@ -1568,5 +1609,5 @@ export async function runCatalogDoctorScenario({
     "Аудит выполнен только чтением; изменения каталога не вызывались.",
   ].join("\n\n");
   mcp.finish(report);
-  return { report };
+  return { report, findings };
 }

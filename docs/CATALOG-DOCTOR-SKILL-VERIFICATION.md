@@ -44,11 +44,12 @@ reference model точных исправлений. `catalog-doctor-skill-fix-s
 | Явный аудит архива расширяет status-фильтры и показывает риск архивации единственного пути | `an explicit archive audit includes archived entities and reports archive risk` | автоматизировано |
 | Разделы «Блокеры», «Риски», «Рекомендации» | Все сценарии проверяют явные счётчики | автоматизировано |
 | Любой audit-сценарий остаётся read-only | `FakeCatalogDoctorMcp.writeCalls` во всех audit-сценариях | автоматизировано |
-| Группирующие значения, дубли комбинаций и неработающая группировка | `structural audit finds grouping, characteristic, media and collection defects from API facts` | автоматизировано |
-| Архивные характеристики и сломанные ссылки на характеристики | Тот же структурный сценарий; ID проверяются только по полям API | автоматизировано |
+| Группирующие значения, дубли комбинаций и неработающая группировка | Смешанная фикстура проходит read-only аудит; стабильные structured codes для этих дефектов пока не введены | не автоматизировано |
+| Архивные характеристики и сломанные ссылки на характеристики | Смешанная фикстура содержит оба случая; стабильные structured codes для них пока не введены | не автоматизировано |
 | Характеристики не выводятся из названия товара | Структурная фикстура содержит «синий» в названии без значения; отчёт не создаёт значение | автоматизировано |
 | Требование владельца, риск неполноты и опциональная рекомендация разделены | `card completeness separates owner requirements, incompleteness risks and optional advice` | автоматизировано |
 | ID медиа, дубли, порядок и главное изображение | Структурный сценарий проверяет IMAGE/VIDEO, `(type, id)` и `display_sequence` | автоматизировано |
+| Не более одного VIDEO и IMAGE обязателен при VIDEO | `media audit exposes stable findings for the video limit and image prerequisite` проверяет `code`, `level` и `objectId` | автоматизировано |
 | Пустая активная коллекция, скрытые карточки и сломанная связь | Структурный сценарий и `GetVariantsByCollectionId` | автоматизировано |
 | Бейджи, динамические фильтры, контекстные коллекции и похожие карточки читаются только по запросу | `owner-requested merchandising audit reads optional relations and reports only broken facts` | автоматизировано |
 | Отсутствие опционального мерчандайзинга не объявляется дефектом | `optional merchandising entities are not defects and are not read without owner request` | автоматизировано |
@@ -62,6 +63,8 @@ reference model точных исправлений. `catalog-doctor-skill-fix-s
 | Неопределённые остатки запрашивают один источник и не вызывают запись | `an unspecified stock repair asks one grouped source question and performs no write` | автоматизировано |
 | Изменение одного склада сохраняет соседние остатки и reserved | `one stock change preserves every sibling warehouse entry` | автоматизировано |
 | Добавление изображения сохраняет остальные media | `one image addition preserves every sibling media entry` | автоматизировано |
+| Видео по публичной ссылке: upload → ограниченный poll с интервалом → полный media write → re-read | `an exact public-link video command uploads, polls, links and verifies the full media list`; ERROR и исчерпание лимита покрыты отдельными тестами | автоматизировано |
+| Без IMAGE или при существующем VIDEO добавление видео не записывает вариант | `a public-link video command leaves a variant without an image unchanged`; `an add command preserves an existing video until replacement is explicitly authorized` | автоматизировано |
 | Безвозвратное удаление требует точного глагола, ARCHIVED и проверки not-found | `permanent deletion needs the exact verb and archived target, then verifies not-found` | автоматизировано |
 | Пакет ограничен чанком 100, продолжается после локальной ошибки и сохраняет все результаты | `a price batch respects the limit, continues after a local error and keeps every outcome` | автоматизировано |
 | Невалидные элементы и конфликтующие значения пакета не теряются и не записываются | `a price batch reports malformed and conflicting entries without writing their targets` | автоматизировано |
@@ -82,6 +85,9 @@ reference model точных исправлений. `catalog-doctor-skill-fix-s
    5xx/timeout результат неоднозначный и повторной записи нет.
 4. Изменение одного остатка — записан и проверен полный массив с сохранёнными соседними
    складами и `reserved`.
+5. «Добавь видео по ссылке https://cdn.example.com/video.mp4 на позицию 2 для SKU-42» —
+   upload возвращает `video_id`, между poll-вызовами проходит не менее пяти секунд,
+   `update_variant` вызван только после `READY`, а `get_variant` подтверждает полный media.
 
 Проверить кейс «только архивная категория» можно лишь при наличии названного владельцем
 авторитетного полного набора category ID; один KIT read-only API этого доказательства не

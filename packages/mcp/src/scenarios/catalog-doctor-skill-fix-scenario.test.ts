@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   CATALOG_FIX_BATCH_LIMIT,
+  CATALOG_VIDEO_POLL_INTERVAL_MS,
+  CATALOG_VIDEO_POLL_LIMIT,
   FakeCatalogDoctorFixMcp,
   runCatalogDoctorFixScenario,
 } from "./catalog-doctor-skill-fix-scenario.js";
@@ -149,6 +151,158 @@ test("one image addition preserves every sibling media entry", async () => {
     },
   });
   assert.equal(mcp.variantById("variant-42")?.media.length, 3);
+});
+
+test("an exact public-link video command uploads, polls, links and verifies the full media list", async () => {
+  const mcp = new FakeCatalogDoctorFixMcp({
+    variants: [
+      variant({
+        media: [
+          { type: "IMAGE", image_id: "image-1", display_sequence: 1 },
+          { type: "OTHER", display_sequence: 2 },
+        ],
+      }),
+    ],
+    uploadedVideoId: "video-from-url",
+    videoStatusSequence: ["PROCESSING", "READY"],
+  });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Добавь видео по ссылке https://cdn.example.com/video.mp4 на позицию 3 для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    [
+      "list_variants",
+      "get_variant",
+      "upload_video_from_url",
+      "get_video",
+      "get_video",
+      "update_variant",
+      "get_variant",
+    ],
+  );
+  assert.deepEqual(mcp.writeCalls.map((call) => call.name), [
+    "upload_video_from_url",
+    "update_variant",
+  ]);
+  assert.deepEqual(mcp.writeCalls[0]?.arguments, {
+    url: "https://cdn.example.com/video.mp4",
+  });
+  assert.deepEqual(
+    mcp.calls
+      .filter((call) => call.name === "get_video")
+      .map((call) => call.arguments),
+    [
+      { video_id: "video-from-url" },
+      { video_id: "video-from-url" },
+    ],
+  );
+  assert.deepEqual(mcp.videoPollDelays, [CATALOG_VIDEO_POLL_INTERVAL_MS]);
+  assert.deepEqual(mcp.variantById("variant-42")?.media, [
+    { type: "IMAGE", image_id: "image-1", display_sequence: 1 },
+    { type: "OTHER", display_sequence: 2 },
+    { type: "VIDEO", video_id: "video-from-url", display_sequence: 3 },
+  ]);
+});
+
+test("a public-link video command leaves a variant without an image unchanged", async () => {
+  const initial = variant({ media: [] });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Добавь видео по ссылке https://cdn.example.com/video.mp4 на позицию 1 для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(mcp.calls.map((call) => call.name), [
+    "list_variants",
+    "get_variant",
+  ]);
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
+});
+
+test("an add command preserves an existing video until replacement is explicitly authorized", async () => {
+  const initial = variant();
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Добавь видео по ссылке https://cdn.example.com/new.mp4 на позицию 3 для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(mcp.calls.map((call) => call.name), [
+    "list_variants",
+    "get_variant",
+  ]);
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
+});
+
+test("a video processing error keeps the uploaded video separate from the variant", async () => {
+  const initial = variant({
+    media: [{ type: "IMAGE", image_id: "image-1", display_sequence: 1 }],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({
+    variants: [initial],
+    uploadedVideoId: "video-error",
+    videoStatusSequence: ["ERROR"],
+  });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Добавь видео по ссылке https://cdn.example.com/error.mp4 на позицию 2 для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(mcp.writeCalls.map((call) => call.name), [
+    "upload_video_from_url",
+  ]);
+  assert.equal(
+    mcp.calls.filter((call) => call.name === "get_video").length,
+    1,
+  );
+  assert.ok(!mcp.calls.some((call) => call.name === "update_variant"));
+  assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
+});
+
+test("an exhausted video polling bound never links a non-ready video", async () => {
+  const initial = variant({
+    media: [{ type: "IMAGE", image_id: "image-1", display_sequence: 1 }],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({
+    variants: [initial],
+    uploadedVideoId: "video-processing",
+    videoStatusSequence: ["PROCESSING"],
+  });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Добавь видео по ссылке https://cdn.example.com/slow.mp4 на позицию 2 для SKU-42",
+    mcp,
+  });
+
+  assert.equal(
+    mcp.calls.filter((call) => call.name === "get_video").length,
+    CATALOG_VIDEO_POLL_LIMIT,
+  );
+  assert.equal(
+    mcp.videoPollDelays.length,
+    CATALOG_VIDEO_POLL_LIMIT - 1,
+  );
+  assert.ok(
+    mcp.videoPollDelays.every(
+      (milliseconds) => milliseconds >= CATALOG_VIDEO_POLL_INTERVAL_MS,
+    ),
+  );
+  assert.ok(!mcp.calls.some((call) => call.name === "update_variant"));
+  assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
 });
 
 test("permanent deletion needs the exact verb and archived target, then verifies not-found", async () => {
