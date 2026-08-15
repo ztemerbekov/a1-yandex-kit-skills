@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 70) {
-  throw new Error(`Expected 70 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 71) {
+  throw new Error(`Expected 71 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -182,6 +182,12 @@ Key facts:
 - Callback URLs must be **HTTPS** — plain \`http://\` URLs are rejected.
 - Exactly **three event types** exist: \`ORDER_STATUS_CHANGED\`,
   \`ORDER_PAYMENT_STATUS_CHANGED\` and \`ORDER_DELIVERY_STATUS_CHANGED\`.
+- **\`ORDER_STATUS_CHANGED\` is being narrowed** (Yandex announced it; no cutoff date given):
+  it will stop firing for the two receipt-technical statuses \`CREATING_INITIAL_RECEIPT\`
+  and \`CREATING_FINAL_RECEIPTS\`. An integration triggered by those two events must move to
+  \`ORDER_PLACED\` and \`COMPLETED\` respectively. An integration that merely stores the
+  order's current status needs no change — both statuses stay in the \`OrderStatus\` enum
+  and in \`GET /v1/orders/{order_id}\`; only the callback disappears.
 - Creating a webhook (\`CreateWebhook\`) returns a signing \`secret\` that is shown
   **only once** — persist it immediately; it cannot be retrieved later (delete and
   recreate the webhook if lost).

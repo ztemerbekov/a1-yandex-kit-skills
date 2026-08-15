@@ -50,6 +50,9 @@ export function registerWebhookTools(server: McpServer, client: KitClient): void
       description:
         "Create a new webhook. The url must use HTTPS (HTTP is rejected). Allowed events: " +
         "ORDER_STATUS_CHANGED, ORDER_PAYMENT_STATUS_CHANGED, ORDER_DELIVERY_STATUS_CHANGED. " +
+        "NOTE: ORDER_STATUS_CHANGED will stop firing for the receipt-technical statuses " +
+        "CREATING_INITIAL_RECEIPT and CREATING_FINAL_RECEIPTS — key new integrations on " +
+        "ORDER_PLACED and COMPLETED instead (the statuses themselves stay readable via get_order). " +
         "IMPORTANT: the response contains the signing secret — it is shown ONLY ONCE, store it " +
         'securely. Call get_operation_schema("CreateWebhook") for the exact request shape.',
       inputSchema: {

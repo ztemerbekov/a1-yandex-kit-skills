@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 160 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 161 API operations, including those without a dedicated tool.
 
 ## Alerts (`alerts.ts`)
 
@@ -77,9 +77,9 @@ The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 160 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 161 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 160 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 161 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -137,6 +137,7 @@ The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commer
 | `list_videos` | yes | List product videos of the store (paginated), oldest upload first. |
 | `get_video` | yes | Get a single video by its ID with the current processing status. |
 | `upload_video` | no | Upload a product video via multipart/form-data and queue it for processing. |
+| `upload_video_from_url` | no | Upload a product video by public link and queue it for processing — use it instead of upload_video when the file lives on the web rather than on this machine. |
 
 ## Warehouses (`warehouses.ts`)
 
@@ -161,7 +162,7 @@ The `mcp-yandex-kit` MCP server exposes **70 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**74 of 160 operations** have dedicated tools. The remaining 86 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**75 of 161 operations** have dedicated tools. The remaining 86 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 
