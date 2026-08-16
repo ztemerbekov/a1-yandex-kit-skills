@@ -224,6 +224,14 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `create_category` — Create a new product category.
 - `update_category` — Update an existing category via JSON Merge Patch: send only the fields to change.
 - `category_action` — Archive a category (soft delete: hidden from the storefront, restorable) or unarchive it.
+- `list_characteristics` — List product characteristics (paginated).
+- `get_characteristic` — Get one product characteristic by ID.
+- `create_characteristic` — Create a product characteristic.
+- `update_characteristic` — Update a product characteristic.
+- `list_characteristic_groups` — List product characteristic groups (paginated).
+- `get_characteristic_group` — Get one product characteristic group by ID.
+- `create_characteristic_group` — Create a product characteristic group.
+- `update_characteristic_group` — Update a product characteristic group.
 - `list_characteristic_colors` — List the color values of the store's characteristics with their hex codes (paginated).
 - `update_characteristic_color` — Set the hex code of a color characteristic value.
 - `list_videos` — List product videos of the store (paginated), oldest upload first.
@@ -237,4 +245,4 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `delete_collection` — Permanently delete a collection by its ID.
 - `manage_collection_cards` — Add product cards to a STATIC collection or remove them from it.
 
-Характеристики товаров beyond the color tools, Контекстные коллекции and Бейджи have no dedicated tools — reach them through `search_operations` + `kit_request`.
+Контекстные коллекции and Бейджи have no dedicated tools — reach them through `search_operations` + `kit_request`.

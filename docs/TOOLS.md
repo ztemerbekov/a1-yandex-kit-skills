@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 161 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **83 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 161 API operations, including those without a dedicated tool.
 
 ## Alerts (`alerts.ts`)
 
@@ -10,6 +10,15 @@ The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commer
 | --- | --- | --- |
 | `list_alerts` | yes | List system alerts of the store (paginated), CRITICAL ones first and newest first within the same severity. |
 | `resolve_alert` | no | Mark an alert as resolved. |
+
+## Blogs (`blogs.ts`)
+
+| Tool | Read-only | Description |
+| --- | --- | --- |
+| `list_blogs` | yes | List store news articles (paginated). |
+| `get_blog` | yes | Get one store news article by ID. |
+| `create_blog` | no | Create a store news article. |
+| `update_blog` | no | Update a store news article. |
 
 ## Categories (`categories.ts`)
 
@@ -25,6 +34,14 @@ The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
+| `list_characteristics` | yes | List product characteristics (paginated). |
+| `get_characteristic` | yes | Get one product characteristic by ID. |
+| `create_characteristic` | no | Create a product characteristic. |
+| `update_characteristic` | no | Update a product characteristic. |
+| `list_characteristic_groups` | yes | List product characteristic groups (paginated). |
+| `get_characteristic_group` | yes | Get one product characteristic group by ID. |
+| `create_characteristic_group` | no | Create a product characteristic group. |
+| `update_characteristic_group` | no | Update a product characteristic group. |
 | `list_characteristic_colors` | yes | List the color values of the store's characteristics with their hex codes (paginated). |
 | `update_characteristic_color` | no | Set the hex code of a color characteristic value. |
 
@@ -162,7 +179,7 @@ The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**75 of 161 operations** have dedicated tools. The remaining 86 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**87 of 161 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 
@@ -217,11 +234,7 @@ The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commer
 
 | Operation | Method | Path | Summary (RU) |
 | --- | --- | --- | --- |
-| `CreateBlog` | POST | `/v1/blogs` | Создание новости |
 | `DeleteBlogById` | DELETE | `/v1/blogs/{blog_id}` | Удаление новости |
-| `GetBlogById` | GET | `/v1/blogs/{blog_id}` | Получение новости по уникальному идентификатору |
-| `GetBlogs` | GET | `/v1/blogs` | Получение списка новостей |
-| `UpdateBlog` | PATCH | `/v1/blogs/{blog_id}` | Обновление новости |
 
 ### Подарки
 
@@ -299,13 +312,5 @@ The `mcp-yandex-kit` MCP server exposes **71 tools** for the Yandex KIT e-commer
 | Operation | Method | Path | Summary (RU) |
 | --- | --- | --- | --- |
 | `ArchiveCharacteristic` | POST | `/v1/characteristics/{id}/archive` | Архивирование характеристики |
-| `CreateCharacteristic` | POST | `/v1/characteristics` | Создание новой характеристики |
-| `CreateCharacteristicGroup` | POST | `/v1/characteristics/groups` | Создание группы характеристик |
 | `DeleteCharacteristicGroup` | DELETE | `/v1/characteristics/groups/{id}` | Удаление группы характеристик |
-| `GetCharacteristicById` | GET | `/v1/characteristics/{id}` | Получение характеристики по ID |
-| `GetCharacteristicGroupById` | GET | `/v1/characteristics/groups/{id}` | Получение группы характеристик по ID |
-| `GetCharacteristicGroups` | GET | `/v1/characteristics/groups` | Получение списка групп характеристик |
-| `GetCharacteristics` | GET | `/v1/characteristics` | Получение списка характеристик |
 | `UnarchiveCharacteristic` | POST | `/v1/characteristics/{id}/unarchive` | Восстановление характеристики из архива |
-| `UpdateCharacteristic` | PATCH | `/v1/characteristics/{id}` | Обновление характеристики |
-| `UpdateCharacteristicGroup` | PATCH | `/v1/characteristics/groups/{id}` | Обновление группы характеристик |
