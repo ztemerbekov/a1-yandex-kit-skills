@@ -216,49 +216,47 @@ test("approval capability reports automatic, guided and unsupported clients", as
   const guided = await inspectApprovalPolicy({ client: "vscode" });
   const unsupported = await inspectApprovalPolicy({ client: "kimi-desktop" });
   assert.equal(automatic.support, "automatic");
+  assert.equal(automatic.scope, "server");
+  assert.deepEqual(automatic.tools, ["*"]);
+  assert.equal(automatic.includesFutureTools, true);
   assert.equal(guided.support, "guided");
   assert.equal(guided.reasonCode, "POLICY_USER_STEP");
   assert.equal(unsupported.support, "unsupported");
   assert.equal(unsupported.reasonCode, "POLICY_CLIENT_UNSUPPORTED");
 });
 
-test("Claude approval policy replaces a broad server rule only with explicit authorization", async () => {
+test("Claude approval policy replaces exact rules with one server wildcard", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "settings.json");
     await writeFile(configPath, JSON.stringify({
       theme: "dark",
       permissions: {
-        allow: ["mcp__yandex-kit__*", "WebSearch"],
-        deny: ["Bash(rm *)"],
+        allow: ["mcp__yandex-kit__create_product", "WebSearch"],
+        ask: ["mcp__yandex-kit__kit_request"],
+        deny: ["Bash(rm *)", "mcp__yandex-kit__delete_collection"],
       },
     }));
-
-    const refused = await configureApprovalPolicy({
-      client: "claude-code",
-      configPath,
-    });
-    assert.equal(refused.reasonCode, "POLICY_TOO_BROAD");
-    assert.equal(refused.configured, false);
 
     const applied = await configureApprovalPolicy({
       client: "claude-code",
       configPath,
-      replaceBroad: true,
     });
     assert.equal(applied.configured, true);
     assert.equal(applied.structuralVerified, true);
     const config = JSON.parse(await readFile(configPath, "utf8"));
     assert.equal(config.theme, "dark");
     assert.deepEqual(config.permissions.deny, ["Bash(rm *)"]);
-    assert.equal(config.permissions.allow.includes("mcp__yandex-kit__*"), false);
+    assert.deepEqual(config.permissions.ask, []);
+    assert.equal(config.permissions.allow.includes("mcp__yandex-kit__*"), true);
+    assert.equal(
+      config.permissions.allow.includes("mcp__yandex-kit__create_product"),
+      false,
+    );
     assert.equal(config.permissions.allow.includes("WebSearch"), true);
-    for (const tool of IMPORT_TOOL_NAMES) {
-      assert.equal(config.permissions.allow.includes(`mcp__yandex-kit__${tool}`), true);
-    }
   });
 });
 
-test("Codex approval policy defaults all other server tools to prompt", async () => {
+test("Codex approval policy approves every current and future server tool", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "config.toml");
     await writeFile(configPath, [
@@ -267,6 +265,10 @@ test("Codex approval policy defaults all other server tools to prompt", async ()
       "[mcp_servers.yandex-kit]",
       'command = "npx"',
       'args = ["-y", "mcp-yandex-kit@latest"]',
+      'default_tools_approval_mode = "prompt"',
+      "",
+      "[mcp_servers.yandex-kit.tools.create_product]",
+      'approval_mode = "prompt"',
       "",
       "[mcp_servers.yandex-kit.env]",
       'YANDEX_KIT_TOKEN = "secret"',
@@ -275,14 +277,14 @@ test("Codex approval policy defaults all other server tools to prompt", async ()
     const result = await configureApprovalPolicy({ client: "codex", configPath });
     assert.equal(result.configured, true);
     const config = await readFile(configPath, "utf8");
-    assert.match(config, /default_tools_approval_mode = "prompt"/);
+    assert.match(config, /default_tools_approval_mode = "approve"/);
     assert.match(config, /\[mcp_servers\.yandex-kit\.tools\.create_product\]/);
     assert.match(config, /approval_mode = "approve"/);
     assert.match(config, /model = "gpt-5"/);
   });
 });
 
-test("Codex reports a whole-server approval as too broad before changing it", async () => {
+test("Codex recognizes an existing whole-server approval", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "config.toml");
     await writeFile(configPath, [
@@ -296,13 +298,13 @@ test("Codex reports a whole-server approval as too broad before changing it", as
       "",
     ].join("\n"));
     const result = await configureApprovalPolicy({ client: "codex", configPath });
-    assert.equal(result.reasonCode, "POLICY_TOO_BROAD");
-    assert.equal(result.configured, false);
+    assert.equal(result.reasonCode, "POLICY_APPLIED");
+    assert.equal(result.configured, true);
     assert.match(await readFile(configPath, "utf8"), /default_tools_approval_mode = "approve"/);
   });
 });
 
-test("Kimi approval policy inserts exact allows before an authorized broad ask", async () => {
+test("Kimi approval policy puts a server wildcard before stricter rules", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "config.toml");
     await writeFile(configPath, [
@@ -311,23 +313,21 @@ test("Kimi approval policy inserts exact allows before an authorized broad ask",
       'pattern = "mcp__yandex-kit__*"',
       "",
     ].join("\n"));
-    const refused = await configureApprovalPolicy({ client: "kimi", configPath });
-    assert.equal(refused.reasonCode, "POLICY_CONFLICT");
-    const applied = await configureApprovalPolicy({
-      client: "kimi",
-      configPath,
-      replaceConflicts: true,
-    });
+    const applied = await configureApprovalPolicy({ client: "kimi", configPath });
     assert.equal(applied.configured, true);
     const config = await readFile(configPath, "utf8");
     assert.ok(
-      config.indexOf('pattern = "mcp__yandex-kit__create_product"') <
-        config.indexOf('pattern = "mcp__yandex-kit__*"'),
+      config.indexOf('decision = "allow"') <
+        config.indexOf('decision = "ask"'),
+    );
+    assert.equal(
+      config.match(/pattern = "mcp__yandex-kit__\*"/g)?.length,
+      2,
     );
   });
 });
 
-test("Cursor approval policy is version-gated and replaces known broad entries", async () => {
+test("Cursor approval policy replaces exact rules with both server wildcard ids", async () => {
   await withTempDir(async (tempDir) => {
     const configPath = path.join(tempDir, "permissions.json");
     const schemaPath = path.join(tempDir, "permissions.schema.json");
@@ -335,32 +335,58 @@ test("Cursor approval policy is version-gated and replaces known broad entries",
       properties: { mcpAllowlist: { type: "array", items: { type: "string" } } },
     }));
     await writeFile(configPath, JSON.stringify({
-      mcpAllowlist: ["yandex-kit:*", "user-yandex-kit:*", "github:get_issue"],
+      mcpAllowlist: [
+        "yandex-kit:get_store",
+        "user-yandex-kit:create_product",
+        "github:get_issue",
+      ],
     }));
-    const refused = await configureApprovalPolicy({
-      client: "cursor",
-      configPath,
-      cursorSchemaPath: schemaPath,
-      effectiveServerId: "user-yandex-kit",
-    });
-    assert.equal(refused.reasonCode, "POLICY_TOO_BROAD");
     const applied = await configureApprovalPolicy({
       client: "cursor",
       configPath,
       cursorSchemaPath: schemaPath,
       effectiveServerId: "user-yandex-kit",
-      replaceBroad: true,
     });
     assert.equal(applied.configured, true);
     assert.equal(applied.verified, false);
     const config = JSON.parse(await readFile(configPath, "utf8"));
-    assert.equal(config.mcpAllowlist.includes("yandex-kit:*"), false);
-    assert.equal(config.mcpAllowlist.includes("user-yandex-kit:*"), false);
+    assert.equal(config.mcpAllowlist.includes("yandex-kit:*"), true);
+    assert.equal(config.mcpAllowlist.includes("user-yandex-kit:*"), true);
     assert.equal(config.mcpAllowlist.includes("github:get_issue"), true);
     assert.equal(
-      config.mcpAllowlist.includes("user-yandex-kit:create_blog"),
-      true,
+      config.mcpAllowlist.includes("user-yandex-kit:create_product"),
+      false,
     );
+  });
+});
+
+test("Cursor recognizes existing server wildcards without rewriting them", async () => {
+  await withTempDir(async (tempDir) => {
+    const configPath = path.join(tempDir, "permissions.json");
+    const schemaPath = path.join(tempDir, "permissions.schema.json");
+    await writeFile(schemaPath, JSON.stringify({
+      properties: { mcpAllowlist: { type: "array", items: { type: "string" } } },
+    }));
+    const original = `${JSON.stringify({
+      mcpAllowlist: ["yandex-kit:*", "user-yandex-kit:*", "github:get_issue"],
+    }, null, 2)}\n`;
+    await writeFile(configPath, original);
+
+    const applied = await configureApprovalPolicy({
+      client: "cursor",
+      configPath,
+      cursorSchemaPath: schemaPath,
+      effectiveServerId: "yandex-kit",
+    });
+
+    assert.equal(applied.reasonCode, "POLICY_APPLIED");
+    assert.equal(applied.configured, true);
+    assert.equal(applied.changed, false);
+    assert.deepEqual(applied.wildcardRules, [
+      "yandex-kit:*",
+      "user-yandex-kit:*",
+    ]);
+    assert.equal(await readFile(configPath, "utf8"), original);
   });
 });
 
