@@ -4,12 +4,15 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
   SetupError,
+  configureApprovalPolicy,
   assertNode20,
   checkPrerequisites,
   clientCheck,
   configureAdapter,
   configureNative,
   inspectAdapter,
+  inspectApprovalPolicy,
+  normalizeClient,
   resolveAdapter,
   rollbackChange,
   selectManagedAdapter,
@@ -26,7 +29,7 @@ function parseArgs(argv) {
       throw new SetupError(`Unexpected argument "${item}".`, "USAGE");
     }
     const key = item.slice(2);
-    if (["json", "token-stdin", "created"].includes(key)) {
+    if (["json", "token-stdin", "created", "replace-broad", "replace-conflicts"].includes(key)) {
       options[key] = true;
       continue;
     }
@@ -104,6 +107,8 @@ function usage() {
     "  setup.mjs client-check --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke-token --token-stdin [--json]",
+    "  setup.mjs approval-status --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
+    "  setup.mjs approval-configure --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path> --replace-broad --replace-conflicts] [--json]",
     "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
     "",
     "Capabilities: mcp-json, vscode-json, codex-toml, hermes-yaml, openclaw-json",
@@ -178,6 +183,26 @@ export async function main(argv = process.argv.slice(2)) {
     await checkPrerequisites();
     const token = await readTokenStdin();
     printResult(await smokeMcp({ token }), options.json);
+    return;
+  }
+
+  if (command === "approval-status" || command === "approval-configure") {
+    if (!options.client) {
+      throw new SetupError("--client is required.", "USAGE");
+    }
+    const policyOptions = {
+      client: normalizeClient(options.client),
+      configPath: options.config,
+      serverName: options["server-name"],
+      effectiveServerId: options["effective-server-id"],
+      cursorSchemaPath: options["cursor-schema"],
+      replaceBroad: Boolean(options["replace-broad"]),
+      replaceConflicts: Boolean(options["replace-conflicts"]),
+    };
+    const result = command === "approval-status"
+      ? await inspectApprovalPolicy(policyOptions)
+      : await configureApprovalPolicy(policyOptions);
+    printResult(result, options.json);
     return;
   }
 

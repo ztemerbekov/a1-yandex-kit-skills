@@ -418,3 +418,293 @@ export function mergeToml(
   ];
   return renderToml(chunks);
 }
+
+function setTomlStringAssignment(body, key, value, configPath) {
+  return [
+    `${key} = ${tomlString(value)}`,
+    ...removeTomlAssignments(body, new Set([key]), configPath),
+  ];
+}
+
+function approvalMode(chunk) {
+  return parseTomlString(tomlAssignment(chunk.body, "approval_mode") || "");
+}
+
+export function inspectCodexApprovalPolicy(
+  content,
+  toolNames,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
+  const chunks = validateTomlSubset(content, configPath);
+  const serverTable = `mcp_servers.${serverName}`;
+  const server = uniqueTomlChunk(chunks, serverTable, configPath);
+  const defaultMode = server
+    ? parseTomlString(
+        tomlAssignment(server.body, "default_tools_approval_mode") || "",
+      )
+    : undefined;
+  const prefix = `${serverTable}.tools.`;
+  const toolModes = new Map();
+  for (const chunk of chunks) {
+    if (!chunk.array && chunk.name?.startsWith(prefix)) {
+      toolModes.set(chunk.name.slice(prefix.length), approvalMode(chunk));
+    }
+  }
+  const missingTools = toolNames.filter((tool) => toolModes.get(tool) !== "approve");
+  const conflictingTools = toolNames.filter((tool) => {
+    const mode = toolModes.get(tool);
+    return mode !== undefined && mode !== "approve";
+  });
+  const broadRules = [...toolModes]
+    .filter(([tool, mode]) => !toolNames.includes(tool) && mode === "approve")
+    .map(([tool]) => tool);
+  const broadDefault = defaultMode !== undefined && defaultMode !== "prompt";
+  return {
+    entryPresent: Boolean(server),
+    configured:
+      Boolean(server) &&
+      defaultMode === "prompt" &&
+      missingTools.length === 0 &&
+      broadRules.length === 0,
+    defaultMode,
+    missingTools,
+    conflictingTools,
+    broadRules,
+    broadDefault,
+  };
+}
+
+export function mergeCodexApprovalPolicy(
+  content,
+  toolNames,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+  { replaceBroad = false, replaceConflicts = false } = {},
+) {
+  const before = inspectCodexApprovalPolicy(
+    content,
+    toolNames,
+    configPath,
+    serverName,
+  );
+  if (!before.entryPresent) {
+    throw new SetupError(
+      `The managed MCP server is missing from ${configPath}.`,
+      "POLICY_SERVER_MISSING",
+    );
+  }
+  if ((before.broadDefault || before.broadRules.length > 0) && !replaceBroad) {
+    throw new SetupError(
+      `A broader Codex approval policy already exists in ${configPath}.`,
+      "POLICY_TOO_BROAD",
+    );
+  }
+  if (before.conflictingTools.length > 0 && !replaceConflicts) {
+    throw new SetupError(
+      `Stricter Codex tool rules conflict with the import profile in ${configPath}.`,
+      "POLICY_CONFLICT",
+    );
+  }
+
+  const chunks = validateTomlSubset(content, configPath);
+  const serverTable = `mcp_servers.${serverName}`;
+  const server = uniqueTomlChunk(chunks, serverTable, configPath);
+  server.body = setTomlStringAssignment(
+    server.body,
+    "default_tools_approval_mode",
+    "prompt",
+    configPath,
+  );
+  const prefix = `${serverTable}.tools.`;
+
+  for (const chunk of chunks) {
+    if (
+      !chunk.array &&
+      chunk.name?.startsWith(prefix) &&
+      !toolNames.includes(chunk.name.slice(prefix.length)) &&
+      approvalMode(chunk) === "approve" &&
+      replaceBroad
+    ) {
+      chunk.body = setTomlStringAssignment(
+        chunk.body,
+        "approval_mode",
+        "prompt",
+        configPath,
+      );
+    }
+  }
+
+  for (const tool of toolNames) {
+    const tableName = `${prefix}${tool}`;
+    let chunk = uniqueTomlChunk(chunks, tableName, configPath);
+    if (!chunk) {
+      chunk = {
+        header: `[${tableName}]`,
+        name: tableName,
+        array: false,
+        body: [],
+      };
+      chunks.push(chunk);
+    }
+    chunk.body = setTomlStringAssignment(
+      chunk.body,
+      "approval_mode",
+      "approve",
+      configPath,
+    );
+  }
+  return renderToml(chunks);
+}
+
+function globMatches(pattern, value) {
+  let source = "^";
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    if (char === "*") {
+      if (pattern[index + 1] === "*") index += 1;
+      source += ".*";
+    } else {
+      source += char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+  }
+  return new RegExp(`${source}$`).test(value);
+}
+
+function kimiRule(chunk) {
+  return {
+    decision: parseTomlString(tomlAssignment(chunk.body, "decision") || ""),
+    pattern: parseTomlString(tomlAssignment(chunk.body, "pattern") || ""),
+  };
+}
+
+function firstKimiMatch(rules, tool) {
+  return rules.find(({ pattern }) => pattern && globMatches(pattern, tool));
+}
+
+export function inspectKimiApprovalPolicy(
+  content,
+  toolNames,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+) {
+  const chunks = validateTomlSubset(content, configPath);
+  const rules = chunks
+    .filter((chunk) => chunk.array && chunk.name === "permission.rules")
+    .map((chunk) => ({ chunk, ...kimiRule(chunk) }));
+  const qualified = (tool) => `mcp__${serverName}__${tool}`;
+  const missingTools = [];
+  const conflictingTools = [];
+  for (const tool of toolNames) {
+    const match = firstKimiMatch(rules, qualified(tool));
+    if (!match || match.decision !== "allow") missingTools.push(tool);
+    if (match && match.decision !== "allow") conflictingTools.push(tool);
+  }
+  const dangerousSamples = [
+    qualified("delete_collection"),
+    qualified("cancel_order"),
+    qualified("kit_request"),
+  ];
+  const broadRules = rules
+    .filter(
+      (rule) =>
+        rule.decision === "allow" &&
+        rule.pattern &&
+        rule.pattern.includes("*") &&
+        dangerousSamples.some((sample) => globMatches(rule.pattern, sample)),
+    )
+    .map((rule) => rule.pattern);
+  return {
+    configured:
+      missingTools.length === 0 &&
+      conflictingTools.length === 0 &&
+      broadRules.length === 0,
+    missingTools,
+    conflictingTools,
+    broadRules,
+  };
+}
+
+function newKimiAllowRule(serverName, tool) {
+  return {
+    header: "[[permission.rules]]",
+    name: "permission.rules",
+    array: true,
+    body: [
+      'decision = "allow"',
+      `pattern = ${tomlString(`mcp__${serverName}__${tool}`)}`,
+      'reason = "Yandex KIT unattended import profile"',
+    ],
+  };
+}
+
+export function mergeKimiApprovalPolicy(
+  content,
+  toolNames,
+  configPath = "<config>",
+  serverName = SERVER_NAME,
+  { replaceBroad = false, replaceConflicts = false } = {},
+) {
+  const before = inspectKimiApprovalPolicy(
+    content,
+    toolNames,
+    configPath,
+    serverName,
+  );
+  if (before.broadRules.length > 0 && !replaceBroad) {
+    throw new SetupError(
+      `A broader Kimi approval policy already exists in ${configPath}.`,
+      "POLICY_TOO_BROAD",
+    );
+  }
+  if (before.conflictingTools.length > 0 && !replaceConflicts) {
+    throw new SetupError(
+      `Stricter Kimi rules conflict with the import profile in ${configPath}.`,
+      "POLICY_CONFLICT",
+    );
+  }
+
+  const chunks = validateTomlSubset(content, configPath);
+  const ruleChunks = () =>
+    chunks.filter((chunk) => chunk.array && chunk.name === "permission.rules");
+  const qualified = (tool) => `mcp__${serverName}__${tool}`;
+
+  if (replaceBroad) {
+    const dangerousSamples = [
+      qualified("delete_collection"),
+      qualified("cancel_order"),
+      qualified("kit_request"),
+    ];
+    for (const chunk of ruleChunks()) {
+      const rule = kimiRule(chunk);
+      if (
+        rule.decision === "allow" &&
+        rule.pattern?.includes("*") &&
+        dangerousSamples.some((sample) => globMatches(rule.pattern, sample))
+      ) {
+        chunk.body = setTomlStringAssignment(
+          chunk.body,
+          "decision",
+          "ask",
+          configPath,
+        );
+      }
+    }
+  }
+
+  for (const tool of toolNames) {
+    const value = qualified(tool);
+    const rules = ruleChunks().map((chunk) => ({ chunk, ...kimiRule(chunk) }));
+    const match = firstKimiMatch(rules, value);
+    if (match?.decision === "allow") continue;
+    if (match && !replaceConflicts && !replaceBroad) {
+      throw new SetupError(
+        `A Kimi rule conflicts with ${value}.`,
+        "POLICY_CONFLICT",
+      );
+    }
+    const insertion = match ? chunks.indexOf(match.chunk) : chunks.length;
+    chunks.splice(insertion, 0, newKimiAllowRule(serverName, tool));
+  }
+  return renderToml(chunks);
+}

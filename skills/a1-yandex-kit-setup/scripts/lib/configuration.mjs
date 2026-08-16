@@ -30,7 +30,7 @@ async function fileExists(filePath) {
   }
 }
 
-function contentHash(content) {
+export function contentHash(content) {
   return createHash("sha256").update(content, "utf8").digest("hex");
 }
 
@@ -167,7 +167,7 @@ export async function selectManagedAdapter(adapter) {
   return adapter;
 }
 
-async function transactionalWrite(configPath, content, verify) {
+export async function transactionalWrite(configPath, content, verify) {
   const existed = await fileExists(configPath);
   const previous = existed ? await readFile(configPath, "utf8") : "";
   if (previous === content) {
