@@ -150,7 +150,11 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `warehouse_action` — Archive a warehouse (soft delete: status becomes ARCHIVED, warehouse can no longer be used for stock) or unarchive it (status becomes ACTIVE again).
 - `upload_file` — Upload a file (e.g. an image for a variant or collection) via multipart/form-data.
 - `get_file` — Get metadata of a previously uploaded file by its ID (name, size, URL).
+- `list_blogs` — List store news articles (paginated).
+- `get_blog` — Get one store news article by ID.
+- `create_blog` — Create a store news article.
+- `update_blog` — Update a store news article.
 - `list_alerts` — List system alerts of the store (paginated), CRITICAL ones first and newest first within the same severity.
 - `resolve_alert` — Mark an alert as resolved.
 
-Редиректы and Новости have no dedicated tools — manage them through `search_operations` + `kit_request`.
+Редиректы have no dedicated tools — manage them through `search_operations` + `kit_request`.

@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 71) {
-  throw new Error(`Expected 71 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 83) {
+  throw new Error(`Expected 83 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -269,8 +269,8 @@ ${DOMAIN_TRAILER}`,
     tags: ["Товары", "Категории товаров", "Характеристики товаров", "Видео", "Коллекции", "Контекстные коллекции", "Бейджи"],
     toolFiles: ["products", "variants", "categories", "characteristics", "videos", "collections"],
     toolsNote:
-      "Характеристики товаров beyond the color tools, Контекстные коллекции and Бейджи have " +
-      "no dedicated tools — reach them through `search_operations` + `kit_request`.",
+      "Контекстные коллекции and Бейджи have no dedicated tools — reach them through " +
+      "`search_operations` + `kit_request`.",
     exampleQuery: "создать товар",
     exampleOp: "CreateProduct",
     executeToolsBullet:
@@ -366,9 +366,9 @@ clears itself once the underlying problem is fixed.
 
 ${DOMAIN_TRAILER}`,
     tags: ["Магазин", "Склады", "Пользователи", "Гео", "Файлы", "Редиректы", "Новости", "Алерты"],
-    toolFiles: ["store", "warehouses", "files", "alerts"],
+    toolFiles: ["store", "warehouses", "files", "blogs", "alerts"],
     toolsNote:
-      "Редиректы and Новости have no dedicated tools — manage them through `search_operations` + `kit_request`.",
+      "Редиректы have no dedicated tools — manage them through `search_operations` + `kit_request`.",
     exampleQuery: "создать склад",
     exampleOp: "CreateWarehouse",
     executeToolsBullet:

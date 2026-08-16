@@ -103,7 +103,7 @@ same scripts and data, plus the endpoint tables of its tags:
 
 ## Related MCP tools
 
-The bundled `mcp-yandex-kit` MCP server exposes **71 tools**. Curated tools
+The bundled `mcp-yandex-kit` MCP server exposes **83 tools**. Curated tools
 cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
 in the domain skills); the meta trio below reaches **all 161 operations**:
 
