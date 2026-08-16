@@ -19,9 +19,16 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       description: "List product characteristics (paginated).",
       annotations: READ_ONLY,
       inputSchema: {
-        page: z.number().int().min(1).optional(),
-        per_page: z.number().int().optional(),
-        all: z.boolean().optional(),
+        page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
+        per_page: z
+          .number()
+          .int()
+          .optional()
+          .describe("Items per page, 1-100 (default 25). Values outside the range are clamped."),
+        all: z
+          .boolean()
+          .optional()
+          .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
       },
     },
     async ({ page, per_page, all }) => {
@@ -42,7 +49,9 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       title: "Get characteristic",
       description: "Get one product characteristic by ID.",
       annotations: READ_ONLY,
-      inputSchema: { id: z.string() },
+      inputSchema: {
+        id: z.string().describe("Characteristic ID (UUID)."),
+      },
     },
     async ({ id }) => {
       try {
@@ -59,7 +68,11 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       title: "Create characteristic",
       description:
         "Create a product characteristic. Call get_operation_schema(\"CreateCharacteristic\") for the exact request shape.",
-      inputSchema: { characteristic: z.record(z.unknown()) },
+      inputSchema: {
+        characteristic: z
+          .record(z.unknown())
+          .describe("Characteristic matching the CreateCharacteristic request schema."),
+      },
     },
     async ({ characteristic }) => {
       const check = validateRequestBody("CreateCharacteristic", characteristic);
@@ -79,8 +92,10 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       description:
         "Update a product characteristic. Call get_operation_schema(\"UpdateCharacteristic\") for the exact request shape.",
       inputSchema: {
-        id: z.string(),
-        characteristic: z.record(z.unknown()),
+        id: z.string().describe("Characteristic ID (UUID)."),
+        characteristic: z
+          .record(z.unknown())
+          .describe("Fields matching the UpdateCharacteristic request schema."),
       },
     },
     async ({ id, characteristic }) => {
@@ -105,9 +120,16 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       description: "List product characteristic groups (paginated).",
       annotations: READ_ONLY,
       inputSchema: {
-        page: z.number().int().min(1).optional(),
-        per_page: z.number().int().optional(),
-        all: z.boolean().optional(),
+        page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
+        per_page: z
+          .number()
+          .int()
+          .optional()
+          .describe("Items per page, 1-100 (default 25). Values outside the range are clamped."),
+        all: z
+          .boolean()
+          .optional()
+          .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
       },
     },
     async ({ page, per_page, all }) => {
@@ -128,7 +150,9 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       title: "Get characteristic group",
       description: "Get one product characteristic group by ID.",
       annotations: READ_ONLY,
-      inputSchema: { id: z.string() },
+      inputSchema: {
+        id: z.string().describe("Characteristic group ID (UUID)."),
+      },
     },
     async ({ id }) => {
       try {
@@ -145,7 +169,11 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       title: "Create characteristic group",
       description:
         "Create a product characteristic group. Call get_operation_schema(\"CreateCharacteristicGroup\") for the exact request shape.",
-      inputSchema: { group: z.record(z.unknown()) },
+      inputSchema: {
+        group: z
+          .record(z.unknown())
+          .describe("Group matching the CreateCharacteristicGroup request schema."),
+      },
     },
     async ({ group }) => {
       const check = validateRequestBody("CreateCharacteristicGroup", group);
@@ -164,7 +192,12 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       title: "Update characteristic group",
       description:
         "Update a product characteristic group. Call get_operation_schema(\"UpdateCharacteristicGroup\") for the exact request shape.",
-      inputSchema: { id: z.string(), group: z.record(z.unknown()) },
+      inputSchema: {
+        id: z.string().describe("Characteristic group ID (UUID)."),
+        group: z
+          .record(z.unknown())
+          .describe("Fields matching the UpdateCharacteristicGroup request schema."),
+      },
     },
     async ({ id, group }) => {
       if (Object.keys(group).length === 0) return emptyUpdateFailure();

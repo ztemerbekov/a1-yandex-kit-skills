@@ -66,6 +66,76 @@ test("registers import-safe characteristic tools without archive or delete actio
   );
 });
 
+test("create_characteristic sends a validated POST", async () => {
+  const { calls, mcp } = await setup({ id: "c1" });
+  const result = await mcp.callTool({
+    name: "create_characteristic",
+    arguments: { characteristic: { title: "Цвет", type: "STRING", select_mode: "SINGLE" } },
+  });
+  assert.equal((result as { isError?: boolean }).isError, undefined);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/characteristics");
+  assert.equal(calls[0]!.init?.method, "POST");
+});
+
+test("create_characteristic rejects a body missing required fields before the network", async () => {
+  const { calls, mcp } = await setup();
+  const result = await mcp.callTool({
+    name: "create_characteristic",
+    arguments: { characteristic: { title: "Цвет" } },
+  });
+  assert.equal((result as { isError?: boolean }).isError, true);
+  assert.equal(calls.length, 0);
+});
+
+test("update_characteristic PATCHes by ID with merge-patch content type", async () => {
+  const { calls, mcp } = await setup({ id: "c1" });
+  const result = await mcp.callTool({
+    name: "update_characteristic",
+    arguments: { id: "c1", characteristic: { title: "Материал" } },
+  });
+  assert.equal((result as { isError?: boolean }).isError, undefined);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/characteristics/c1");
+  assert.equal(calls[0]!.init?.method, "PATCH");
+  // The spec declares application/merge-patch+json for this PATCH.
+  const headers = new Headers(calls[0]!.init?.headers);
+  assert.equal(headers.get("content-type"), "application/merge-patch+json");
+});
+
+test("update_characteristic rejects an empty body before the network", async () => {
+  const { calls, mcp } = await setup();
+  const result = await mcp.callTool({
+    name: "update_characteristic",
+    arguments: { id: "c1", characteristic: {} },
+  });
+  assert.equal((result as { isError?: boolean }).isError, true);
+  assert.equal(calls.length, 0);
+});
+
+test("create_characteristic_group sends a validated POST", async () => {
+  const { calls, mcp } = await setup({ id: "g1" });
+  const result = await mcp.callTool({
+    name: "create_characteristic_group",
+    arguments: { group: { title: "Технические характеристики" } },
+  });
+  assert.equal((result as { isError?: boolean }).isError, undefined);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/characteristics/groups");
+  assert.equal(calls[0]!.init?.method, "POST");
+});
+
+test("update_characteristic_group PATCHes the group by ID with plain JSON", async () => {
+  const { calls, mcp } = await setup({ id: "g1" });
+  const result = await mcp.callTool({
+    name: "update_characteristic_group",
+    arguments: { id: "g1", group: { title: "Дополнительные характеристики" } },
+  });
+  assert.equal((result as { isError?: boolean }).isError, undefined);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/characteristics/groups/g1");
+  assert.equal(calls[0]!.init?.method, "PATCH");
+  // Plain JSON, not merge-patch: the spec declares application/json for this PATCH.
+  const headers = new Headers(calls[0]!.init?.headers);
+  assert.equal(headers.get("content-type"), "application/json");
+});
+
 test("list_characteristic_colors passes search_text and clamps per_page", async () => {
   const { calls, mcp } = await setup({ colors: [], total_count: 0 });
   await mcp.callTool({

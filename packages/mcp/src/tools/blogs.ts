@@ -19,9 +19,16 @@ export function registerBlogTools(server: McpServer, client: KitClient): void {
       description: "List store news articles (paginated).",
       annotations: READ_ONLY,
       inputSchema: {
-        page: z.number().int().min(1).optional(),
-        per_page: z.number().int().optional(),
-        all: z.boolean().optional(),
+        page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
+        per_page: z
+          .number()
+          .int()
+          .optional()
+          .describe("Items per page, 1-100 (default 25). Values outside the range are clamped."),
+        all: z
+          .boolean()
+          .optional()
+          .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
       },
     },
     async ({ page, per_page, all }) => {
