@@ -241,7 +241,24 @@ native CLI before using the technical handoff.
 This step is complete only when the client check passes and the direct MCP
 smoke test has passed during this run.
 
-## 6. Finish simply
+## 6. Offer unattended import
+
+After the connection is proved, read
+[`references/approval-policies.md`](references/approval-policies.md) completely.
+Use the same branch when the user reports repeated `Allow` prompts during an
+import, even if the store was connected earlier.
+
+Inspect the current client's capability, show the user the business boundary,
+and ask once whether to enable **Импорт без остановок** on this computer. Apply
+only the exact versioned import-tool profile after `да`. Keep deletes, orders,
+promotions and store administration on the client's stricter default. Treat an
+existing whole-server wildcard as `POLICY_TOO_BROAD`, not as successful setup.
+
+This step is complete when the helper reports `automatic`, `guided` or
+`unsupported`, and the user knows any remaining restart or UI action before an
+import starts.
+
+## 7. Finish simply
 
 Reload MCP automatically only when the validated client exposes a documented
 non-interactive reload command. Otherwise give the single restart instruction

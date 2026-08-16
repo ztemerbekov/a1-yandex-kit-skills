@@ -80,5 +80,12 @@ export function mergeConfig(content, format, token, configPath, serverName) {
 }
 
 export { inspectJson, mergeJson } from "./json.mjs";
-export { inspectToml, mergeToml } from "./toml.mjs";
+export {
+  inspectCodexApprovalPolicy,
+  inspectKimiApprovalPolicy,
+  inspectToml,
+  mergeCodexApprovalPolicy,
+  mergeKimiApprovalPolicy,
+  mergeToml,
+} from "./toml.mjs";
 export { inspectYaml, mergeYaml } from "./yaml.mjs";

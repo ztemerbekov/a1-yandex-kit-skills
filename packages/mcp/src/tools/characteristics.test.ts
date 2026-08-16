@@ -38,12 +38,23 @@ function resultText(res: unknown): string {
   return (res as { content: { text: string }[] }).content[0]!.text;
 }
 
-test("registers exactly the two color tools with correct annotations", async () => {
+test("registers import-safe characteristic tools without archive or delete actions", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   assert.deepEqual(
     tools.map((t) => t.name).sort(),
-    ["list_characteristic_colors", "update_characteristic_color"],
+    [
+      "create_characteristic",
+      "create_characteristic_group",
+      "get_characteristic",
+      "get_characteristic_group",
+      "list_characteristic_colors",
+      "list_characteristic_groups",
+      "list_characteristics",
+      "update_characteristic",
+      "update_characteristic_color",
+      "update_characteristic_group",
+    ],
   );
   assert.equal(
     tools.find((t) => t.name === "list_characteristic_colors")?.annotations?.readOnlyHint,

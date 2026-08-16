@@ -14,9 +14,22 @@ export {
   resolveAdapter,
 } from "./lib/client-profiles.mjs";
 export {
+  IMPORT_PROFILE_VERSION,
+  IMPORT_TOOL_NAMES,
+  approvalCapability,
+  configureApprovalPolicy,
+  defaultApprovalConfigPath,
+  defaultCursorSchemaPath,
+  inspectApprovalPolicy,
+} from "./lib/approval-policy.mjs";
+export {
+  inspectCodexApprovalPolicy,
+  inspectKimiApprovalPolicy,
   inspectJson,
   inspectToml,
   inspectYaml,
+  mergeCodexApprovalPolicy,
+  mergeKimiApprovalPolicy,
   mergeJson,
   mergeToml,
   mergeYaml,

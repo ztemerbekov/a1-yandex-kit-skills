@@ -44,3 +44,7 @@ establishes the adapter.
 - OpenClaw: <https://docs.openclaw.ai/cli/mcp>
 
 Use only the selected client's section during a normal run.
+
+When setup must configure or diagnose repeated approval prompts, read
+[`approval-policies.md`](approval-policies.md). MCP connection paths in this
+file and approval-policy paths are separate client capabilities.
