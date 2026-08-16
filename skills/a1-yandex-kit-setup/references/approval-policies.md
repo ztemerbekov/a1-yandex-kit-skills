@@ -1,27 +1,28 @@
-# Import approval policy
+# Yandex KIT server wildcard
 
 Use this branch after the store connection is proved, or when the user reports
-repeated host approval prompts during catalog or content import.
+repeated host approval prompts for Yandex KIT tools.
 
-The **unattended import profile** is the versioned exact-tool list owned by
-`scripts/lib/approval-policy.mjs`. Read the list from the helper result; this
-document never copies it. The profile covers store identity and schemas needed
-by import, files and video, products and variants, categories and collections,
-characteristics, and news articles. Generic `kit_request`, deletes, order
-actions, promotions and store administration remain outside the profile.
+The **server wildcard** grants the managed Yandex KIT MCP server every current
+and future tool without another host-level Allow. It includes reads, imports,
+`kit_request`, deletes, order actions, promotions and store administration.
+This changes host execution only: working skills still require the user's exact
+request before a store write.
+
+`scripts/lib/approval-policy.mjs` owns the machine contract. This document owns
+the agent sequence and never copies a tool list.
 
 ## 1. Inspect
 
-Use the managed server name returned by the connection `status` or `configure`
-step:
+Use the managed server name returned by connection `status` or `configure`:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" approval-status \
   --client <client> --server-name <managed-name> --json
 ```
 
-For Cursor, first establish the installed schema and effective MCP server id
-from the local Cursor build or MCP settings, then also pass:
+For Cursor, establish the installed schema and effective MCP server id, then
+also pass:
 
 ```text
 --cursor-schema <absolute-schema-path> --effective-server-id <effective-id>
@@ -29,22 +30,21 @@ from the local Cursor build or MCP settings, then also pass:
 
 The step is complete when the result has one stable `support` value:
 
-- `automatic` — the helper can safely merge exact tool rules;
-- `guided` — the client owns the policy in its UI;
-- `unsupported` — the client cannot keep import unattended while separately
-  gating dangerous tools.
+- `automatic` — the helper can write and verify a server wildcard;
+- `guided` — the client may expose permanent server trust only in its UI;
+- `unsupported` — the client has no verified server-scoped wildcard.
 
 ## 2. Ask once
 
-Ask after a successful store connection:
+Ask exactly once before the config write:
 
-`Хотите включить «Импорт без остановок» на этом компьютере? Товары, варианты, файлы, характеристики и новости будут импортироваться без повторных Allow. Удаления, заказы, промоакции и настройки магазина останутся под подтверждением.`
+`Включить «Работу без остановок» для Yandex KIT на этом компьютере? Это навсегда разрешит агенту вызывать все текущие и будущие инструменты Yandex KIT без кнопки Allow — включая удаление, заказы, скидки и настройки магазина. Рабочие навыки по-прежнему меняют магазин только по вашей точной команде.`
 
-`Да` authorizes one policy-config write for this client and computer. `Нет`
-leaves the client's current approval behavior unchanged and completes this
-branch.
+`Да` authorizes the server-wildcard config write on this computer. `Нет` keeps
+the current host approval behavior and completes this branch. Do not split this
+consent into per-tool questions.
 
-## 3. Apply the supported branch
+## 3. Apply
 
 ### Automatic
 
@@ -55,49 +55,50 @@ node "<skill-directory>/scripts/setup.mjs" approval-configure \
   --client <client> --server-name <managed-name> --json
 ```
 
-Repeat the Cursor capability arguments from inspection. Preserve all unrelated
-settings. A changed pre-existing file must have a backup; the file and backup
-must be mode `0600` on POSIX.
+Repeat Cursor's schema and effective-id arguments. Preserve unrelated settings.
+A changed pre-existing file must have a backup; the file and backup must be mode
+`0600` on POSIX.
 
 Handle structured outcomes:
 
-- `POLICY_APPLIED` — give the returned restart action and report the exact
-  profile boundary.
-- `POLICY_TOO_BROAD` — an existing wildcard or whole-server approval also
-  permits dangerous operations. Ask whether to replace that broad rule with the
-  exact import profile. On `да`, repeat with `--replace-broad`.
-- `POLICY_CONFLICT` — an existing `ask` or `deny` rule is stricter. Name the
-  conflict without changing it. Ask whether this exact import profile may take
-  precedence; on `да`, repeat with `--replace-conflicts`.
-- `POLICY_UNVERIFIED` — continue through the guided branch. A classifier hint
-  or a config string without the installed schema is not success.
+- `POLICY_APPLIED` — give the returned restart action and state that the grant
+  covers current and future Yandex KIT tools.
+- `POLICY_CONFLICT` — a broader client or organization rule still overrides the
+  server wildcard. Name the blocking rule and keep the client's prompt behavior.
+- `POLICY_UNVERIFIED` — continue through the guided branch. A classifier hint or
+  unvalidated config string is not success.
 
-The helper proves the config structure, not the absence of a runtime prompt.
-After the documented restart, the first real import is the behavioral check.
-If it prompts, preserve the stricter client behavior and use the guided branch.
+The automatic contract is:
+
+- Claude Code: `mcp__<managed-server>__*` in `permissions.allow`;
+- Cursor: `<effective-id>:*` and its `user-` alias in `mcpAllowlist`;
+- Codex: `default_tools_approval_mode = "approve"` for the managed server;
+- Kimi Code: the first matching managed-server rule is
+  `mcp__<managed-server>__*` with `decision = "allow"`.
+
+The helper proves config structure. After the documented restart, one real
+Yandex KIT call is the behavioral check.
 
 ### Guided
 
-- VS Code: open `Chat: Manage Tool Approval` and permanently pre-approve only
-  the exact Yandex KIT tools returned by `approval-status`.
-- Claude Desktop: on the first call of each returned import tool, choose
-  `Allow always` when the client or organization offers it.
-
-Tell the user before import that this one UI step is required. Whole-source
-approval, Bypass Approvals and global auto-approve sit outside this profile.
+In VS Code or Claude Desktop, select permanent trust for the entire Yandex KIT
+server only when the installed UI offers that exact scope. Per-tool `Allow
+always` is not completion because a newly added tool will prompt again. If the
+UI has no server scope, report the client as unsupported for future-proof
+wildcard access and keep its prompts.
 
 ### Unsupported
 
-Kimi Desktop / Work, Hermes and embedded OpenClaw do not currently expose the
-required host-enforced boundary. Keep prompts enabled and say so before import.
-A whole-task `Full access`, server wildcard, YOLO mode or tool filter is a
-different security model and is never enabled as this profile.
+Kimi Desktop / Work, Hermes and embedded OpenClaw do not expose a verified
+server-scoped wildcard. Keep their current behavior and say so before work
+starts. A global Full access or YOLO mode affects more than Yandex KIT and is not
+this setup branch.
 
 ## Completion criterion
 
-This branch is complete when the user sees:
-
-- whether unattended import is automatic, guided or unsupported in this client;
-- the exact business boundary of the profile;
-- at most one restart or one UI action;
-- any remaining prompt limitation before the import starts.
+For an automatic client, this branch is complete only when the helper reports
+`configured: true`, `scope: "server"`, `tools: ["*"]`,
+`includesFutureTools: true`, and `structuralVerified: true`; the user has the
+single restart action; and the first post-restart Yandex KIT call no longer
+shows Allow. Guided and unsupported clients are complete only after their
+remaining limitation is stated before work begins.

@@ -241,22 +241,22 @@ native CLI before using the technical handoff.
 This step is complete only when the client check passes and the direct MCP
 smoke test has passed during this run.
 
-## 6. Offer unattended import
+## 6. Offer work without host stops
 
 After the connection is proved, read
 [`references/approval-policies.md`](references/approval-policies.md) completely.
 Use the same branch when the user reports repeated `Allow` prompts during an
 import, even if the store was connected earlier.
 
-Inspect the current client's capability, show the user the business boundary,
-and ask once whether to enable **Импорт без остановок** on this computer. Apply
-only the exact versioned import-tool profile after `да`. Keep deletes, orders,
-promotions and store administration on the client's stricter default. Treat an
-existing whole-server wildcard as `POLICY_TOO_BROAD`, not as successful setup.
+Inspect the current client's capability, state that the grant covers every
+current and future Yandex KIT tool, and ask once whether to enable **Работу без
+остановок** on this computer. After `да`, apply the managed server wildcard.
+The warning must name deletes, orders, promotions and store administration
+before consent. Do not ask again for individual tools added later.
 
 This step is complete when the helper reports `automatic`, `guided` or
-`unsupported`, and the user knows any remaining restart or UI action before an
-import starts.
+`unsupported`, and the user knows any remaining restart or UI action before
+work starts.
 
 ## 7. Finish simply
 

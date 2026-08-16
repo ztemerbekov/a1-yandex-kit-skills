@@ -29,7 +29,7 @@ function parseArgs(argv) {
       throw new SetupError(`Unexpected argument "${item}".`, "USAGE");
     }
     const key = item.slice(2);
-    if (["json", "token-stdin", "created", "replace-broad", "replace-conflicts"].includes(key)) {
+    if (["json", "token-stdin", "created"].includes(key)) {
       options[key] = true;
       continue;
     }
@@ -108,7 +108,7 @@ function usage() {
     "  setup.mjs smoke --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke-token --token-stdin [--json]",
     "  setup.mjs approval-status --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
-    "  setup.mjs approval-configure --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path> --replace-broad --replace-conflicts] [--json]",
+    "  setup.mjs approval-configure --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
     "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
     "",
     "Capabilities: mcp-json, vscode-json, codex-toml, hermes-yaml, openclaw-json",
@@ -196,8 +196,6 @@ export async function main(argv = process.argv.slice(2)) {
       serverName: options["server-name"],
       effectiveServerId: options["effective-server-id"],
       cursorSchemaPath: options["cursor-schema"],
-      replaceBroad: Boolean(options["replace-broad"]),
-      replaceConflicts: Boolean(options["replace-conflicts"]),
     };
     const result = command === "approval-status"
       ? await inspectApprovalPolicy(policyOptions)

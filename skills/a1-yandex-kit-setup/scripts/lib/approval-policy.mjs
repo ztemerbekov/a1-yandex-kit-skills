@@ -18,75 +18,36 @@ import {
   normalizeServerName,
 } from "./shared.mjs";
 
-export const IMPORT_PROFILE_VERSION = 1;
-export const IMPORT_TOOL_NAMES = Object.freeze([
-  "get_store",
-  "search_operations",
-  "get_operation_schema",
-  "upload_file",
-  "get_file",
-  "upload_video",
-  "upload_video_from_url",
-  "list_videos",
-  "get_video",
-  "list_products",
-  "get_product",
-  "create_product",
-  "update_product",
-  "list_variants",
-  "get_variant",
-  "create_variant",
-  "update_variant",
-  "bulk_update_prices",
-  "list_categories",
-  "get_category",
-  "create_category",
-  "update_category",
-  "list_collections",
-  "get_collection",
-  "create_collection",
-  "update_collection",
-  "list_characteristic_colors",
-  "list_characteristics",
-  "get_characteristic",
-  "create_characteristic",
-  "update_characteristic",
-  "list_characteristic_groups",
-  "get_characteristic_group",
-  "create_characteristic_group",
-  "update_characteristic_group",
-  "update_characteristic_color",
-  "list_blogs",
-  "get_blog",
-  "create_blog",
-  "update_blog",
-]);
+export const IMPORT_PROFILE_VERSION = 2;
+// Kept as a public machine contract: "*" means every current and future tool
+// exposed by the managed Yandex KIT MCP server.
+export const IMPORT_TOOL_NAMES = Object.freeze(["*"]);
 
 const POLICY_CAPABILITIES = Object.freeze({
   "claude-code": {
     support: "automatic",
-    scope: "tool",
+    scope: "server",
     enforcement: "host",
     configSource: "documented-file",
     requiresRestart: true,
   },
   codex: {
     support: "automatic",
-    scope: "tool",
+    scope: "server",
     enforcement: "host",
     configSource: "documented-file",
     requiresRestart: true,
   },
   kimi: {
     support: "automatic",
-    scope: "tool",
+    scope: "server",
     enforcement: "host",
     configSource: "documented-file",
     requiresRestart: true,
   },
   cursor: {
     support: "automatic",
-    scope: "tool",
+    scope: "server",
     enforcement: "host",
     configSource: "local-version-gated",
     requiresRestart: true,
@@ -203,9 +164,10 @@ export function approvalCapability(client) {
 function baseResult(client) {
   return {
     client,
-    profile: "unattended-import",
+    profile: "yandex-kit-server-wildcard",
     profileVersion: IMPORT_PROFILE_VERSION,
     tools: [...IMPORT_TOOL_NAMES],
+    includesFutureTools: true,
     ...approvalCapability(client),
   };
 }
@@ -228,8 +190,27 @@ function globMatches(pattern, value) {
   return new RegExp(`^${escaped}$`).test(value);
 }
 
-function managedServerNames(serverName) {
-  return new Set([serverName, SERVER_NAME, FALLBACK_SERVER_NAME]);
+function claudeWildcard(serverName) {
+  return `mcp__${serverName}__*`;
+}
+
+function cursorWildcards(effectiveServerId) {
+  if (!effectiveServerId) return [];
+  const unscoped = effectiveServerId.startsWith("user-")
+    ? effectiveServerId.slice("user-".length)
+    : effectiveServerId;
+  return [...new Set([`${unscoped}:*`, `user-${unscoped}:*`])];
+}
+
+function claudeRuleTargetsManagedServer(rule, serverName) {
+  return rule.startsWith(`mcp__${serverName}__`);
+}
+
+function claudeRuleMayOverrideServer(rule, serverName) {
+  if (claudeRuleTargetsManagedServer(rule, serverName)) return true;
+  return ["get_store", "kit_request", "future_yandex_kit_tool"].some((tool) =>
+    globMatches(rule, `mcp__${serverName}__${tool}`),
+  );
 }
 
 function inspectClaude(content, configPath, serverName) {
@@ -244,14 +225,15 @@ function inspectClaude(content, configPath, serverName) {
   const allow = ensureStringArray(permissions.allow, "permissions.allow", configPath);
   const ask = ensureStringArray(permissions.ask, "permissions.ask", configPath);
   const deny = ensureStringArray(permissions.deny, "permissions.deny", configPath);
-  const expected = IMPORT_TOOL_NAMES.map((tool) => `mcp__${serverName}__${tool}`);
-  const broadRules = allow.filter((rule) =>
-    [...managedServerNames(serverName)].some(
-      (name) => rule === `mcp__${name}__*`,
-    ),
+  const expected = [claudeWildcard(serverName)];
+  const conflictingRules = [...deny, ...ask].filter((rule) =>
+    claudeRuleMayOverrideServer(rule, serverName),
   );
-  const conflictingTools = expected.filter((rule) =>
-    [...deny, ...ask].some((pattern) => globMatches(pattern, rule)),
+  const managedConflicts = conflictingRules.filter((rule) =>
+    claudeRuleTargetsManagedServer(rule, serverName),
+  );
+  const externalConflicts = conflictingRules.filter(
+    (rule) => !managedConflicts.includes(rule),
   );
   const missingRules = expected.filter((rule) => !allow.includes(rule));
   return {
@@ -260,12 +242,12 @@ function inspectClaude(content, configPath, serverName) {
     ask,
     deny,
     expected,
-    broadRules,
-    conflictingTools,
+    conflictingRules,
+    managedConflicts,
+    externalConflicts,
     missingRules,
     configured:
-      broadRules.length === 0 &&
-      conflictingTools.length === 0 &&
+      conflictingRules.length === 0 &&
       missingRules.length === 0,
   };
 }
@@ -273,29 +255,15 @@ function inspectClaude(content, configPath, serverName) {
 function inspectCursor(content, configPath, effectiveServerId) {
   const config = parseJsonConfig(content, configPath);
   const allowlist = ensureStringArray(config.mcpAllowlist, "mcpAllowlist", configPath);
-  const knownIds = new Set([
-    effectiveServerId,
-    SERVER_NAME,
-    FALLBACK_SERVER_NAME,
-    `user-${SERVER_NAME}`,
-    `user-${FALLBACK_SERVER_NAME}`,
-  ].filter(Boolean));
-  const broadRules = allowlist.filter((rule) =>
-    [...knownIds].some((id) => rule === `${id}:*`),
-  );
-  const expected = effectiveServerId
-    ? IMPORT_TOOL_NAMES.map((tool) => `${effectiveServerId}:${tool}`)
-    : [];
+  const expected = cursorWildcards(effectiveServerId);
   const missingRules = expected.filter((rule) => !allowlist.includes(rule));
   return {
     config,
     allowlist,
     expected,
-    broadRules,
     missingRules,
     configured:
       Boolean(effectiveServerId) &&
-      broadRules.length === 0 &&
       missingRules.length === 0,
   };
 }
@@ -311,10 +279,9 @@ async function cursorSchemaSupported(schemaPath) {
   }
 }
 
-function statusReason({ configured, broadRules = [], conflictingTools = [], verified = true }) {
+function statusReason({ configured, conflictingRules = [], verified = true }) {
   if (!verified) return "POLICY_UNVERIFIED";
-  if (broadRules.length > 0) return "POLICY_TOO_BROAD";
-  if (conflictingTools.length > 0) return "POLICY_CONFLICT";
+  if (conflictingRules.length > 0) return "POLICY_CONFLICT";
   return configured ? "POLICY_APPLIED" : "POLICY_NOT_CONFIGURED";
 }
 
@@ -358,7 +325,7 @@ export async function inspectApprovalPolicy({
       configured: state.configured && schemaVerified,
       structuralVerified: state.configured && schemaVerified,
       verified: false,
-      broadRules: state.broadRules,
+      wildcardRules: state.expected,
       missingRules: state.missingRules,
       reasonCode: statusReason({
         ...state,
@@ -376,29 +343,26 @@ export async function inspectApprovalPolicy({
       configured: state.configured,
       structuralVerified: state.configured,
       verified: false,
-      broadRules: state.broadRules,
-      conflictingTools: state.conflictingTools,
+      wildcardRules: state.expected,
+      conflictingRules: state.conflictingRules,
       missingRules: state.missingRules,
       reasonCode: statusReason(state),
       nextAction: "START_NEW_SESSION_AND_VERIFY_BEHAVIOR",
     };
   }
   const state = client === "codex"
-    ? inspectCodexApprovalPolicy(content, IMPORT_TOOL_NAMES, configPath, normalizedServer)
-    : inspectKimiApprovalPolicy(content, IMPORT_TOOL_NAMES, configPath, normalizedServer);
-  const broadRules = state.broadDefault
-    ? ["default_tools_approval_mode", ...state.broadRules]
-    : state.broadRules;
+    ? inspectCodexApprovalPolicy(content, configPath, normalizedServer)
+    : inspectKimiApprovalPolicy(content, configPath, normalizedServer);
   return {
     ...capability,
     configPath,
     configured: state.configured,
     structuralVerified: state.configured,
     verified: false,
-    broadRules,
-    conflictingTools: state.conflictingTools,
-    missingRules: state.missingTools,
-    reasonCode: statusReason({ ...state, broadRules }),
+    wildcardRules: state.wildcardRules,
+    conflictingRules: state.conflictingRules,
+    missingRules: state.missingRules,
+    reasonCode: statusReason(state),
     nextAction: "START_NEW_SESSION_AND_VERIFY_BEHAVIOR",
   };
 }
@@ -409,8 +373,6 @@ export async function configureApprovalPolicy({
   serverName = SERVER_NAME,
   effectiveServerId,
   cursorSchemaPath = defaultCursorSchemaPath(),
-  replaceBroad = false,
-  replaceConflicts = false,
 } = {}) {
   const before = await inspectApprovalPolicy({
     client,
@@ -421,46 +383,59 @@ export async function configureApprovalPolicy({
   });
   if (before.support !== "automatic") return before;
   if (before.reasonCode === "POLICY_UNVERIFIED") return before;
-  if (before.broadRules?.length > 0 && !replaceBroad) return before;
-  if (before.conflictingTools?.length > 0 && !replaceConflicts) return before;
+  if (before.structuralVerified) {
+    return {
+      ...before,
+      changed: false,
+      created: false,
+      backupPath: null,
+      backupHash: null,
+    };
+  }
 
   const normalizedServer = normalizeServerName(serverName);
   const oldContent = await readConfig(configPath);
   let newContent;
   if (client === "claude-code") {
     const state = inspectClaude(oldContent, configPath, normalizedServer);
+    if (state.externalConflicts.length > 0) return before;
     const config = state.config;
     const permissions = config.permissions ?? {};
-    const removed = replaceBroad
-      ? state.allow.filter((rule) => !state.broadRules.includes(rule))
-      : state.allow;
-    permissions.allow = [...new Set([...removed, ...state.expected])];
+    permissions.allow = [
+      ...state.allow.filter(
+        (rule) => !claudeRuleTargetsManagedServer(rule, normalizedServer),
+      ),
+      ...state.expected,
+    ];
+    permissions.ask = state.ask.filter(
+      (rule) => !state.managedConflicts.includes(rule),
+    );
+    permissions.deny = state.deny.filter(
+      (rule) => !state.managedConflicts.includes(rule),
+    );
     config.permissions = permissions;
     newContent = `${JSON.stringify(config, null, 2)}\n`;
   } else if (client === "cursor") {
     if (!effectiveServerId) return before;
     const state = inspectCursor(oldContent, configPath, effectiveServerId);
     const config = state.config;
-    const removed = replaceBroad
-      ? state.allowlist.filter((rule) => !state.broadRules.includes(rule))
-      : state.allowlist;
-    config.mcpAllowlist = [...new Set([...removed, ...state.expected])];
+    const managedIds = state.expected.map((rule) => rule.slice(0, -1));
+    const preserved = state.allowlist.filter(
+      (rule) => !managedIds.some((prefix) => rule.startsWith(prefix)),
+    );
+    config.mcpAllowlist = [...new Set([...preserved, ...state.expected])];
     newContent = `${JSON.stringify(config, null, 2)}\n`;
   } else if (client === "codex") {
     newContent = mergeCodexApprovalPolicy(
       oldContent,
-      IMPORT_TOOL_NAMES,
       configPath,
       normalizedServer,
-      { replaceBroad, replaceConflicts },
     );
   } else {
     newContent = mergeKimiApprovalPolicy(
       oldContent,
-      IMPORT_TOOL_NAMES,
       configPath,
       normalizedServer,
-      { replaceBroad, replaceConflicts },
     );
   }
 
