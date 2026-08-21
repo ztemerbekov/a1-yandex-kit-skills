@@ -1,6 +1,6 @@
 {
   "name": "yandex-kit-codegen",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Generators: OpenAPI spec -> operation registry, TS types, skills, docs",
   "license": "MIT",
   "private": true,
