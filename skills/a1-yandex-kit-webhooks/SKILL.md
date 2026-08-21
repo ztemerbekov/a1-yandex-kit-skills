@@ -4,7 +4,7 @@ description: "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endp
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # A1 Yandex KIT — Webhooks
