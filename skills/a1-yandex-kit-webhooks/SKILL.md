@@ -97,7 +97,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-161 operations):
+162 operations):
 
 - `list_webhooks` — List all webhooks of the store (not paginated).
 - `get_webhook` — Get a single webhook by its ID (URL, subscribed events, status).

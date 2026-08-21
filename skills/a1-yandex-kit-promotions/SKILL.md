@@ -141,7 +141,7 @@ Run the bundled scripts from this skill's directory — they are self-contained
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-161 operations):
+162 operations):
 
 - `list_discounts` — List discounts of the store filtered by status (paginated).
 - `get_discount` — Get a single discount by its ID (title, value, dates, status, binding mode).

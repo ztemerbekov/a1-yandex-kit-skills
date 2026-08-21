@@ -34,7 +34,7 @@ async function setup(payload: unknown = { ok: true }) {
   return { calls, mcp };
 }
 
-test("registers exactly the six order tools with correct annotations", async () => {
+test("registers exactly the seven order tools with correct annotations", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   const names = tools.map((t) => t.name).sort();
@@ -45,6 +45,7 @@ test("registers exactly the six order tools with correct annotations", async () 
     "get_order",
     "get_order_addons",
     "list_orders",
+    "set_order_marking_codes",
   ]);
   const readOnly = new Set(["list_orders", "get_order", "get_order_addons"]);
   for (const tool of tools) {
@@ -139,4 +140,70 @@ test("complete_order_delivery POSTs to /v1/orders/{id}/delivery/complete without
   assert.equal(new URL(calls[0]!.url).pathname, "/v1/orders/abc-123/delivery/complete");
   assert.equal(calls[0]!.init?.method, "POST");
   assert.equal(calls[0]!.init?.body, undefined);
+});
+
+test("set_order_marking_codes POSTs the batch to /v1/orders/{id}/marking-codes", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({
+    name: "set_order_marking_codes",
+    arguments: {
+      id: "abc-123",
+      items: [
+        {
+          order_item_id: "00000000-0000-0000-0000-000000000001",
+          marking_code: "0104670147122765215Fx_t42mlIYny91EE1192Z5CcNr9XGy6luZHI79Fy20sQ=",
+        },
+        { order_item_id: "00000000-0000-0000-0000-000000000002", marking_code: null },
+      ],
+    },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  assert.equal(new URL(calls[0]!.url).pathname, "/v1/orders/abc-123/marking-codes");
+  assert.equal(calls[0]!.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), {
+    items: [
+      {
+        order_item_id: "00000000-0000-0000-0000-000000000001",
+        marking_code: "0104670147122765215Fx_t42mlIYny91EE1192Z5CcNr9XGy6luZHI79Fy20sQ=",
+      },
+      { order_item_id: "00000000-0000-0000-0000-000000000002", marking_code: null },
+    ],
+  });
+});
+
+test("set_order_marking_codes rejects a repeated order item before the network call", async () => {
+  const { calls, mcp } = await setup({});
+  const res = await mcp.callTool({
+    name: "set_order_marking_codes",
+    arguments: {
+      id: "abc-123",
+      items: [
+        { order_item_id: "00000000-0000-0000-0000-000000000001", marking_code: "code-a" },
+        { order_item_id: "00000000-0000-0000-0000-000000000001", marking_code: null },
+      ],
+    },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  const payload = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(payload.code, "DUPLICATE_ORDER_ITEM_ID");
+  assert.match(payload.error, /00000000-0000-0000-0000-000000000001/);
+  assert.equal(calls.length, 0);
+});
+
+test("set_order_marking_codes rejects an empty batch before the network call", async () => {
+  // .min(1) on the zod array rejects at the protocol layer, before the handler.
+  const { calls, mcp } = await setup({});
+  let errored = false;
+  try {
+    const res = await mcp.callTool({
+      name: "set_order_marking_codes",
+      arguments: { id: "abc-123", items: [] },
+    });
+    errored = (res as { isError?: boolean }).isError === true;
+  } catch {
+    errored = true;
+  }
+  assert.equal(errored, true);
+  assert.equal(calls.length, 0);
 });

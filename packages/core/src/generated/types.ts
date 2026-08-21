@@ -1211,6 +1211,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/{id}/marking-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Запись кодов маркировки «Честный знак»
+         * @description Записывает коды маркировки «Честный знак» для позиций заказа.
+         *
+         *     Правила и ограничения:
+         *
+         *     - Каждая позиция заказа — это одна единица товара, поэтому позиции соответствует
+         *     ровно один код маркировки. Идентификаторы позиций возвращает `GET /v1/orders/{id}`
+         *     в поле `delivery_chunks[].items[].id`.
+         *
+         *     - Все переданные позиции должны принадлежать указанному заказу,
+         *     `order_item_id` не должны повторяться.
+         *
+         *     - Код передается целиком, вместе с криптохвостом.
+         *
+         *     - Для снятия ранее записанного кода передайте `"marking_code": null`.
+         *
+         *     - Метод идемпотентен: если любой код не проходит проверку, запрос отклоняется, при этом коды не записываются.
+         */
+        post: operations["SetOrderMarkingCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/promocodes/{id}": {
         parameters: {
             query?: never;
@@ -4190,7 +4227,28 @@ export interface components {
             method?: components["schemas"]["PaymentMethod"];
             status?: components["schemas"]["PaymentStatus"];
         };
-        /** @description Товар в заказе */
+        /**
+         * Format: uuid
+         * @description Идентификатор позиции заказа.
+         * @example 00000000-0000-0000-0000-000000000001
+         */
+        OrderItemID: string;
+        /** @description Код маркировки «Честный знак» для позиции заказа. */
+        OrderMarkingCode: {
+            order_item_id: components["schemas"]["OrderItemID"];
+            /**
+             * @description Код маркировки «Честный знак» целиком, вместе с криптохвостом.
+             *     `null` — снять ранее записанный код с позиции.
+             * @example 0104670147122765215Fx_t42mlIYny91EE1192Z5CcNr9XGy6luZHI79Fy20sQtEva56kNkxAPI5eGiIw=
+             */
+            marking_code: string | null;
+        };
+        /** @description Запрос на запись кодов маркировки для позиций заказа. */
+        SetOrderMarkingCodesRequest: {
+            /** @description Позиции заказа с кодами маркировки. Позиция не может повторяться. */
+            items: components["schemas"]["OrderMarkingCode"][];
+        };
+        /** @description Товар в заказе. */
         OrderItem: {
             /**
              * Format: uuid
@@ -4232,7 +4290,12 @@ export interface components {
              * @example 20
              */
             vat: number;
-            /** @description Честный знак товара. */
+            /**
+             * @description Код маркировки «Честный знак» этой позиции без криптохвоста.
+             *     Поле отсутствует, если код для позиции не записан.
+             *     Записать или снять код — `POST /v1/orders/{id}/marking-codes`.
+             * @example 0104670147122765215Fx_t42mlIYny
+             */
             truthful_label?: string;
             /**
              * Format: int32
@@ -10286,6 +10349,66 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Доставка успешно завершена. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    SetOrderMarkingCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOrderMarkingCodesRequest"];
+            };
+        };
+        responses: {
+            /** @description Коды маркировки успешно записаны. */
             204: {
                 headers: {
                     [name: string]: unknown;
