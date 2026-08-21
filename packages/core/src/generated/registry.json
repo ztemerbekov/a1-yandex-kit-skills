@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KITᵝ API",
   "specVersion": "1.0.0",
-  "opsCount": 161,
+  "opsCount": 162,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -1468,6 +1468,23 @@
       "queryParams": [],
       "requestContentType": null,
       "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "SetOrderMarkingCodes": {
+      "id": "SetOrderMarkingCodes",
+      "method": "post",
+      "path": "/v1/orders/{id}/marking-codes",
+      "tag": "Заказы",
+      "summaryRu": "Запись кодов маркировки «Честный знак»",
+      "descriptionRu": "Записывает коды маркировки «Честный знак» для позиций заказа.\n\nПравила и ограничения:\n\n- Каждая позиция заказа — это одна единица товара, поэтому позиции соответствует\nровно один код маркировки. Идентификаторы позиций возвращает `GET /v1/orders/{id}`\nв поле `delivery_chunks[].items[].id`.\n\n- Все переданные позиции должны принадлежать указанному заказу,\n`order_item_id` не должны повторяться.\n\n- Код передается целиком, вместе с криптохвостом.\n\n- Для снятия ранее записанного кода передайте `\"marking_code\": null`.\n\n- Метод идемпотентен: если любой код не проходит проверку, запрос отклоняется, при этом коды не записываются.",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/SetOrderMarkingCodesRequest",
       "responseSchemaRef": null,
       "paginated": false,
       "itemsProp": null

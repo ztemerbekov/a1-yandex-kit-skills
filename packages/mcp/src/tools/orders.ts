@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { type KitClient } from "yandex-kit-core";
+import { KitValidationError, validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, fail, ok, READ_ONLY } from "../util.js";
+import { clampPerPage, fail, ok, READ_ONLY, validationFailure } from "../util.js";
 
 export function registerOrderTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -123,6 +123,71 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     async ({ id }) => {
       try {
         return ok(await client.call("CompleteOrderDelivery", { pathParams: { id } }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_order_marking_codes",
+    {
+      title: "Set order marking codes",
+      description:
+        "Write «Честный знак» (Chestny ZNAK) marking codes onto order items, or remove them. " +
+        "Each order item is a single unit and takes exactly one code; item IDs come from " +
+        "get_order under delivery_chunks[].items[].id. Pass the code in full, including the " +
+        "crypto tail; pass marking_code null to remove a previously written code. Atomic: if any " +
+        "code fails the server-side check the whole request is rejected and nothing is written.",
+      inputSchema: {
+        id: z.string().describe("Order ID (UUID)."),
+        items: z
+          .array(
+            z.object({
+              order_item_id: z
+                .string()
+                .describe(
+                  "Order item ID (UUID) from get_order delivery_chunks[].items[].id. " +
+                    "Must not repeat within a request.",
+                ),
+              marking_code: z
+                .string()
+                .nullable()
+                .describe(
+                  "Full «Честный знак» marking code including the crypto tail, or null to " +
+                    "remove the code written earlier.",
+                ),
+            }),
+          )
+          .min(1)
+          .max(100)
+          .describe("Order items with their marking codes, 1-100 items, one entry per item."),
+      },
+    },
+    async ({ id, items }) => {
+      const seen = new Set<string>();
+      const duplicateSet = new Set<string>();
+      for (const item of items) {
+        if (seen.has(item.order_item_id)) duplicateSet.add(item.order_item_id);
+        seen.add(item.order_item_id);
+      }
+      const duplicates = [...duplicateSet];
+      if (duplicates.length > 0) {
+        // The API rejects the entire request for a repeated item; catch it here
+        // so the payload is not sent just to be refused.
+        return fail(
+          new KitValidationError(
+            `Each order item may appear only once per request; repeated: ${duplicates.join(", ")}.`,
+            [],
+            "DUPLICATE_ORDER_ITEM_ID",
+          ),
+        );
+      }
+      const body = { items };
+      const check = validateRequestBody("SetOrderMarkingCodes", body);
+      if (!check.valid) return validationFailure(check.errors);
+      try {
+        return ok(await client.call("SetOrderMarkingCodes", { pathParams: { id }, body }));
       } catch (e) {
         return fail(e);
       }

@@ -18,7 +18,7 @@ completely.
 Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
 prices and for managing orders between a merchant's backend and the platform. The official
-docs are in Russian; the full OpenAPI spec (161 operations) is bundled with this skill in
+docs are in Russian; the full OpenAPI spec (162 operations) is bundled with this skill in
 `data/kit_v1.json.gz` and searchable offline with the scripts below.
 
 ## API essentials
@@ -103,10 +103,10 @@ same scripts and data, plus the endpoint tables of its tags:
 
 ## Related MCP tools
 
-The bundled `mcp-yandex-kit` MCP server exposes **83 tools**. Curated tools
+The bundled `mcp-yandex-kit` MCP server exposes **84 tools**. Curated tools
 cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
-in the domain skills); the meta trio below reaches **all 161 operations**:
+in the domain skills); the meta trio below reaches **all 162 operations**:
 
-- `search_operations` — Search the full catalog of all 161 Yandex KIT API operations by keyword.
+- `search_operations` — Search the full catalog of all 162 Yandex KIT API operations by keyword.
 - `get_operation_schema` — Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response.
-- `kit_request` — Escape hatch that executes ANY of the 161 Yandex KIT API operations by operationId, including operations without a dedicated tool.
+- `kit_request` — Escape hatch that executes ANY of the 162 Yandex KIT API operations by operationId, including operations without a dedicated tool.

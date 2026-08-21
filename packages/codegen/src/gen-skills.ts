@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 83) {
-  throw new Error(`Expected 83 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 84) {
+  throw new Error(`Expected 84 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -287,8 +287,9 @@ ${DOMAIN_TRAILER}`,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, close out their delivery
 (\`POST /v1/orders/{id}/delivery/complete\` — for pickup and the store's own delivery when
-delivery automation is off), and read the attached additional services (addons), customer
-records and gift cards. A customer record also carries the marketing-consent pair
+delivery automation is off), write «Честный знак» marking codes onto order items
+(\`POST /v1/orders/{id}/marking-codes\` — one code per item, null removes a code), and read
+the attached additional services (addons), customer records and gift cards. A customer record also carries the marketing-consent pair
 \`agreement_for_promo\` + \`agreement_at\` — read it before adding anyone to a mailing list
 and mirror it into your CRM. All datetimes are UTC, and list endpoints paginate with
 \`page\`/\`per_page\` (max 100).
