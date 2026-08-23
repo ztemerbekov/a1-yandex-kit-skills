@@ -305,6 +305,94 @@ test("an exhausted video polling bound never links a non-ready video", async () 
   assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
 });
 
+test("removing the only video keeps the single image and every other field (issue #90)", async () => {
+  const initial = variant({
+    id: "variant-001",
+    sku: "SKU-001",
+    slug: "sku-001",
+    media: [
+      { display_sequence: 0, image_id: "image-001", type: "IMAGE" },
+      { display_sequence: 1, video_id: "video-001", type: "VIDEO" },
+    ],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request: "Удали видео для SKU-001",
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    ["list_variants", "get_variant", "update_variant", "get_variant"],
+  );
+  assert.deepEqual(mcp.writeCalls[0]?.arguments, {
+    id: "variant-001",
+    variant: {
+      media: [{ display_sequence: 0, image_id: "image-001", type: "IMAGE" }],
+    },
+  });
+  assert.deepEqual(mcp.variantById("variant-001"), {
+    ...initial,
+    media: [{ display_sequence: 0, image_id: "image-001", type: "IMAGE" }],
+  });
+});
+
+test("video removal rebuilds media from the detail read, not a truncated list projection", async () => {
+  const detailVariant = variant({
+    media: [
+      { type: "IMAGE", image_id: "image-1", display_sequence: 0 },
+      { type: "IMAGE", image_id: "image-2", display_sequence: 1 },
+      { type: "VIDEO", video_id: "video-1", display_sequence: 2 },
+    ],
+  });
+  const listVariant = variant({
+    media: [{ type: "IMAGE", image_id: "image-1", display_sequence: 0 }],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({
+    variants: [detailVariant],
+    listVariants: [listVariant],
+  });
+
+  await runCatalogDoctorFixScenario({
+    request: "Удали видео у SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(mcp.writeCalls[0]?.arguments, {
+    id: "variant-42",
+    variant: {
+      media: [
+        { type: "IMAGE", image_id: "image-1", display_sequence: 0 },
+        { type: "IMAGE", image_id: "image-2", display_sequence: 1 },
+      ],
+    },
+  });
+  assert.deepEqual(mcp.variantById("variant-42")?.media, [
+    { type: "IMAGE", image_id: "image-1", display_sequence: 0 },
+    { type: "IMAGE", image_id: "image-2", display_sequence: 1 },
+  ]);
+});
+
+test("a video-removal command without a video makes zero writes", async () => {
+  const initial = variant({
+    media: [{ type: "IMAGE", image_id: "image-1", display_sequence: 0 }],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request: "Удали видео для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    ["list_variants", "get_variant"],
+  );
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
+});
+
 test("permanent deletion needs the exact verb and archived target, then verifies not-found", async () => {
   const mcp = new FakeCatalogDoctorFixMcp({
     variants: [

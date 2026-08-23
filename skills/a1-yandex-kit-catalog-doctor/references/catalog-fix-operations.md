@@ -159,6 +159,18 @@ unchanged and reports the uploaded video separately. Re-read the variant and
 compare the complete `media` list after linking. Treat video upload and variant
 linking as separate write objects, each with its own verification evidence.
 
+An explicit video-removal command maps to one `update_variant` whose `media` is
+rebuilt from the immediately preceding detail read: drop only entries with
+`type: "VIDEO"` and keep every other entry unchanged — same `image_id`, same
+`type`, same `display_sequence` and every other field. The confirmed detail
+read is what proves the sent list is complete, not its length: when the card
+holds exactly one image and one video, the correct request carries that single
+image and must not be blocked as a possibly incomplete list. Never rebuild
+`media` from a list projection or an older read, and change no other variant
+field in the same mutation. If the detail read contains no `VIDEO` entry,
+report that there is nothing to remove and make zero writes. After the write,
+re-read the variant and compare the complete expected `media` list.
+
 ## Bulk report
 
 Split resolved targets into local chunks of at most 100 while still applying the

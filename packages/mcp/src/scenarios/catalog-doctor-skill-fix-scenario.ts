@@ -324,12 +324,14 @@ async function executeVerifiedVariantMutation({
   mcp,
   variant,
   fromDetail,
+  validate,
   write,
   verify,
 }: {
   mcp: FakeCatalogDoctorFixMcp;
   variant: CatalogVariant;
   fromDetail: boolean;
+  validate?: (before: CatalogVariant) => string | undefined;
   write: (before: CatalogVariant) => Promise<unknown>;
   verify: (
     after: CatalogVariant,
@@ -341,6 +343,7 @@ async function executeVerifiedVariantMutation({
     initialBefore: fromDetail ? variant : undefined,
     read: () =>
       mcp.call("get_variant", { id: variant.id }) as Promise<CatalogVariant>,
+    validateBefore: validate,
     write,
     verifyAfter: verify,
   });
@@ -530,6 +533,45 @@ async function executeVideoFromUrlAddition(
     ...linked,
     message: `video_id ${videoId} достиг READY; ${linked.message}`,
   };
+}
+
+function mediaWithoutVideo(
+  media: CatalogVariant["media"],
+): CatalogVariant["media"] {
+  return media.filter((item) => item.type !== "VIDEO");
+}
+
+async function executeVideoRemoval(
+  mcp: FakeCatalogDoctorFixMcp,
+  reference: string,
+): Promise<MutationOutcome> {
+  const resolved = await resolveOneVariant(mcp, reference);
+  if ("outcome" in resolved) return resolved.outcome;
+  // The detail read confirms the full current media list; a single remaining
+  // image is a valid complete list, not evidence of truncation (issue #90).
+  return executeVerifiedVariantMutation({
+    mcp,
+    variant: resolved.variant,
+    fromDetail: resolved.fromDetail,
+    validate: (before) =>
+      before.media.some((item) => item.type === "VIDEO")
+        ? undefined
+        : "в media нет видео; вариант не изменён",
+    write: (before) =>
+      mcp.call("update_variant", {
+        id: before.id,
+        variant: { media: mediaWithoutVideo(before.media) },
+      }),
+    verify: (after, before) => {
+      const expected = mediaWithoutVideo(before.media);
+      return {
+        valid: sameMedia(after.media, expected),
+        message: sameMedia(after.media, expected)
+          ? `SKU ${after.sku} (${after.id}): видео удалено, остальные media подтверждены полным сохранённым списком`
+          : `SKU ${after.sku} (${after.id}): повторное чтение не совпало с полным сохранённым массивом media`,
+      };
+    },
+  });
 }
 
 async function executePermanentVariantDeletion(
@@ -830,6 +872,16 @@ export async function runCatalogDoctorFixScenario({
         exactVideoFromUrl[1],
         Number(exactVideoFromUrl[2]),
       ),
+    ]);
+  }
+
+  const exactVideoRemoval =
+    /(?:удали|убери)\s+видео\s+(?:у|для|из)\s+(?:SKU\s+)?([^\s,]+)/iu.exec(
+      request,
+    );
+  if (exactVideoRemoval) {
+    return finish(mcp, [
+      await executeVideoRemoval(mcp, exactVideoRemoval[1]),
     ]);
   }
 
