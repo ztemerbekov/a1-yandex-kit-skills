@@ -4,7 +4,7 @@ description: "Manage Yandex KIT store-level resources over its REST API: store p
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.5.1"
+  version: "1.5.2"
 ---
 
 # A1 Yandex KIT — Store
