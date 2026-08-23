@@ -1,7 +1,7 @@
 {
   "name": "a1-yandex-kit-skills",
   "displayName": "A1 Яндекс КИТ",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Управляйте магазином на Яндекс КИТ (Yandex KIT) словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
   "author": {
     "name": "Aleksandr Kovalko & Zinnur Temerbekov"

@@ -4,7 +4,7 @@ description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store b
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
-  version: "1.5.0"
+  version: "1.5.1"
 ---
 
 # A1 Yandex KIT Skills

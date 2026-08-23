@@ -1,6 +1,6 @@
 {
   "name": "yandex-kit-core",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "A1 Yandex KIT Core: typed client for the Yandex KIT API, driven by the official OpenAPI spec",
   "license": "MIT",
   "type": "module",

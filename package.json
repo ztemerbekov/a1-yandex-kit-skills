@@ -1,6 +1,6 @@
 {
   "name": "a1-yandex-kit-skills",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": true,
   "description": "A1 Yandex KIT Skills: typed client, MCP server and agent skills generated from the official OpenAPI spec",
   "license": "MIT",

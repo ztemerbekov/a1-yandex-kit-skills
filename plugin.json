@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "a1-yandex-kit-skills",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Управляйте магазином на Яндекс КИТ (Yandex KIT) словами: проверяйте заказы и каталог, меняйте цены и остатки, запускайте скидки и промокоды.",
   "author": {
     "name": "Aleksandr Kovalko & Zinnur Temerbekov",
