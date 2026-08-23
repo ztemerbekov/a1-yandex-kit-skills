@@ -393,6 +393,162 @@ test("a video-removal command without a video makes zero writes", async () => {
   assert.deepEqual(mcp.variantById("variant-42")?.media, initial.media);
 });
 
+test("moving a trailing volume into a characteristic rewrites the name and keeps unrelated characteristics (issue #91)", async () => {
+  const initial = variant({
+    id: "variant-001",
+    sku: "SKU-001",
+    slug: "sku-001",
+    name: "Тестовое масло для ногтей, 12 мл",
+    characteristics: [
+      {
+        characteristic_id: "characteristic-size",
+        value: "12 ml",
+        values: ["12 ml"],
+      },
+      {
+        characteristic_id: "characteristic-features",
+        value: "Веганский продукт; Не тестируется на животных",
+        values: ["Веганский продукт", "Не тестируется на животных"],
+      },
+    ],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Перенеси объём из названия в характеристику characteristic-volume для SKU-001",
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    ["list_variants", "get_variant", "update_variant", "get_variant"],
+  );
+  const expectedCharacteristics = [
+    {
+      characteristic_id: "characteristic-features",
+      value: "Веганский продукт; Не тестируется на животных",
+      values: ["Веганский продукт", "Не тестируется на животных"],
+    },
+    {
+      characteristic_id: "characteristic-volume",
+      value: "12 мл",
+      values: ["12 мл"],
+    },
+  ];
+  assert.deepEqual(mcp.writeCalls[0]?.arguments, {
+    id: "variant-001",
+    variant: {
+      name: "Тестовое масло для ногтей",
+      characteristics: expectedCharacteristics,
+    },
+  });
+  assert.deepEqual(mcp.variantById("variant-001"), {
+    ...initial,
+    name: "Тестовое масло для ногтей",
+    characteristics: expectedCharacteristics,
+  });
+});
+
+test("an empty characteristics list is complete: the update adds only the volume entry (issue #91)", async () => {
+  const initial = variant({
+    id: "variant-002",
+    sku: "SKU-002",
+    slug: "sku-002",
+    name: "Тестовая сыворотка, 30 мл",
+    characteristics: [],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Убери объём из названия в характеристику characteristic-volume для SKU-002",
+    mcp,
+  });
+
+  assert.deepEqual(mcp.writeCalls[0]?.arguments, {
+    id: "variant-002",
+    variant: {
+      name: "Тестовая сыворотка",
+      characteristics: [
+        {
+          characteristic_id: "characteristic-volume",
+          value: "30 мл",
+          values: ["30 мл"],
+        },
+      ],
+    },
+  });
+  assert.deepEqual(mcp.variantById("variant-002"), {
+    ...initial,
+    name: "Тестовая сыворотка",
+    characteristics: [
+      {
+        characteristic_id: "characteristic-volume",
+        value: "30 мл",
+        values: ["30 мл"],
+      },
+    ],
+  });
+});
+
+test("a near-miss volume value is preserved, only the exact quantity is dropped", async () => {
+  const initial = variant({
+    name: "Товар 42, 12 мл",
+    characteristics: [
+      {
+        characteristic_id: "characteristic-size",
+        value: "15 ml",
+        values: ["15 ml"],
+      },
+    ],
+  });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Перенеси объём из названия в характеристику characteristic-volume для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(mcp.writeCalls[0]?.arguments, {
+    id: "variant-42",
+    variant: {
+      name: "Товар 42",
+      characteristics: [
+        {
+          characteristic_id: "characteristic-size",
+          value: "15 ml",
+          values: ["15 ml"],
+        },
+        {
+          characteristic_id: "characteristic-volume",
+          value: "12 мл",
+          values: ["12 мл"],
+        },
+      ],
+    },
+  });
+});
+
+test("a volume-move command without a trailing volume in the name makes zero writes", async () => {
+  const initial = variant({ name: "Товар 42" });
+  const mcp = new FakeCatalogDoctorFixMcp({ variants: [initial] });
+
+  await runCatalogDoctorFixScenario({
+    request:
+      "Перенеси объём из названия в характеристику characteristic-volume для SKU-42",
+    mcp,
+  });
+
+  assert.deepEqual(
+    mcp.calls.map((call) => call.name),
+    ["list_variants", "get_variant"],
+  );
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.equal(mcp.variantById("variant-42")?.name, "Товар 42");
+});
+
 test("permanent deletion needs the exact verb and archived target, then verifies not-found", async () => {
   const mcp = new FakeCatalogDoctorFixMcp({
     variants: [

@@ -69,6 +69,14 @@ category bindings requires an owner-named authoritative complete category-ID
 set that includes archived bindings. Without it, report that preservation
 cannot be proven and leave the product unchanged.
 
+`Variant.characteristics` has no such hidden remainder: the API stores no
+characteristic values outside the variant object, so a fresh `GetVariant`
+detail read IS the complete current state, and an empty `characteristics`
+array is genuinely empty. Do not extend the archived-bindings caution from
+`Product.category_ids` to characteristics: a list rebuilt from the
+immediately preceding detail read is provably complete and must not be
+blocked as possibly missing hidden values.
+
 ## Operation distinctions
 
 - **Price:** `get_variant` → `update_variant` with only
@@ -79,6 +87,20 @@ cannot be proven and leave the product unchanged.
   fields and are not accepted in `VariantPricingRequest`.
 - **One stock/media/characteristic change:** `get_variant` →
   `update_variant` with the full preserved target array → `get_variant`.
+- **Move a trailing value from the name into a characteristic** (for example
+  «убери объём из названия в характеристику Объём»): the value source is the
+  variant's own current name, which the owner's command names explicitly.
+  Resolve the exact target characteristic — an explicit characteristic ID, or
+  exactly one exact-name match in a complete characteristics listing — then
+  `get_variant` → one `update_variant` carrying both changed fields: `name`
+  without the trailing value, and `characteristics` rebuilt from the same
+  detail read: every unrelated characteristic byte-for-byte, plus the target
+  characteristic holding the value taken verbatim from the name. Drop an old
+  entry only when its value denotes exactly the same quantity as the value
+  removed from the name (unit spelling may differ, e.g. «12 ml» vs «12 мл»);
+  keep everything else, including near-miss values. An empty source list
+  simply becomes the single new entry. Change no other variant field, and
+  verify the re-read `name` and complete `characteristics` together.
 - **Categories or grouping settings:** `get_product` → `update_product` with
   the full preserved `category_ids` or `settings` value → `get_product`.
 - **Category metadata/state:**
