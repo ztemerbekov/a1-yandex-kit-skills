@@ -535,6 +535,79 @@ async function executeVideoFromUrlAddition(
   };
 }
 
+const VOLUME_IN_NAME = /^(.*\S)\s*,\s*(\d+(?:[.,]\d+)?\s*(?:мл|ml|л|l))\s*$/iu;
+
+/**
+ * Canonical quantity key for a volume value: «12 ml» and «12 мл» denote the
+ * same quantity; anything that is not a pure volume yields undefined.
+ */
+function volumeKey(value: string): string | undefined {
+  const parsed = /^(\d+(?:[.,]\d+)?)\s*(мл|ml|л|l)$/iu.exec(value.trim());
+  if (!parsed) return undefined;
+  const unit = parsed[2].toLowerCase();
+  const canonicalUnit = unit === "ml" ? "мл" : unit === "l" ? "л" : unit;
+  return `${Number(parsed[1].replace(",", "."))} ${canonicalUnit}`;
+}
+
+function volumeMovePlan(
+  before: CatalogVariant,
+  characteristicId: string,
+): { name: string; characteristics: CatalogVariant["characteristics"] } | undefined {
+  const parsed = VOLUME_IN_NAME.exec(before.name);
+  if (!parsed) return undefined;
+  const volume = parsed[2].replace(/\s+/gu, " ");
+  const key = volumeKey(volume);
+  return {
+    name: parsed[1],
+    characteristics: [
+      ...(before.characteristics ?? []).filter(
+        (item) =>
+          item.characteristic_id !== characteristicId &&
+          volumeKey(item.value) !== key,
+      ),
+      { characteristic_id: characteristicId, value: volume, values: [volume] },
+    ],
+  };
+}
+
+async function executeVolumeMoveToCharacteristic(
+  mcp: FakeCatalogDoctorFixMcp,
+  reference: string,
+  characteristicId: string,
+): Promise<MutationOutcome> {
+  const resolved = await resolveOneVariant(mcp, reference);
+  if ("outcome" in resolved) return resolved.outcome;
+  // The detail read is the complete current characteristics state — an empty
+  // list is genuinely empty, so the rebuilt list is provably full (issue #91).
+  return executeVerifiedVariantMutation({
+    mcp,
+    variant: resolved.variant,
+    fromDetail: resolved.fromDetail,
+    validate: (before) =>
+      volumeMovePlan(before, characteristicId)
+        ? undefined
+        : "в конце названия нет объёма; запись не выполняется",
+    write: (before) =>
+      mcp.call("update_variant", {
+        id: before.id,
+        variant: volumeMovePlan(before, characteristicId)!,
+      }),
+    verify: (after, before) => {
+      const expected = volumeMovePlan(before, characteristicId)!;
+      const valid =
+        after.name === expected.name &&
+        JSON.stringify(after.characteristics ?? []) ===
+          JSON.stringify(expected.characteristics);
+      return {
+        valid,
+        message: valid
+          ? `SKU ${after.sku} (${after.id}): объём «${expected.characteristics!.at(-1)!.value}» перенесён из названия в характеристику ${characteristicId}, несвязанные характеристики сохранены`
+          : `SKU ${after.sku} (${after.id}): повторное чтение не совпало с ожидаемыми name и полным массивом characteristics`,
+      };
+    },
+  });
+}
+
 function mediaWithoutVideo(
   media: CatalogVariant["media"],
 ): CatalogVariant["media"] {
@@ -871,6 +944,20 @@ export async function runCatalogDoctorFixScenario({
         exactVideoFromUrl[3],
         exactVideoFromUrl[1],
         Number(exactVideoFromUrl[2]),
+      ),
+    ]);
+  }
+
+  const volumeMove =
+    /(?:перенеси|убери)\s+объ[её]м\s+из\s+названия\s+в\s+характеристику\s+([^\s,]+)\s+для\s+(?:SKU\s+)?([^\s,]+)/iu.exec(
+      request,
+    );
+  if (volumeMove) {
+    return finish(mcp, [
+      await executeVolumeMoveToCharacteristic(
+        mcp,
+        volumeMove[2],
+        volumeMove[1],
       ),
     ]);
   }

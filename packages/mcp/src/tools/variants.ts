@@ -181,7 +181,9 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         "`media` is an exception to merge-patch granularity: sending it REPLACES the whole list, " +
         "so resend the existing images alongside anything you add. At most ONE video per variant, " +
         "and a video is accepted only when the same list carries at least one image — sending a " +
-        "video alone wipes the images and fails. `stocks` replaces the whole list too. " +
+        "video alone wipes the images and fails. `stocks` and `characteristics` replace the whole " +
+        "list too; rebuild them from a fresh get_variant, which IS the complete current state " +
+        "(an empty characteristics list is genuinely empty, nothing hidden). " +
         'Call get_operation_schema("UpdateVariant") for the exact request shape — but ignore its ' +
         "prose for `stocks`: upstream the spec pasted the media wording there, while the field " +
         "still takes VariantStock entries (per-warehouse quantities).",
