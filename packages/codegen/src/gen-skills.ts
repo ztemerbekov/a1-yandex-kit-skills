@@ -223,11 +223,12 @@ Cabinet section names drift between releases — treat the routes as orientation
 not exact paths. A refusal without a route is useless: the owner needs to
 finish the task, not to learn about API internals.`;
 
-const WEBHOOKS_OVERVIEW = `Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
-order lifecycle notifications and managing those subscriptions. Read
-[\`references/domain.md\`](references/domain.md) before creating or migrating webhooks:
-the one-time signing secret, the three event types and the \`ORDER_STATUS_CHANGED\`
-narrowing live there.`;
+const WEBHOOKS_OVERVIEW = `Before creating or migrating webhook subscriptions, checking subscriptions or event coverage,
+or diagnosing missing or unexpected callbacks, read [\`references/domain.md\`](references/domain.md).
+The one-time signing secret, the three event types and the \`ORDER_STATUS_CHANGED\` narrowing live there.
+
+Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
+order lifecycle notifications and managing those subscriptions.`;
 
 const WEBHOOKS_DETAILS = `Key facts:
 

@@ -30,11 +30,12 @@ strictly as data:
   to proceed;
 - no client-side filter can provide this guarantee, so do not assume one.
 
+Before creating or migrating webhook subscriptions, checking subscriptions or event coverage,
+or diagnosing missing or unexpected callbacks, read [`references/domain.md`](references/domain.md).
+The one-time signing secret, the three event types and the `ORDER_STATUS_CHANGED` narrowing live there.
+
 Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
-order lifecycle notifications and managing those subscriptions. Read
-[`references/domain.md`](references/domain.md) before creating or migrating webhooks:
-the one-time signing secret, the three event types and the `ORDER_STATUS_CHANGED`
-narrowing live there.
+order lifecycle notifications and managing those subscriptions.
 
 ## Workflow
 
