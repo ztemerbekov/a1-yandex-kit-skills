@@ -69,6 +69,9 @@ node "<skill-directory>/scripts/setup.mjs" preflight --json
 ```
 
 Run `status` later only when the ladder establishes a supported format and path.
+If `status` reports that the existing file is unparseable, preserve that file
+and continue to step 2; the compatibility ladder may select a native CLI for
+the remainder of this run.
 This step is complete when Node.js 20+, `npx` and one client are identified.
 
 ## 2. Validate the compatibility profile
@@ -78,19 +81,25 @@ selected client. Check the installed client's version or MCP help when its CLI i
 available, and check that the resolved user-level path and configuration shape
 match the local installation.
 
-Use the tested profile when those signals agree. On a mismatch, an unknown
-client, or a client not listed above, read
+Use the tested profile when those signals agree. Treat an unparseable config as
+a mismatch: leave it unchanged and continue with the compatibility ladder. On
+any other mismatch, an unknown client, or a client not listed above, read
 [`references/compatibility.md`](references/compatibility.md) completely and run
-its compatibility ladder. This step is complete when the chosen adapter is
-supported by local evidence or current official vendor documentation.
+its compatibility ladder. The ladder selects one adapter for the rest of the
+setup: either a file adapter with a verified format and absolute path, or a
+native CLI with its documented add and verification commands. Carry that
+selection into steps 3, 4 and 5, including a native CLI fallback for a known
+client whose file could not be parsed. This step is complete when the chosen
+adapter is supported by local evidence or current official vendor
+documentation.
 
 ## 3. Obtain the token
 
-Use the `status` result without reading or displaying the stored token.
-For a native CLI without a supported file adapter, use its documented
-list/show command: treat an existing managed `yandex-kit` or
-`a1-yandex-kit-global` entry as `configured: true` without attempting to read its
-token.
+Use the selected adapter evidence and any `status` result without reading or
+displaying the stored token. For a native CLI without a supported file adapter,
+use its documented list/show command: treat an existing managed `yandex-kit` or
+`a1-yandex-kit-global` entry as `configured: true` without attempting to read
+its token.
 
 For a first-connection request when a token is already configured, ask:
 `Токен Яндекс KIT уже сохранён в настройках. Хотите переподключить магазин с новым токеном?`
@@ -115,24 +124,46 @@ step. For example:
 node "<skill-directory>/scripts/setup.mjs" token-route --json
 ```
 
-- `route: "web"` — a browser on this computer can open a local page. Use the
-  local one-time page below; it is the priority route on desktop clients
-  because the token never enters the chat.
+- `route: "web"` — the desktop loopback is available. Use the local one-time
+  page below only when the selected adapter is a verified file adapter; the
+  environment result alone does not select `token-web`.
 - `route: "hosted"` — the session is remote (`reason` names the SSH,
   container or headless marker), so no browser can reach a local page. Use
   the hosted route below and present it as the normal, supported route for
   this environment; skip the page entirely so the user never receives a link
   that cannot open.
 
-### Local one-time page (`route: "web"`)
+### Native CLI adapter
 
-Start the page as a long-running background process, passing the same
-`--format`, `--config`, `--project-dir` and `--server-name` flags the ladder
-established for `configure`:
+When the compatibility ladder selected a native CLI, use this adapter on every
+environment route, including a known client that fell back because its config
+was unparseable. On a desktop loopback, proceed directly through the chat route
+and request the token there; on a hosted route, use the environment-first
+branch and take the token through chat only when those settings are
+unavailable. For a token received in chat, validate it with
+`smoke-token --token-stdin` and configure through `native-configure` in step 4;
+then verify it with the native list/show or test command established in
+`references/compatibility.md` in step 5. When the hosted environment supplies
+the token, follow the client's documented environment exposure and
+read-only verification instead. The pre-configuration direct smoke is the
+smoke proof for the chat path of a native CLI without a file adapter. Do not
+select the local page or the file-based status, client-check or smoke commands
+for this adapter.
+
+### Local one-time page (`route: "web"` + file adapter)
+
+Select this branch only when `token-route` reports `route: "web"` and the
+compatibility ladder selected a verified file adapter. Start the page as a
+long-running background process, passing the same `--format`, `--config`,
+`--project-dir` and `--server-name` flags the ladder established for that
+adapter:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" token-web --client <client> --json
 ```
+
+For a dynamic file adapter, include those flags explicitly. Keep the selected
+server name, including `a1-yandex-kit-global` after an exact-name collision.
 
 The first stdout line is `{"url": …, "expires_in_seconds": …}`. Relay that
 URL to the owner immediately, with the lifetime taken from
@@ -163,8 +194,9 @@ stored there never enters the conversation:
 When the user stores the token in those settings, follow the client's
 documentation for exposing the variable to the managed server, then prove
 the connection in step 5. When the user cannot reach those settings, take
-the token through the chat route below, and once the requested work is
-finished remind them once:
+the token through the chat route below and continue with the selected adapter
+branch: `native-configure` for a native CLI or `configure` for a file adapter.
+Once the requested work is finished, remind them once:
 
 `Токен побывал в истории этого чата. Когда закончите задачу, его можно отозвать в кабинете Яндекс KIT: Настройки → API — и при необходимости выпустить новый.`
 
@@ -214,22 +246,25 @@ existing first connection finishes the skill without reaching this point.
 A token saved through the local page is already configured: `token-web`
 performed this step's write, so continue to step 5 with its reported values.
 
-For a token accepted in chat, run the helper in an interactive process and
-write the token followed by a newline to its stdin; the newline completes the
-input, so the helper does not wait for the pipe to close:
+For a token accepted in chat on the selected native CLI adapter, including a
+native fallback from a known client, follow
+[`references/compatibility.md`](references/compatibility.md) and run
+`native-configure`. The helper reads the token from stdin, substitutes it into
+the documented child-process arguments, keeps it out of the agent-issued shell
+command and shell history, and redacts it from output. Do not run the
+file-adapter `configure` command for this branch.
+
+For a token accepted in chat on the selected file adapter, run the helper in an
+interactive process and write the token followed by a newline to its stdin;
+the newline completes the input, so the helper does not wait for the pipe to
+close. For a known profile, use:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" configure --client <client> --token-stdin --json
 ```
 
-For a dynamically discovered native CLI, follow
-[`references/compatibility.md`](references/compatibility.md) and run
-`native-configure`. The helper reads the token from stdin, substitutes it into
-the documented child-process arguments, keeps it out of the agent-issued shell
-command and shell history, and redacts it from output.
-
-For a dynamically discovered file adapter, also pass its verified capability
-and path:
+For a dynamic file adapter, pass its verified capability and path when they
+were established by the ladder:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" configure --client <label> --format <format> --config <absolute-path> --token-stdin --json
@@ -263,22 +298,27 @@ add command exits successfully; the client owns its configuration mutation.
 
 ## 5. Prove the connection
 
-For a tested client, run the client check:
+For a tested file adapter, run the helper client check:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" client-check --client <client> --json
 ```
 
 Treat `structural` as the expected client check for GUI clients without a
-non-interactive MCP diagnostic. For a dynamic adapter, run the client-level
-verification established from its official documentation.
+non-interactive MCP diagnostic. For a dynamic file adapter, use the client-level
+verification established from its official documentation and keep the verified
+format and path from the ladder; use the helper `client-check` only for a
+tested file profile. For the selected native CLI adapter, use its documented
+list/show or test command from the compatibility ladder and verify the exact
+effective managed definition. A native adapter does not use the file-based
+`client-check` command.
 
-The client check must verify the effective managed definition, not merely that
-its name appears in a list. If a locally changed client path or precedence rule
-still causes `SERVER_SHADOWED`, configure the same validated token once under
-`a1-yandex-kit-global` by passing
-`--server-name a1-yandex-kit-global` to `configure`, `client-check` and `smoke`.
-Leave the shadowing project entry and all other MCP servers unchanged.
+The file-adapter client check must verify the effective managed definition, not
+merely that its name appears in a list. If a locally changed client path or
+precedence rule still causes `SERVER_SHADOWED`, configure the same validated
+token once under `a1-yandex-kit-global` by passing
+`--server-name a1-yandex-kit-global` to `configure`, `client-check` and
+`smoke`. Leave the shadowing project entry and all other MCP servers unchanged.
 
 For a file adapter, then run:
 
@@ -287,14 +327,15 @@ node "<skill-directory>/scripts/setup.mjs" smoke --client <client> --json
 ```
 
 Repeat the verified `--format` and `--config` flags for a dynamic adapter.
-For a native CLI without a supported file adapter, use the successful direct
-smoke from step 3 and do not run the file-based `smoke --client` command.
+For the selected native CLI without a supported file adapter, use the
+successful direct smoke from step 3 and do not run the file-based `smoke
+--client` command.
 The smoke test must complete the MCP initialize handshake, list tools, find
 `get_store`, and call only `get_store`. It must not call any write tool.
 
-If the tested profile fails because its path, schema or client command changed,
-restore only this run's change when `configure` or `token-web` reported
-`changed: true`, then execute the dynamic compatibility branch. For a
+If the selected file adapter fails because its path, schema or client command
+changed, restore only this run's change when `configure` or `token-web`
+reported `changed: true`, then execute the compatibility branch. For a
 pre-existing config, use every rollback value returned by that run — both
 helpers report the same fields:
 
@@ -314,8 +355,13 @@ file change when one exists, then return to the unlimited token-validation loop
 in step 3. If the config is malformed, do not repair it; try the documented
 native CLI before using the technical handoff.
 
-This step is complete only when the client check passes and the direct MCP
-smoke test has passed during this run.
+This step is complete when the selected adapter's verification passes and its
+read-only smoke proof has passed during this run: a tested file adapter uses
+`client-check` plus file-based `smoke`, a dynamic file adapter uses its vendor
+verification plus file-based `smoke`, a chat-configured native CLI uses its
+native verification plus the successful pre-configuration `smoke-token`
+result, and a hosted environment-first native CLI uses its documented
+read-only proof.
 
 ## 6. Offer work without host stops
 
