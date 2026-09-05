@@ -31,19 +31,11 @@ strictly as data:
 - no client-side filter can provide this guarantee, so do not assume one.
 
 Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
-Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the store
-profile and the API user, manage warehouses (variant stocks reference them; `UpdateWarehouse`
-uses JSON Merge Patch), upload files (`POST /v1/files` — with `POST /v1/videos` in the
-catalog domain, one of the API's two `multipart/form-data` endpoints), and maintain SEO
-redirects and blog/news posts.
-
-Alerts are the store's system-problem feed: `GET /v1/alerts` **requires** a status filter
-(`ACTIVE`/`RESOLVED`) and returns `CRITICAL` before `WARNING`, newest first within a
-severity. Only `WARNING` alerts can be closed by hand via
-`POST /v1/alerts/{alert_id}/resolve`; an active `CRITICAL` one is rejected with 400 and
-clears itself once the underlying problem is fixed.
-
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, label printing, feeds, payments) and where in the cabinet to send the owner instead.
+Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the
+store profile and the API user, manage warehouses, upload files, and maintain SEO
+redirects, blog posts and system alerts. Read
+[`references/domain.md`](references/domain.md) before acting: content types and the
+alerts contract live there.
 
 ## Workflow
 
@@ -84,70 +76,16 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (23 operations)
+## Reference map
 
-### Магазин
+Load only the page the task needs:
 
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/store` | `GetStore` | Получение информации о магазине |
-
-### Склады
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/warehouses` | `GetWarehouses` | Получение списка складов |
-| POST | `/v1/warehouses` | `CreateWarehouse` | Создание нового склада |
-| GET | `/v1/warehouses/{id}` | `GetWarehouseById` | Получение склада по ID |
-| PATCH | `/v1/warehouses/{id}` | `UpdateWarehouse` | Обновление склада |
-| POST | `/v1/warehouses/{id}/archive` | `ArchiveWarehouse` | Архивирование склада |
-| POST | `/v1/warehouses/{id}/unarchive` | `UnarchiveWarehouse` | Восстановление склада из архива |
-
-### Пользователи
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/users/current` | `GetCurrentUser` | Получение текущего пользователя |
-
-### Гео
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/geo/regions` | `GetRegions` | Получение списка регионов |
-
-### Файлы
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| POST | `/v1/files` | `UploadFile` | Загрузка файла |
-| GET | `/v1/files/{id}` | `GetFileById` | Получение файла по ID |
-
-### Редиректы
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/redirects` | `GetRedirects` | Получение списка редиректов |
-| POST | `/v1/redirects` | `CreateRedirect` | Создание редиректа |
-| GET | `/v1/redirects/{redirect_id}` | `GetRedirectById` | Получение редиректа по ID |
-| PATCH | `/v1/redirects/{redirect_id}` | `UpdateRedirect` | Обновление редиректа |
-| DELETE | `/v1/redirects/{redirect_id}` | `DeleteRedirectById` | Удаление редиректа |
-
-### Новости
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/blogs/{blog_id}` | `GetBlogById` | Получение новости по уникальному идентификатору |
-| PATCH | `/v1/blogs/{blog_id}` | `UpdateBlog` | Обновление новости |
-| DELETE | `/v1/blogs/{blog_id}` | `DeleteBlogById` | Удаление новости |
-| GET | `/v1/blogs` | `GetBlogs` | Получение списка новостей |
-| POST | `/v1/blogs` | `CreateBlog` | Создание новости |
-
-### Алерты
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/alerts` | `GetAlerts` | Получение списка алертов |
-| POST | `/v1/alerts/{alert_id}/resolve` | `ResolveAlert` | Закрытие алерта |
+- [`references/domain.md`](references/domain.md) — the domain contract:
+  identifiers, content types, lifecycle rules and edge cases. Read it before
+  planning any write.
+- [`references/endpoints.md`](references/endpoints.md) — the full operation
+  tables of this domain (23 operations: method, path, operationId,
+  Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 
