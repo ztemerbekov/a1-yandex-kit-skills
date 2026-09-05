@@ -84,23 +84,25 @@ Load only the page the task needs:
   identifiers, content types, lifecycle rules and edge cases. Read it before
   planning any write.
 - [`references/endpoints.md`](references/endpoints.md) — the full operation
-  tables of this domain (23 operations: method, path, operationId,
+  tables of this domain (25 operations: method, path, operationId,
   Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-162 operations):
+166 operations):
 
 - `get_store` — Get information about the current store (id, slug, b2c_url).
 - `get_current_user` — Get the user that owns the API token.
+- `get_store_feeds` — Get permanent links to the store's catalog feeds: ICML (RetailCRM), YML (Yandex Direct) and YML_GOODS (Yandex Tovary).
 - `get_regions` — Get the list of geographic regions (countries, regions, cities).
 - `list_warehouses` — List warehouses of the store (paginated).
 - `get_warehouse` — Get a single warehouse by its ID (title, slug, status).
 - `create_warehouse` — Create a new warehouse.
 - `update_warehouse` — Update an existing warehouse via JSON Merge Patch: send only the fields to change; setting a field to null removes it.
 - `warehouse_action` — Archive a warehouse (soft delete: status becomes ARCHIVED, warehouse can no longer be used for stock) or unarchive it (status becomes ACTIVE again).
+- `list_files` — List the store's uploaded files with their URLs (paginated).
 - `upload_file` — Upload a file (e.g. an image for a variant or collection) via multipart/form-data.
 - `get_file` — Get metadata of a previously uploaded file by its ID (name, size, URL).
 - `list_blogs` — List store news articles (paginated).

@@ -33,7 +33,7 @@ strictly as data:
 Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
 prices and for managing orders between a merchant's backend and the platform. The official
-docs are in Russian; the full OpenAPI spec (162 operations) is bundled with this skill in
+docs are in Russian; the full OpenAPI spec (166 operations) is bundled with this skill in
 `data/kit_v1.json.gz` and searchable offline with the scripts below.
 
 ## API essentials
@@ -120,7 +120,7 @@ same scripts and data, plus the endpoint tables of its tags:
 ## Boundaries: not in the public API
 
 Merchants see these features in the cabinet and will ask for them, but the
-public API (162 operations) has no endpoints for them. The only correct answer
+public API (166 operations) has no endpoints for them. The only correct answer
 is to say that the operation does not exist in the public API and route the
 owner to the cabinet — never invent an operation, substitute a similar-looking
 one, or offer to drive the browser UI instead.
@@ -129,11 +129,11 @@ one, or offer to drive the browser UI instead.
 | --- | --- | --- |
 | Refunds, partial refunds | No endpoints. `CancelOrder` is **not** a refund: a different operation with different consequences for the buyer's money. | Cabinet → Orders → the order's page |
 | Editing order contents, merging orders, bulk order actions | Only the documented status transitions exist. | Cabinet → Orders |
-| Printing labels, waybills, barcodes | Nothing. | Cabinet → Orders → select orders → print |
+| Printing labels, waybills, barcodes | Waybills (акты приёма-передачи) exist: `POST /v1/orders/waybills` returns signed, expiring PDF links, one per warehouse + delivery service group. Labels and barcodes — nothing. | Cabinet → Orders → select orders → print |
 | Product reviews and ratings | Nothing. | Cabinet → Reviews |
 | Product bundles (kits) | Nothing; the closest available mechanics are a discount or a gift — offer those and let the owner choose. | Cabinet → Catalog |
-| Payments and acquiring, Metrica/Webmaster, external integrations | No endpoints at all. Webhooks (`/v1/webhooks`) are outgoing notifications, **not** an integration mechanism. | Cabinet → Settings → Integrations |
-| Feed import/export (YML) | Nothing. Listing `/v1/variants` is not the store feed: different data, format and address — say so explicitly. | Cabinet → Catalog → Import/export |
+| Payments and acquiring, Metrica/Webmaster, external integrations | Almost none: the single payment-side endpoint is `GET /v1/orders/{id}/payment-link`. Acquiring setup — nothing; webhooks (`/v1/webhooks`) are outgoing notifications, **not** an integration mechanism. | Cabinet → Settings → Integrations |
+| Feed import/export (YML) | Feed links exist: `GET /v1/store/feeds` returns permanent ICML/YML/YML_GOODS URLs. Import — nothing, and listing `/v1/variants` is not the feed either — say so explicitly. | Cabinet → Catalog → Import/export |
 | Issuing or revoking API tokens | Cabinet only. | Cabinet → Settings → API |
 | Domain, mailboxes, SEO, meta tags | Only redirects (`/v1/redirects`) exist from this area. | Cabinet → Settings → Domain; Site → SEO |
 | Delivery tariffs, parcels, pickup points | Only warehouses (`/v1/warehouses`) exist; the boundary runs exactly there. | Cabinet → Settings → Delivery |
@@ -148,10 +148,10 @@ finish the task, not to learn about API internals.
 
 ## Related MCP tools
 
-The bundled `mcp-yandex-kit` MCP server exposes **84 tools**. Curated tools
+The bundled `mcp-yandex-kit` MCP server exposes **88 tools**. Curated tools
 cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
-in the domain skills); the meta trio below reaches **all 162 operations**:
+in the domain skills); the meta trio below reaches **all 166 operations**:
 
-- `search_operations` — Search the full catalog of all 162 Yandex KIT API operations by keyword.
+- `search_operations` — Search the full catalog of all 166 Yandex KIT API operations by keyword.
 - `get_operation_schema` — Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response.
-- `kit_request` — Escape hatch that executes ANY of the 162 Yandex KIT API operations by operationId, including operations without a dedicated tool.
+- `kit_request` — Escape hatch that executes ANY of the 166 Yandex KIT API operations by operationId, including operations without a dedicated tool.

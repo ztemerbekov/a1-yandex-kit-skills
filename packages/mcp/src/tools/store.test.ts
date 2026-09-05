@@ -35,11 +35,11 @@ async function setup(payload: unknown) {
   return { calls, mcpClient };
 }
 
-test("registers exactly get_store, get_current_user, get_regions with read-only annotations", async () => {
+test("registers exactly get_store, get_current_user, get_regions, get_store_feeds with read-only annotations", async () => {
   const { mcpClient } = await setup({ store: "x" });
   const { tools } = await mcpClient.listTools();
   const names = tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ["get_current_user", "get_regions", "get_store"]);
+  assert.deepEqual(names, ["get_current_user", "get_regions", "get_store", "get_store_feeds"]);
   for (const tool of tools) {
     assert.equal(tool.annotations?.readOnlyHint, true, `${tool.name} must be read-only`);
   }
@@ -96,4 +96,16 @@ test("get_store maps a KIT API error to isError result without throwing", async 
   assert.equal(body.code, "AUTHENTICATION_ERROR");
   assert.equal(body.status, 401);
   assert.equal(body.traceId, "tr1");
+});
+
+test("get_store_feeds hits /v1/store/feeds and returns the payload", async () => {
+  const payload = { feeds: [{ type: "ICML", url: "https://example.com/feed.xml" }] };
+  const { calls, mcpClient } = await setup(payload);
+  const res = (await mcpClient.callTool({ name: "get_store_feeds", arguments: {} })) as {
+    isError?: boolean;
+    content: { type: string; text: string }[];
+  };
+  assert.ok(!res.isError);
+  assert.deepEqual(JSON.parse(res.content[0]!.text), payload);
+  assert.ok(calls[0]!.url.endsWith("/v1/store/feeds"));
 });

@@ -278,7 +278,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Получение списка файлов
+         * @description Возвращает список загруженных файлов магазина.
+         *
+         *     Возвращаются только изображения (`IMAGE`) и прочие файлы (`OTHER`).
+         *     Видео хранятся отдельно — используйте `GET /v1/videos`.
+         */
+        get: operations["GetFiles"];
         put?: never;
         /**
          * Загрузка файла
@@ -1007,6 +1014,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/store/feeds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение ссылок на фиды каталога
+         * @description Возвращает ссылки на фиды каталога магазина — регулярные выгрузки товаров.
+         *
+         *     Ссылка на фид постоянная — она не меняется при обновлении содержимого фида.
+         *     Достаточно получить ее один раз и периодически скачивать по ней сам фид.
+         */
+        get: operations["GetStoreFeeds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customers": {
         parameters: {
             query?: never;
@@ -1070,6 +1100,8 @@ export interface paths {
         /**
          * Получение списка заказов по ID клиента
          * @description Возвращает список заказов клиента по его уникальному идентификатору.
+         *
+         *     Состав списка определяется так же, как в `GET /v1/orders`.
          */
         get: operations["GetOrdersByCustomerId"];
         put?: never;
@@ -1089,11 +1121,47 @@ export interface paths {
         };
         /**
          * Получение списка заказов
-         * @description Возвращает список заказов магазина с пагинацией и поиском.
+         * @description Возвращает список заказов магазина с пагинацией, отсортированный по дате создания по убыванию.
+         *
+         *     Состав списка совпадает со списком заказов в кабинете продавца: отдаются оформленные заказы
+         *     в любом статусе, включая `FROZEN` и `CANCELLED`. Не отдаются незавершенные оформления —
+         *     корзины, по которым покупатель не дошел до оплаты, — и заказы подарочных карт.
          */
         get: operations["GetOrders"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/waybills": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Получение накладных для частей заказов
+         * @description Система формирует накладные (акты приема‑передачи отправлений) для указанных частей заказов и возвращает ссылки на PDF‑файлы с документами.
+         *
+         *     Правила и ограничения:
+         *
+         *     - Накладная оформляется на партию — части заказов автоматически группируются по складу и службе доставки, для каждой такой группы создается отдельный документ.
+         *
+         *     - При каждом запросе система запрашивает накладную у службы доставки — повторный запрос не использует ранее сгенерированный документ, а формирует новый.
+         *
+         *     - Части заказов, для которых невозможно получить накладную (например, при самовывозе, если доставка еще не создана в службе или служба не предоставляет накладные), не включаются в массив `waybills`.
+         *       Такие части заказов отображаются в массиве `skipped` — с указанием причины, по которой накладная не была сформирована.
+         *
+         *     - Ссылки на PDF‑файлы подписаны и имеют ограниченный срок действия. Дата истечения срока указана в поле `expires_at`.
+         *       Хранить ссылку не требуется — для получения актуальной ссылки выполните повторный запрос.
+         */
+        post: operations["GenerateOrderWaybills"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1242,6 +1310,38 @@ export interface paths {
          *     - Метод идемпотентен: если любой код не проходит проверку, запрос отклоняется, при этом коды не записываются.
          */
         post: operations["SetOrderMarkingCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orders/{id}/payment-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение ссылки на оплату заказа
+         * @description Возвращает подписанную ссылку на страницу оплаты заказа.
+         *
+         *     Отправьте ссылку покупателю — он сможет оплатить заказ без входа в аккаунт. Доступ к заказу обеспечивает подпись в параметре `signature`.
+         *
+         *     Ссылка постоянна — для одного заказа метод всегда выдает одинаковое значение. Ссылка доступна для заказа в любом статусе — в том числе для оплаченного или отмененного.
+         *
+         *     {% note info %}
+         *
+         *     У ссылки нет срока действия, отозвать ее отдельно нельзя. Отзыв API‑токена не аннулирует ранее выданные ссылки.
+         *
+         *     {% endnote %}
+         */
+        get: operations["GetOrderPaymentLink"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2892,6 +2992,11 @@ export interface components {
              */
             seo_title: string;
             /**
+             * @description Заголовок H1 на странице категории.
+             * @example Смартфоны
+             */
+            seo_h1: string;
+            /**
              * @description Описание страницы категории в поиске.
              * @example Широкий выбор смартфонов по лучшим ценам. Доставка по всей стране.
              */
@@ -2944,6 +3049,11 @@ export interface components {
              */
             seo_title?: string;
             /**
+             * @description Заголовок H1 на странице категории.
+             * @example Смартфоны
+             */
+            seo_h1?: string;
+            /**
              * @description Описание страницы категории в поиске.
              * @example Широкий выбор смартфонов по лучшим ценам. Доставка по всей стране.
              */
@@ -2988,6 +3098,11 @@ export interface components {
              * @example Смартфоны - купить в интернет-магазине.
              */
             seo_title?: string;
+            /**
+             * @description Заголовок H1 на странице категории.
+             * @example Смартфоны
+             */
+            seo_h1?: string;
             /**
              * @description Описание страницы категории в поиске.
              * @example Широкий выбор смартфонов по лучшим ценам. Доставка по всей стране.
@@ -3085,6 +3200,13 @@ export interface components {
              * @example 1
              */
             display_sequence: number;
+            group_id: components["schemas"]["CharacteristicGroupID"];
+            /**
+             * Format: uint64
+             * @description Порядок отображения характеристики внутри группы.
+             * @example 1
+             */
+            group_display_sequence: number;
         };
         /**
          * Format: uuid
@@ -3209,6 +3331,15 @@ export interface components {
              */
             unit?: string;
             select_mode: components["schemas"]["CharacteristicSelectMode"];
+            group_id?: components["schemas"]["CharacteristicGroupID"];
+            /**
+             * Format: uint64
+             * @description Порядок отображения характеристики внутри группы, начиная с 1.
+             *     Остальные характеристики группы сдвигаются вниз.
+             *     Если не указан, характеристика добавляется в конец группы.
+             * @example 1
+             */
+            group_display_sequence?: number;
         };
         UpdateCharacteristicRequest: {
             /**
@@ -3234,6 +3365,15 @@ export interface components {
              * @example 1
              */
             display_sequence?: number;
+            group_id?: components["schemas"]["CharacteristicGroupID"];
+            /**
+             * Format: uint64
+             * @description Порядок отображения характеристики внутри группы, начиная с 1.
+             *     Остальные характеристики группы сдвигаются вниз.
+             *     Если указан только `group_id`, характеристика добавляется в конец целевой группы.
+             * @example 1
+             */
+            group_display_sequence?: number;
         };
         /**
          * Format: uuid
@@ -3255,6 +3395,16 @@ export interface components {
              * @example https://example.com/files/550e8400-e29b-41d4-a716-446655440000.png
              */
             url: string;
+        };
+        /** @description Список файлов. */
+        FileCollection: {
+            files: components["schemas"]["File"][];
+            /**
+             * Format: uint64
+             * @description Общее количество файлов.
+             * @example 100
+             */
+            total_count: number;
         };
         /**
          * @description Идентификатор видео.
@@ -3969,7 +4119,7 @@ export interface components {
              * @description Email пользователя.
              * @example user@example.com
              */
-            email: string;
+            email?: string;
             /**
              * @description Название роли пользователя.
              * @example owner
@@ -3996,6 +4146,30 @@ export interface components {
              */
             b2c_url: string;
         };
+        /** @description Список фидов каталога. */
+        FeedCollection: {
+            /** @description Список фидов каталога. */
+            feeds: components["schemas"]["Feed"][];
+        };
+        /** @description Фид каталога. */
+        Feed: {
+            type: components["schemas"]["FeedType"];
+            /**
+             * Format: uri
+             * @description Постоянная ссылка на фид.
+             * @example https://yastore-prod-persist.s3.yandex.net/feeds/icml/019b21d9-c5d9-777d-80bd-d67c664bc6d9.xml
+             */
+            url: string;
+        };
+        /**
+         * @description Тип фида:
+         *     - `ICML` — для RetailCRM;
+         *     - `YML` — для Яндекс Директа;
+         *     - `YML_GOODS` — для Яндекс Товаров.
+         * @example ICML
+         * @enum {string}
+         */
+        FeedType: "ICML" | "YML" | "YML_GOODS";
         /** @description Список идентификаторов заказов. */
         OrderIDCollection: {
             /** @description Список идентификаторов заказов. */
@@ -4048,6 +4222,77 @@ export interface components {
          * @example 019b56d1-5ef0-7ed2-a155-7110d25ca5ce
          */
         OrderID: string;
+        /** @description Ссылка на оплату заказа. */
+        OrderPaymentLink: {
+            /**
+             * Format: uri
+             * @description Подписанная ссылка на страницу оплаты заказа.
+             * @example https://checkout.kit.yandex.ru/orders/my-store/019b56d1-5ef0-7ed2-a155-7110d25ca5ce?signature=c2lnbmF0dXJl&from=api
+             */
+            payment_url: string;
+        };
+        /** @description Ссылка на часть заказа. */
+        OrderDeliveryChunkRef: {
+            order_id: components["schemas"]["OrderID"];
+            /**
+             * Format: int
+             * @description Идентификатор чанка заказа.
+             * @example 1
+             */
+            delivery_chunk_id: number;
+        };
+        /** @description Запрос накладных для частей заказов. */
+        GenerateOrderWaybillsRequest: {
+            /** @description Части заказов, для которых нужны накладные. Пара заказ + чанк не может повторяться. */
+            items: components["schemas"]["OrderDeliveryChunkRef"][];
+        };
+        /** @description Накладные для частей заказов. */
+        OrderWaybillCollection: {
+            /** @description Сформированные накладные. */
+            waybills: components["schemas"]["OrderWaybill"][];
+            /** @description Части заказов, для которых накладная не сформирована. */
+            skipped: components["schemas"]["SkippedOrderWaybill"][];
+        };
+        /** @description Накладная на партию отправлений одного склада, отправляемых одной службой доставки. */
+        OrderWaybill: {
+            warehouse_id: components["schemas"]["WarehouseID"];
+            delivery_service: components["schemas"]["DeliveryServiceType"];
+            /**
+             * Format: uri
+             * @description Подписанная ссылка на PDF-файл с накладной.
+             * @example https://example.com/waybills/550e8400-e29b-41d4-a716-446655440000.pdf?X-Amz-Signature=1234567890
+             */
+            url: string;
+            /**
+             * Format: date-time
+             * @description Момент, после которого ссылка перестает работать.
+             * @example 2026-08-18T12:00:00Z
+             */
+            expires_at: string;
+            /** @description Части заказов, вошедшие в накладную. */
+            delivery_chunks: components["schemas"]["OrderDeliveryChunkRef"][];
+        };
+        /** @description Часть заказа, для которой накладная не сформирована. */
+        SkippedOrderWaybill: {
+            order_id: components["schemas"]["OrderID"];
+            /**
+             * Format: int
+             * @description Идентификатор чанка заказа.
+             * @example 1
+             */
+            delivery_chunk_id: number;
+            reason: components["schemas"]["SkippedOrderWaybillReason"];
+        };
+        /**
+         * @description Причина, по которой накладная не сформирована:
+         *     - `SELF_PICKUP` — самовывоз, отправления нет и накладная не нужна.
+         *     - `DELIVERY_NOT_CREATED` — доставка еще не создана в службе доставки, трек-номера нет.
+         *     - `NO_WAREHOUSE` — у части заказа не указан склад отправления.
+         *     - `SERVICE_NOT_SUPPORTED` — служба доставки не выдает накладные
+         *       (собственная доставка магазина и часть служб).
+         * @enum {string}
+         */
+        SkippedOrderWaybillReason: "SELF_PICKUP" | "DELIVERY_NOT_CREATED" | "NO_WAREHOUSE" | "SERVICE_NOT_SUPPORTED";
         /** @description Заказ. */
         Order: {
             id: components["schemas"]["OrderID"];
@@ -4150,9 +4395,10 @@ export interface components {
          *     - `DELIVERED` — доставлен.
          *     - `CANCELLED` — отменен.
          *     - `COMPLETED` — завершен.
+         *     - `FROZEN` — заморожен: обработка заказа остановлена, требуется вмешательство продавца.
          * @enum {string}
          */
-        OrderStatus: "NEW" | "PENDING_PAYMENT" | "ORDER_PLACED" | "WAIT_FOR_CONFIRMATION" | "CREATING_INITIAL_RECEIPT" | "SETUP_DELIVERY" | "WAIT_FOR_DELIVERY" | "CANCELLATION_IN_PROGRESS" | "DELIVERY_CANCELLED" | "FULL_REFUND" | "PARTIAL_REFUND" | "CREATING_FINAL_RECEIPTS" | "DELIVERED" | "CANCELLED" | "COMPLETED";
+        OrderStatus: "NEW" | "PENDING_PAYMENT" | "ORDER_PLACED" | "WAIT_FOR_CONFIRMATION" | "CREATING_INITIAL_RECEIPT" | "SETUP_DELIVERY" | "WAIT_FOR_DELIVERY" | "CANCELLATION_IN_PROGRESS" | "DELIVERY_CANCELLED" | "FULL_REFUND" | "PARTIAL_REFUND" | "CREATING_FINAL_RECEIPTS" | "DELIVERED" | "CANCELLED" | "COMPLETED" | "FROZEN";
         OrderClientInfo: {
             /**
              * @description Фамилия клиента.
@@ -4331,6 +4577,8 @@ export interface components {
             self_pick_up_locality?: string;
             self_pick_up_address?: string;
             floor?: string;
+            apartment?: string;
+            /** @deprecated */
             appartment?: string;
             entrance?: string;
             intercom?: string;
@@ -4367,8 +4615,19 @@ export interface components {
         PaymentStatus: "PAYMENT_PENDING_OR_UNPAID" | "PAYMENT_PAID" | "PAYMENT_REFUNDED" | "PAYMENT_FINALLY_PAID";
         /** @enum {string} */
         DeliveryMethod: "COURIER" | "POSTAL_SERVICE" | "PICKUP_POINT" | "SELF_PICK_UP";
-        /** @enum {string} */
-        DeliveryServiceType: "YANDEX_DELIVERY" | "CDEK" | "META_SHIP_DALLI" | "META_SHIP_RUSSIAN_POST" | "OZON" | "MERCHANT_SHIP";
+        /**
+         * @description Служба доставки:
+         *     - `YANDEX_DELIVERY` — Яндекс Доставка.
+         *     - `CDEK` — СДЭК.
+         *     - `META_SHIP_DALLI` — Dalli через MetaShip.
+         *     - `META_SHIP_RUSSIAN_POST` — Почта России через MetaShip.
+         *     - `META_SHIP_PECOM` — ПЭК через MetaShip.
+         *     - `OZON` — Ozon Доставка.
+         *     - `MERCHANT_SHIP` — собственная служба доставки магазина.
+         *     - `YANDEX_MARKET_FBO` — Фулфилмент Яндекс Маркета.
+         * @enum {string}
+         */
+        DeliveryServiceType: "YANDEX_DELIVERY" | "CDEK" | "META_SHIP_DALLI" | "META_SHIP_RUSSIAN_POST" | "META_SHIP_PECOM" | "OZON" | "MERCHANT_SHIP" | "YANDEX_MARKET_FBO";
         /**
          * @description Тип платежной системы.
          * @enum {string}
@@ -4406,7 +4665,7 @@ export interface components {
              * Format: email
              * @description Email клиента.
              */
-            email: string;
+            email?: string;
             /**
              * Format: date-time
              * @description Дата регистрации клиента.
@@ -6991,6 +7250,8 @@ export interface operations {
                 per_page?: number;
                 /** @description Фильтр по статусу характеристики. */
                 status: components["schemas"]["CharacteristicStatus"][];
+                /** @description Фильтр по идентификатору группы характеристик. */
+                group_id?: components["schemas"]["CharacteristicGroupID"];
                 /** @description Текст для поиска по названию характеристики. */
                 search_text?: string;
             };
@@ -7071,6 +7332,15 @@ export interface operations {
             };
             /** @description Не авторизован. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7714,6 +7984,58 @@ export interface operations {
             };
             /** @description Ресурс не найден. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetFiles: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список файлов. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FileCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9817,6 +10139,44 @@ export interface operations {
             };
         };
     };
+    GetStoreFeeds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Список фидов каталога. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedCollection"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     GetCustomers: {
         parameters: {
             query?: {
@@ -10060,7 +10420,7 @@ export interface operations {
     GetOrders: {
         parameters: {
             query?: {
-                /** @description Номер страницы */
+                /** @description Номер страницы. */
                 page?: number;
                 /** @description Количество элементов на странице. */
                 per_page?: number;
@@ -10091,6 +10451,66 @@ export interface operations {
             };
             /** @description Не авторизован. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GenerateOrderWaybills: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateOrderWaybillsRequest"];
+            };
+        };
+        responses: {
+            /** @description Накладные сформированы. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderWaybillCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10414,6 +10834,71 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetOrderPaymentLink: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Метка источника перехода: попадает в параметр `from` итоговой ссылки,
+                 *     чтобы магазин мог отличать в аналитике переходы из разных интеграций.
+                 *     Если не передан, используется `api`.
+                 */
+                source?: string;
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ссылка на оплату заказа. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPaymentLink"];
+                };
             };
             /** @description Некорректный запрос. */
             400: {

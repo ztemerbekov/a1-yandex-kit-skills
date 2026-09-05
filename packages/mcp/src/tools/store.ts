@@ -38,6 +38,27 @@ export function registerStoreTools(server: McpServer, client: KitClient): void {
     },
   );
 
+  server.registerTool(
+    "get_store_feeds",
+    {
+      title: "Get store feeds",
+      description:
+        "Get permanent links to the store's catalog feeds: ICML (RetailCRM), YML " +
+        "(Yandex Direct) and YML_GOODS (Yandex Tovary). A feed URL never changes when " +
+        "the feed content updates — fetch it once and download the feed by that URL on " +
+        "a schedule. Operation: GetStoreFeeds.",
+      annotations: READ_ONLY,
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        return ok(await client.call("GetStoreFeeds"));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
   // GetRegions has no query params in the registry and is not paginated,
   // so the tool takes no input.
   server.registerTool(

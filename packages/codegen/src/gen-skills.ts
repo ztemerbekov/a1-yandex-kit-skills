@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 84) {
-  throw new Error(`Expected 84 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 88) {
+  throw new Error(`Expected 88 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -136,8 +136,8 @@ const DOMAIN_TRAILER =
   "For authentication (`Authorization: Bearer <token>`), the base URL " +
   "(`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the " +
   "`{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its " +
-  "Boundaries section also maps what the public API cannot do at all (refunds, label " +
-  "printing, feeds, payments) and where in the cabinet to send the owner instead.";
+  "Boundaries section also maps what the public API cannot do at all (refunds, reviews, " +
+  "feed import, acquiring setup) and where in the cabinet to send the owner instead.";
 
 const ROUTER_OVERVIEW = `Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
@@ -206,11 +206,11 @@ one, or offer to drive the browser UI instead.
 | --- | --- | --- |
 | Refunds, partial refunds | No endpoints. \`CancelOrder\` is **not** a refund: a different operation with different consequences for the buyer's money. | Cabinet → Orders → the order's page |
 | Editing order contents, merging orders, bulk order actions | Only the documented status transitions exist. | Cabinet → Orders |
-| Printing labels, waybills, barcodes | Nothing. | Cabinet → Orders → select orders → print |
+| Printing labels, waybills, barcodes | Waybills (акты приёма-передачи) exist: \`POST /v1/orders/waybills\` returns signed, expiring PDF links, one per warehouse + delivery service group. Labels and barcodes — nothing. | Cabinet → Orders → select orders → print |
 | Product reviews and ratings | Nothing. | Cabinet → Reviews |
 | Product bundles (kits) | Nothing; the closest available mechanics are a discount or a gift — offer those and let the owner choose. | Cabinet → Catalog |
-| Payments and acquiring, Metrica/Webmaster, external integrations | No endpoints at all. Webhooks (\`/v1/webhooks\`) are outgoing notifications, **not** an integration mechanism. | Cabinet → Settings → Integrations |
-| Feed import/export (YML) | Nothing. Listing \`/v1/variants\` is not the store feed: different data, format and address — say so explicitly. | Cabinet → Catalog → Import/export |
+| Payments and acquiring, Metrica/Webmaster, external integrations | Almost none: the single payment-side endpoint is \`GET /v1/orders/{id}/payment-link\`. Acquiring setup — nothing; webhooks (\`/v1/webhooks\`) are outgoing notifications, **not** an integration mechanism. | Cabinet → Settings → Integrations |
+| Feed import/export (YML) | Feed links exist: \`GET /v1/store/feeds\` returns permanent ICML/YML/YML_GOODS URLs. Import — nothing, and listing \`/v1/variants\` is not the feed either — say so explicitly. | Cabinet → Catalog → Import/export |
 | Issuing or revoking API tokens | Cabinet only. | Cabinet → Settings → API |
 | Domain, mailboxes, SEO, meta tags | Only redirects (\`/v1/redirects\`) exist from this area. | Cabinet → Settings → Domain; Site → SEO |
 | Delivery tariffs, parcels, pickup points | Only warehouses (\`/v1/warehouses\`) exist; the boundary runs exactly there. | Cabinet → Settings → Delivery |
@@ -356,7 +356,12 @@ delivery automation is off), write «Честный знак» marking codes ont
 (\`POST /v1/orders/{id}/marking-codes\` — one code per item, null removes a code), and read
 the attached additional services (addons), customer records and gift cards. A customer record also carries the marketing-consent pair
 \`agreement_for_promo\` + \`agreement_at\` — read it before adding anyone to a mailing list
-and mirror it into your CRM. All datetimes are UTC, and list endpoints paginate with
+and mirror it into your CRM. Waybills (акты приёма-передачи) for delivery chunks come
+from \`GenerateOrderWaybills\` — one signed, expiring PDF per warehouse + delivery
+service group, regenerated on every call, with unprintable chunks listed in
+\`skipped\` with a reason. \`GetOrderPaymentLink\` returns the order's permanent
+signed payment-page URL: same value every time, works in any status, never
+expires and cannot be revoked — hand it out deliberately. All datetimes are UTC, and list endpoints paginate with
 \`page\`/\`per_page\` (max 100).
 
 ${DOMAIN_TRAILER}`,
@@ -434,7 +439,11 @@ alerts contract live there.`,
     domainDetails: `This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; \`UpdateWarehouse\`
 uses JSON Merge Patch), upload files (\`POST /v1/files\` — with \`POST /v1/videos\` in the
-catalog domain, one of the API's two \`multipart/form-data\` endpoints), and maintain SEO
+catalog domain, one of the API's two \`multipart/form-data\` endpoints), list
+uploaded files with their URLs (\`GetFiles\` — images and other files only, videos
+live in the catalog domain), read the permanent catalog-feed links
+(\`GetStoreFeeds\`: ICML for RetailCRM, YML for Yandex Direct, YML_GOODS for
+Yandex Tovary), and maintain SEO
 redirects and blog/news posts.
 
 Alerts are the store's system-problem feed: \`GET /v1/alerts\` **requires** a status filter

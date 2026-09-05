@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KITᵝ API",
   "specVersion": "1.0.0",
-  "opsCount": 162,
+  "opsCount": 166,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -187,6 +187,16 @@
           "maximum": null,
           "default": null,
           "descriptionRu": "Фильтр по статусу характеристики."
+        },
+        {
+          "name": "group_id",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Фильтр по идентификатору группы характеристик."
         },
         {
           "name": "search_text",
@@ -450,6 +460,42 @@
       "responseSchemaRef": "#/components/schemas/CharacteristicColor",
       "paginated": false,
       "itemsProp": null
+    },
+    "GetFiles": {
+      "id": "GetFiles",
+      "method": "get",
+      "path": "/v1/files",
+      "tag": "Файлы",
+      "summaryRu": "Получение списка файлов",
+      "descriptionRu": "Возвращает список загруженных файлов магазина.\n\nВозвращаются только изображения (`IMAGE`) и прочие файлы (`OTHER`).\nВидео хранятся отдельно — используйте `GET /v1/videos`.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/FileCollection",
+      "paginated": true,
+      "itemsProp": "files"
     },
     "UploadFile": {
       "id": "UploadFile",
@@ -1233,6 +1279,21 @@
       "paginated": false,
       "itemsProp": null
     },
+    "GetStoreFeeds": {
+      "id": "GetStoreFeeds",
+      "method": "get",
+      "path": "/v1/store/feeds",
+      "tag": "Магазин",
+      "summaryRu": "Получение ссылок на фиды каталога",
+      "descriptionRu": "Возвращает ссылки на фиды каталога магазина — регулярные выгрузки товаров.\n\nСсылка на фид постоянная — она не меняется при обновлении содержимого фида.\nДостаточно получить ее один раз и периодически скачивать по ней сам фид.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/FeedCollection",
+      "paginated": false,
+      "itemsProp": "feeds"
+    },
     "GetCustomers": {
       "id": "GetCustomers",
       "method": "get",
@@ -1319,7 +1380,7 @@
       "path": "/v1/customers/{customer_id}/orders",
       "tag": "Заказы",
       "summaryRu": "Получение списка заказов по ID клиента",
-      "descriptionRu": "Возвращает список заказов клиента по его уникальному идентификатору.",
+      "descriptionRu": "Возвращает список заказов клиента по его уникальному идентификатору.\n\nСостав списка определяется так же, как в `GET /v1/orders`.",
       "pathParams": [
         "customer_id"
       ],
@@ -1357,7 +1418,7 @@
       "path": "/v1/orders",
       "tag": "Заказы",
       "summaryRu": "Получение списка заказов",
-      "descriptionRu": "Возвращает список заказов магазина с пагинацией и поиском.",
+      "descriptionRu": "Возвращает список заказов магазина с пагинацией, отсортированный по дате создания по убыванию.\n\nСостав списка совпадает со списком заказов в кабинете продавца: отдаются оформленные заказы\nв любом статусе, включая `FROZEN` и `CANCELLED`. Не отдаются незавершенные оформления —\nкорзины, по которым покупатель не дошел до оплаты, — и заказы подарочных карт.",
       "pathParams": [],
       "queryParams": [
         {
@@ -1368,7 +1429,7 @@
           "minimum": 1,
           "maximum": null,
           "default": 1,
-          "descriptionRu": "Номер страницы"
+          "descriptionRu": "Номер страницы."
         },
         {
           "name": "per_page",
@@ -1386,6 +1447,21 @@
       "responseSchemaRef": "#/components/schemas/OrderCollection",
       "paginated": true,
       "itemsProp": "orders"
+    },
+    "GenerateOrderWaybills": {
+      "id": "GenerateOrderWaybills",
+      "method": "post",
+      "path": "/v1/orders/waybills",
+      "tag": "Заказы",
+      "summaryRu": "Получение накладных для частей заказов",
+      "descriptionRu": "Система формирует накладные (акты приема‑передачи отправлений) для указанных частей заказов и возвращает ссылки на PDF‑файлы с документами.\n\nПравила и ограничения:\n\n- Накладная оформляется на партию — части заказов автоматически группируются по складу и службе доставки, для каждой такой группы создается отдельный документ.\n\n- При каждом запросе система запрашивает накладную у службы доставки — повторный запрос не использует ранее сгенерированный документ, а формирует новый.\n\n- Части заказов, для которых невозможно получить накладную (например, при самовывозе, если доставка еще не создана в службе или служба не предоставляет накладные), не включаются в массив `waybills`.\n  Такие части заказов отображаются в массиве `skipped` — с указанием причины, по которой накладная не была сформирована.\n\n- Ссылки на PDF‑файлы подписаны и имеют ограниченный срок действия. Дата истечения срока указана в поле `expires_at`.\n  Хранить ссылку не требуется — для получения актуальной ссылки выполните повторный запрос.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/GenerateOrderWaybillsRequest",
+      "responseSchemaRef": "#/components/schemas/OrderWaybillCollection",
+      "paginated": false,
+      "itemsProp": null
     },
     "GetOrderById": {
       "id": "GetOrderById",
@@ -1486,6 +1562,34 @@
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/SetOrderMarkingCodesRequest",
       "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetOrderPaymentLink": {
+      "id": "GetOrderPaymentLink",
+      "method": "get",
+      "path": "/v1/orders/{id}/payment-link",
+      "tag": "Заказы",
+      "summaryRu": "Получение ссылки на оплату заказа",
+      "descriptionRu": "Возвращает подписанную ссылку на страницу оплаты заказа.\n\nОтправьте ссылку покупателю — он сможет оплатить заказ без входа в аккаунт. Доступ к заказу обеспечивает подпись в параметре `signature`.\n\nСсылка постоянна — для одного заказа метод всегда выдает одинаковое значение. Ссылка доступна для заказа в любом статусе — в том числе для оплаченного или отмененного.\n\n{% note info %}\n\nУ ссылки нет срока действия, отозвать ее отдельно нельзя. Отзыв API‑токена не аннулирует ранее выданные ссылки.\n\n{% endnote %}",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "source",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Метка источника перехода: попадает в параметр `from` итоговой ссылки,\nчтобы магазин мог отличать в аналитике переходы из разных интеграций.\nЕсли не передан, используется `api`."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/OrderPaymentLink",
       "paginated": false,
       "itemsProp": null
     },

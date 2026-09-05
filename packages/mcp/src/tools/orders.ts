@@ -234,4 +234,99 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
       }
     },
   );
+
+  server.registerTool(
+    "get_order_payment_link",
+    {
+      title: "Get order payment link",
+      description:
+        "Get the signed payment-page link for an order, to be sent to the buyer — they can " +
+        "pay without logging in. The link is permanent (the same value for the order every " +
+        "time), works in any order status, never expires and cannot be revoked (revoking the " +
+        "API token does not invalidate it) — hand it out deliberately. " +
+        "Operation: GetOrderPaymentLink.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        id: z.string().describe("Order ID (UUID)."),
+        source: z
+          .string()
+          .optional()
+          .describe(
+            "Traffic-source label: lands in the final link's `from` parameter so the store " +
+              "can tell integrations apart in analytics. Defaults to `api`.",
+          ),
+      },
+    },
+    async ({ id, source }) => {
+      try {
+        return ok(
+          await client.call("GetOrderPaymentLink", { pathParams: { id }, query: { source } }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "generate_order_waybills",
+    {
+      title: "Generate order waybills",
+      description:
+        "Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and " +
+        "return links to PDF documents. Chunks are grouped by warehouse + delivery service — " +
+        "one document per group. Every call asks the delivery service for a fresh document " +
+        "(nothing is cached), and the PDF links are signed and expire at `expires_at` — do not " +
+        "store them, re-request instead. Chunks a waybill cannot be produced for (self-pickup, " +
+        "delivery not created yet, no warehouse, unsupported service) come back in `skipped` " +
+        "with a reason. Chunk IDs come from get_order under delivery_chunks[].id.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              order_id: z.string().describe("Order ID (UUID)."),
+              delivery_chunk_id: z
+                .number()
+                .int()
+                .describe("Delivery chunk ID from get_order delivery_chunks[].id."),
+            }),
+          )
+          .min(1)
+          .max(100)
+          .describe(
+            "Order delivery chunks to produce waybills for, 1-100 entries; an order+chunk " +
+              "pair must not repeat.",
+          ),
+      },
+    },
+    async ({ items }) => {
+      const seen = new Set<string>();
+      const duplicateSet = new Set<string>();
+      for (const item of items) {
+        const key = `${item.order_id}#${item.delivery_chunk_id}`;
+        if (seen.has(key)) duplicateSet.add(key);
+        seen.add(key);
+      }
+      const duplicates = [...duplicateSet];
+      if (duplicates.length > 0) {
+        // The API rejects the entire request for a repeated pair; catch it here
+        // so the payload is not sent just to be refused.
+        return fail(
+          new KitValidationError(
+            `Each order+chunk pair may appear only once per request; repeated: ${duplicates.join(", ")}.`,
+            [],
+            "DUPLICATE_ORDER_CHUNK",
+          ),
+        );
+      }
+      const body = { items };
+      const check = validateRequestBody("GenerateOrderWaybills", body);
+      if (!check.valid) return validationFailure(check.errors);
+      try {
+        return ok(await client.call("GenerateOrderWaybills", { body }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
 }

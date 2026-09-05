@@ -143,7 +143,8 @@ export const REDACTED = "[redacted]";
  * - `OrderAddressInfo` (delivery address parts): courier_locality,
  *   courier_address, pickup_point_locality, pickup_point_address,
  *   self_pick_up_locality, self_pick_up_address, floor, appartment
- *   (spec's own spelling), entrance, intercom
+ *   (the spec's original spelling; the 2026-09 spec update added the
+ *   correctly spelled `apartment` alongside it), entrance, intercom
  * - `GiftCard`: buyer_name, buyer_email, buyer_phone, holder_email
  *
  * Identifiers, amounts, statuses and dates are deliberately NOT listed:
@@ -168,6 +169,7 @@ export const PII_FIELDS: ReadonlySet<string> = new Set([
   "self_pick_up_address",
   "floor",
   "appartment",
+  "apartment",
   "entrance",
   "intercom",
   // gift card buyer / holder
