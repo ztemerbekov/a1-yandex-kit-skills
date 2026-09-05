@@ -116,6 +116,35 @@ same scripts and data, plus the endpoint tables of its tags:
   blog/news, alerts.
 - `a1-yandex-kit-webhooks` — webhooks: order events, HTTPS callbacks, signing secret.
 
+## Boundaries: not in the public API
+
+Merchants see these features in the cabinet and will ask for them, but the
+public API (162 operations) has no endpoints for them. The only correct answer
+is to say that the operation does not exist in the public API and route the
+owner to the cabinet — never invent an operation, substitute a similar-looking
+one, or offer to drive the browser UI instead.
+
+| Asked for | Public API reality | Send the owner to |
+| --- | --- | --- |
+| Refunds, partial refunds | No endpoints. `CancelOrder` is **not** a refund: a different operation with different consequences for the buyer's money. | Cabinet → Orders → the order's page |
+| Editing order contents, merging orders, bulk order actions | Only the documented status transitions exist. | Cabinet → Orders |
+| Printing labels, waybills, barcodes | Nothing. | Cabinet → Orders → select orders → print |
+| Product reviews and ratings | Nothing. | Cabinet → Reviews |
+| Product bundles (kits) | Nothing; the closest available mechanics are a discount or a gift — offer those and let the owner choose. | Cabinet → Catalog |
+| Payments and acquiring, Metrica/Webmaster, external integrations | No endpoints at all. Webhooks (`/v1/webhooks`) are outgoing notifications, **not** an integration mechanism. | Cabinet → Settings → Integrations |
+| Feed import/export (YML) | Nothing. Listing `/v1/variants` is not the store feed: different data, format and address — say so explicitly. | Cabinet → Catalog → Import/export |
+| Issuing or revoking API tokens | Cabinet only. | Cabinet → Settings → API |
+| Domain, mailboxes, SEO, meta tags | Only redirects (`/v1/redirects`) exist from this area. | Cabinet → Settings → Domain; Site → SEO |
+| Delivery tariffs, parcels, pickup points | Only warehouses (`/v1/warehouses`) exist; the boundary runs exactly there. | Cabinet → Settings → Delivery |
+| Employees, roles, company, business account | Only `GET /v1/users/current` and `GET /v1/store`. | Cabinet → Settings → Employees / Company |
+| Messages and Telegram notifications | Only alerts (`/v1/alerts`) exist. | Cabinet → Settings → Notifications |
+| Dashboards, revenue, conversion, summary analytics | No endpoints. | Cabinet → Home |
+| Storefront constructor: pages, sections, menus, banners | Nothing in the public API. | Cabinet → Site → Constructor |
+
+Cabinet section names drift between releases — treat the routes as orientation,
+not exact paths. A refusal without a route is useless: the owner needs to
+finish the task, not to learn about API internals.
+
 ## Related MCP tools
 
 The bundled `mcp-yandex-kit` MCP server exposes **84 tools**. Curated tools

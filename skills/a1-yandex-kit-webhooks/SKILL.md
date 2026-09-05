@@ -53,7 +53,7 @@ Key facts:
 - `ValidateWebhook` asks the API to POST a `WEBHOOK_VALIDATE` event to your URL — use it
   to test reachability after deploying the receiver.
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, label printing, feeds, payments) and where in the cabinet to send the owner instead.
 
 ## Workflow
 
