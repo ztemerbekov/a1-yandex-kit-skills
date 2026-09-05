@@ -10,7 +10,7 @@ Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
 npm ci
 npm run typecheck   # builds core first, then checks every workspace
 npm run build       # core + mcp -> dist/
-npm test            # unit tests, no network (currently 465: core 38 + codegen 7 + mcp 366 + setup 54)
+npm test            # unit tests, no network
 npm run gen         # regenerate registry/types/TOOLS.md/skills (deterministic)
 npm run validate:agent-plugin # validate root Agent Plugins manifest, MCP config and skills
 npm run spec:fetch  # refresh specs/ from Yandex + diff report
