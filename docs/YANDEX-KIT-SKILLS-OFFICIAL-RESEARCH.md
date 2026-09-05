@@ -400,18 +400,20 @@ skills будут доступны со следующего запроса».
 
 ### 4.3 Сверка с исходниками
 
-Всё показанное подтверждается кодом `kitlib/tokenweb.py`.
+Всё показанное подтверждается исходниками: страница и сервер — код
+`kitlib/tokenweb.py`, префикс и маска токена — `kitlib/common.py`, путь и
+права токен-файла — `kit.py`.
 
 | Что видно | Чем подтверждается |
 | --- | --- |
 | «Ссылка действует 5 минут» | `DEFAULT_TIMEOUT_SECONDS = 300.0` (максимум — `MAX_TIMEOUT_SECONDS = 3600.0`) |
 | «и только один раз» | `secrets.token_urlsafe(32)` в URL, сравнение через `compare_digest`; после успешного сохранения сервер отдаёт терминальную страницу и выходит |
-| Плейсхолдер `yakit_…` | `TOKEN_PREFIX = "yakit_"`; тот же префикс используется в `TOKEN_PATTERN` для вычищения токена из любого печатаемого текста |
+| Плейсхолдер `yakit_…` | `TOKEN_PREFIX = "yakit_"`; тот же префикс используется в `TOKEN_PATTERN` для вычищения токена из любого печатаемого текста (оба — `kitlib/common.py`) |
 | «Токен остаётся на этом компьютере» | сокет биндится только на `127.0.0.1`; адрес пира обязан быть в `{127.0.0.1, ::1, ::ffff:127.0.0.1}`, а заголовок `Host` — в `{127.0.0.1, localhost, [::1]}`. Вторая проверка — защита от DNS-rebinding |
 | Токен не попадает в лог | `log_message()` переопределён пустым телом; токен приходит в теле POST, не в URL |
 | Страница ничего не грузит извне | `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`, плюс `Referrer-Policy: no-referrer`, `Cache-Control: no-store`, `X-Content-Type-Options`, `X-Frame-Options: DENY` |
 | Ограничение перебора | `MAX_WRONG_SECRETS = 20`, после чего сервер останавливается сам; тело запроса ограничено `MAX_BODY_BYTES = 8192` |
-| Куда ложится токен | `~/.yandex-kit-skills/kit_api.token`, mode 600 — общий файл для всех скиллов Кита |
+| Куда ложится токен | `~/.yandex-kit-skills/kit_api.token`, mode 600 (запись — `kit.py`) — общий файл для всех скиллов Кита |
 
 Отдельно проверен отказ в hosted-сессии. `unreachable_reason()` возвращает
 причину и `token web` **выходит до открытия сокета**, если: заданы `SSH_CONNECTION`
