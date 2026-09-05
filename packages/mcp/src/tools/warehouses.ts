@@ -5,6 +5,9 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   emptyUpdateFailure,
   fail,
   ok,
@@ -38,24 +41,25 @@ export function registerWarehouseTools(server: McpServer, client: KitClient): vo
           .array(z.enum(["ACTIVE", "ARCHIVED"]))
           .optional()
           .describe("Filter by warehouse status (default: [ACTIVE])."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, status }) => {
+    async ({ page, per_page, all, status, format, fields }) => {
       // The status query parameter is required by the API.
       const filters = { status: status ?? ["ACTIVE"] };
       try {
         const perPage = clampPerPage(per_page);
-        if (all)
-          return ok(withCoverage({ all: await client.listAll("GetWarehouses", { query: filters }) }));
-        return ok(
-          withCoverage({
-            page: await client.call("GetWarehouses", {
-              query: { page, per_page: perPage, ...filters },
-            }),
-            operationId: "GetWarehouses",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetWarehouses", { query: filters }) })
+          : withCoverage({
+              page: await client.call("GetWarehouses", {
+                query: { page, per_page: perPage, ...filters },
+              }),
+              operationId: "GetWarehouses",
+              perPage,
+            });
+        return csvListResult("GetWarehouses", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }

@@ -5,6 +5,9 @@ import { type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   fail,
   ok,
   READ_ONLY,
@@ -52,9 +55,21 @@ export function registerGiftCardTools(server: McpServer, client: KitClient): voi
           .optional()
           .describe("Filter by purchase date: end of the range, inclusive (ISO 8601)."),
         redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, status, purchased_date_from, purchased_date_to, redact }) => {
+    async ({
+      page,
+      per_page,
+      all,
+      status,
+      purchased_date_from,
+      purchased_date_to,
+      redact,
+      format,
+      fields,
+    }) => {
       const filters = { status, purchased_date_from, purchased_date_to };
       try {
         const perPage = clampPerPage(per_page);
@@ -67,7 +82,8 @@ export function registerGiftCardTools(server: McpServer, client: KitClient): voi
               operationId: "GetGiftCards",
               perPage,
             });
-        return ok(redact ? redactPii(data) : data);
+        const out = redact ? redactPii(data) : data;
+        return csvListResult("GetGiftCards", out, format, fields) ?? ok(out);
       } catch (e) {
         return fail(e);
       }

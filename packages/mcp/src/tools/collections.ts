@@ -5,6 +5,9 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   DESTRUCTIVE,
   emptyUpdateFailure,
   fail,
@@ -47,28 +50,26 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
           .array(z.enum(["STATIC", "DYNAMIC"]))
           .optional()
           .describe("Filter by collection type."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, status, type }) => {
+    async ({ page, per_page, all, status, type, format, fields }) => {
       const filters = { status: status ?? ALL_STATUSES, type };
       try {
         const perPage = clampPerPage(per_page);
-        if (all) {
-          return ok(
-            withCoverage({
+        const data = all
+          ? withCoverage({
               all: await client.listAll("GetCollections", { query: filters }, { maxItems: 500 }),
-            }),
-          );
-        }
-        return ok(
-          withCoverage({
-            page: await client.call("GetCollections", {
-              query: { page, per_page: perPage, ...filters },
-            }),
-            operationId: "GetCollections",
-            perPage,
-          }),
-        );
+            })
+          : withCoverage({
+              page: await client.call("GetCollections", {
+                query: { page, per_page: perPage, ...filters },
+              }),
+              operationId: "GetCollections",
+              perPage,
+            });
+        return csvListResult("GetCollections", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }

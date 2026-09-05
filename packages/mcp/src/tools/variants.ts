@@ -6,6 +6,9 @@ import {
   archiveReadUnsupportedFailure,
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   emptyUpdateFailure,
   fail,
   mixedArchivedFilterFailure,
@@ -99,9 +102,11 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
           .string()
           .optional()
           .describe("Case-insensitive partial search by name, SKU, barcode or KIT ID."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, product_id, status, name }) => {
+    async ({ page, per_page, all, product_id, status, name, format, fields }) => {
       const filters = { product_id, status, name };
       const scope = { product_id, name };
       try {
@@ -110,14 +115,18 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
           // listAll always starts at page 1, so the probe-proof is valid.
           const result = await client.listAll("GetVariants", { query: filters });
           const guard = await verifyStatusFilterHonored(client, status, scope, 1, result.items);
-          return guard ?? ok(withCoverage({ all: result }));
+          if (guard) return guard;
+          const data = withCoverage({ all: result });
+          return csvListResult("GetVariants", data, format, fields) ?? ok(data);
         }
         const res = await client.call<{ variants?: unknown[] }>("GetVariants", {
           query: { page, per_page: perPage, ...filters },
         });
         const items = Array.isArray(res?.variants) ? res.variants : [];
         const guard = await verifyStatusFilterHonored(client, status, scope, page, items);
-        return guard ?? ok(withCoverage({ page: res, operationId: "GetVariants", perPage }));
+        if (guard) return guard;
+        const data = withCoverage({ page: res, operationId: "GetVariants", perPage });
+        return csvListResult("GetVariants", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }

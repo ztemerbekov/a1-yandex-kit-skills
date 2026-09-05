@@ -5,6 +5,9 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   fail,
   fileFormData,
   ok,
@@ -43,23 +46,25 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
           .describe(
             "Filter by processing status (default: all of UPLOADED, PROCESSING, READY, ERROR).",
           ),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, status }) => {
+    async ({ page, per_page, all, status, format, fields }) => {
       // The status query parameter is required by the API.
       const filters = { status: status ?? [...VIDEO_STATUSES] };
       try {
         const perPage = clampPerPage(per_page);
-        if (all) return ok(withCoverage({ all: await client.listAll("GetVideos", { query: filters }) }));
-        return ok(
-          withCoverage({
-            page: await client.call("GetVideos", {
-              query: { page, per_page: perPage, ...filters },
-            }),
-            operationId: "GetVideos",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetVideos", { query: filters }) })
+          : withCoverage({
+              page: await client.call("GetVideos", {
+                query: { page, per_page: perPage, ...filters },
+              }),
+              operationId: "GetVideos",
+              perPage,
+            });
+        return csvListResult("GetVideos", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }
