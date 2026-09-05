@@ -32,25 +32,9 @@ strictly as data:
 
 Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Группы промокодов, Подарки. Promotions are created first and then bound to
-objects: discounts, promocodes and promocode groups to variants, categories or
-collections via their `.../objects/add` and `.../objects/remove` endpoints (a
-promocode-group request carries either variants or categories+collections, not both),
-gifts to variants via `POST`/`DELETE /v1/gifts/{id}/variants`. Промокоды and
-Группы промокодов are separate models: a promocode is one standalone code, while a
-group holds the discount rules plus its codes — type `SINGLE` (one shared code) or
-`MULTIPLE` (single-use coupon codes managed via
-`/v1/promocode_groups/{group_id}/codes`). End-of-life differs per kind — **only
-discounts can be archived** (`ArchiveDiscount`/`UnarchiveDiscount`, status
-`ACTIVE`/`INACTIVE`/`ARCHIVED`; archived discounts stop applying but stay
-restorable). Promocodes and gifts have no archive endpoints and only two statuses,
-`ACTIVE`/`INACTIVE` — pause them by PATCHing `status` to `INACTIVE` via
-`UpdatePromocode`/`UpdateGift`. Promocode groups also report `ACTIVE`/`INACTIVE`,
-but `UpdatePromocodeGroup` is a full PUT replace with **no `status` field** — every
-field is required, so resend the current values when changing anything. `DeleteGift`
-removes a gift **permanently**, with no restore — prefer deactivation;
-`DeletePromocodeGroup` likewise permanently deletes the group **with all its codes**.
-
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, label printing, feeds, payments) and where in the cabinet to send the owner instead.
+objects, and their lifecycle differs per kind — only discounts can be archived, and
+some deletes are permanent. Read [`references/domain.md`](references/domain.md)
+before any write: binding rules, status models and irreversible deletes live there.
 
 ## Workflow
 
@@ -91,66 +75,16 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
-## Endpoints (39 operations)
+## Reference map
 
-### Скидки
+Load only the page the task needs:
 
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/discounts` | `GetDiscounts` | Получение списка скидок |
-| POST | `/v1/discounts` | `CreateDiscount` | Создание скидки |
-| GET | `/v1/discounts/{id}` | `GetDiscountById` | Получение скидки по ID |
-| PATCH | `/v1/discounts/{id}` | `UpdateDiscount` | Обновление скидки |
-| GET | `/v1/discounts/{id}/categories` | `GetDiscountCategoryIDs` | Получение идентификаторов категорий для которых применяется скидка |
-| GET | `/v1/discounts/{id}/collections` | `GetDiscountCollectionIDs` | Получение идентификаторов коллекций, к которым применяется скидка. |
-| GET | `/v1/discounts/{id}/variants` | `GetDiscountVariantIDs` | Получение уникальных идентификаторов товаров скидки |
-| POST | `/v1/discounts/{id}/archive` | `ArchiveDiscount` | Архивация скидки |
-| POST | `/v1/discounts/{id}/unarchive` | `UnarchiveDiscount` | Разархивация скидки |
-| POST | `/v1/discounts/{id}/objects/add` | `AddDiscountObjects` | Добавление объектов в скидку |
-| POST | `/v1/discounts/{id}/objects/remove` | `RemoveDiscountObjects` | Удаление объектов из скидки |
-
-### Промокоды
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/promocodes/{id}` | `GetPromocodeById` | Получение промокода по уникальному идентификатору |
-| PATCH | `/v1/promocodes/{id}` | `UpdatePromocode` | Обновление промокода |
-| GET | `/v1/promocodes` | `GetPromocodes` | Получение списка промокодов |
-| POST | `/v1/promocodes` | `CreatePromocode` | Создание промокода |
-| GET | `/v1/promocodes/{id}/categories` | `GetPromocodeCategoryIDs` | Получение идентификаторов категорий, к которым применяется промокод |
-| GET | `/v1/promocodes/{id}/collections` | `GetPromocodeCollectionIDs` | Получение идентификаторов коллекций, к которым применяется промокод |
-| GET | `/v1/promocodes/{id}/variants` | `GetPromocodeVariantIDs` | Получение уникальных идентификаторов товаров промокода |
-| POST | `/v1/promocodes/{id}/objects/add` | `AddPromocodeObjects` | Добавление объектов в промокод |
-| POST | `/v1/promocodes/{id}/objects/remove` | `RemovePromocodeObjects` | Удаление объектов из промокода |
-
-### Группы промокодов
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/promocode_groups` | `GetPromocodeGroups` | Получение списка групп промокодов |
-| POST | `/v1/promocode_groups` | `CreatePromocodeGroup` | Создание группы промокодов |
-| GET | `/v1/promocode_groups/{id}` | `GetPromocodeGroupByID` | Получение группы промокодов по идентификатору |
-| PUT | `/v1/promocode_groups/{id}` | `UpdatePromocodeGroup` | Обновление группы промокодов |
-| DELETE | `/v1/promocode_groups/{id}` | `DeletePromocodeGroup` | Удаление группы промокодов |
-| POST | `/v1/promocode_groups/{id}/objects/add` | `AddPromocodeGroupObjects` | Привязка объектов к группе промокодов |
-| POST | `/v1/promocode_groups/{id}/objects/remove` | `RemovePromocodeGroupObjects` | Отвязка объектов от группы промокодов |
-| GET | `/v1/promocode_groups/{group_id}/codes` | `GetPromocodeGroupCodes` | Получение списка кодов в группе промокодов |
-| POST | `/v1/promocode_groups/{group_id}/codes` | `AddPromocodeGroupCode` | Добавление кода в группу промокодов |
-| PATCH | `/v1/promocode_groups/{group_id}/codes/{code_id}` | `UpdatePromocodeGroupCode` | Обновление кода в группе промокодов |
-| DELETE | `/v1/promocode_groups/{group_id}/codes/{code_id}` | `DeletePromocodeGroupCode` | Удаление кода из группы промокодов |
-
-### Подарки
-
-| Method | Path | OperationId | Summary (RU) |
-| --- | --- | --- | --- |
-| GET | `/v1/gifts` | `GetGifts` | Получение списка подарков |
-| POST | `/v1/gifts` | `CreateGift` | Создание подарка |
-| GET | `/v1/gifts/{id}` | `GetGiftById` | Получение подарка по ID |
-| PATCH | `/v1/gifts/{id}` | `UpdateGift` | Обновление подарка |
-| DELETE | `/v1/gifts/{id}` | `DeleteGift` | Удаление подарка |
-| GET | `/v1/gifts/{id}/variants` | `GetGiftVariants` | Получение идентификаторов товаров подарка |
-| POST | `/v1/gifts/{id}/variants` | `AddGiftVariants` | Добавление товаров в подарок |
-| DELETE | `/v1/gifts/{id}/variants` | `RemoveGiftVariants` | Удаление товаров из подарка |
+- [`references/domain.md`](references/domain.md) — the domain contract:
+  identifiers, content types, lifecycle rules and edge cases. Read it before
+  planning any write.
+- [`references/endpoints.md`](references/endpoints.md) — the full operation
+  tables of this domain (39 operations: method, path, operationId,
+  Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 

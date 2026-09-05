@@ -107,8 +107,18 @@ interface SkillDef {
   name: string;
   /** Frontmatter routing signal: what it does + "Use when ..." hint. */
   description: string;
-  /** Markdown body between the H1 and the Workflow section. */
+  /**
+   * Markdown body between the H1 and the Workflow section. For the router it
+   * is the full guide; for domain skills it is a short summary — the density
+   * lives in domainDetails.
+   */
   overview: string;
+  /**
+   * Domain contract emitted to references/domain.md (progressive disclosure:
+   * SKILL.md keeps the rules and the map, details load on demand). Domain
+   * skills only.
+   */
+  domainDetails?: string;
   /** Registry tags whose endpoint tables the skill gets (null: router skill, no tables). */
   tags: string[] | null;
   /** docs/TOOLS.md sections listed under "Related MCP tools". */
@@ -214,9 +224,12 @@ not exact paths. A refusal without a route is useless: the owner needs to
 finish the task, not to learn about API internals.`;
 
 const WEBHOOKS_OVERVIEW = `Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
-order lifecycle notifications and managing those subscriptions.
+order lifecycle notifications and managing those subscriptions. Read
+[\`references/domain.md\`](references/domain.md) before creating or migrating webhooks:
+the one-time signing secret, the three event types and the \`ORDER_STATUS_CHANGED\`
+narrowing live there.`;
 
-Key facts:
+const WEBHOOKS_DETAILS = `Key facts:
 
 - Callback URLs must be **HTTPS** — plain \`http://\` URLs are rejected.
 - Exactly **three event types** exist: \`ORDER_STATUS_CHANGED\`,
@@ -273,7 +286,10 @@ const SKILLS: SkillDef[] = [
 Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
 and per-warehouse stocks, and a product (\`/v1/products\`) groups variants, so most
-«товар» operations act on variants. A variant carries two **distinct** identifiers:
+«товар» operations act on variants. Read
+[\`references/domain.md\`](references/domain.md) before planning any write:
+identifiers, content types, media replacement and bulk atomicity live there.`,
+    domainDetails: `A variant carries two **distinct** identifiers:
 \`product_id\` and \`product_card_id\` (карточка товара) — the card-scoped endpoints
 (\`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
 «Добавление/Удаление карточек») take \`product_card_id\`, never a product id; read it
@@ -330,6 +346,10 @@ ${DOMAIN_TRAILER}`,
       "«что с заказом», «найди клиента», «выгрузи заказы за неделю».",
     overview: `Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
+through the API you list and inspect them, confirm or cancel them, and read customers,
+gift cards and addons. Read [\`references/domain.md\`](references/domain.md) before
+acting: delivery completion, marking codes and the marketing-consent pair live there.`,
+    domainDetails: `Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, close out their delivery
 (\`POST /v1/orders/{id}/delivery/complete\` — for pickup and the store's own delivery when
 delivery automation is off), write «Честный знак» marking codes onto order items
@@ -362,6 +382,10 @@ ${DOMAIN_TRAILER}`,
       "«добавь подарок к товару», «останови акцию».",
     overview: `Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Группы промокодов, Подарки. Promotions are created first and then bound to
+objects, and their lifecycle differs per kind — only discounts can be archived, and
+some deletes are permanent. Read [\`references/domain.md\`](references/domain.md)
+before any write: binding rules, status models and irreversible deletes live there.`,
+    domainDetails: `Promotions are created first and then bound to
 objects: discounts, promocodes and promocode groups to variants, categories or
 collections via their \`.../objects/add\` and \`.../objects/remove\` endpoints (a
 promocode-group request carries either variants or categories+collections, not both),
@@ -402,7 +426,12 @@ ${DOMAIN_TRAILER}`,
       "Russian triggers include: «покажи склады», «создай склад», «загрузи файл», " +
       "«опубликуй новость», «какие алерты у магазина», «настрой редирект».",
     overview: `Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
-Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the store
+Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the
+store profile and the API user, manage warehouses, upload files, and maintain SEO
+redirects, blog posts and system alerts. Read
+[\`references/domain.md\`](references/domain.md) before acting: content types and the
+alerts contract live there.`,
+    domainDetails: `This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; \`UpdateWarehouse\`
 uses JSON Merge Patch), upload files (\`POST /v1/files\` — with \`POST /v1/videos\` in the
 catalog domain, one of the API's two \`multipart/form-data\` endpoints), and maintain SEO
@@ -435,6 +464,7 @@ ${DOMAIN_TRAILER}`,
       "Russian triggers include: «настрой вебхук», «подпишись на статусы заказов», " +
       "«почему не приходят уведомления о заказах», «проверь вебхук».",
     overview: WEBHOOKS_OVERVIEW,
+    domainDetails: WEBHOOKS_DETAILS,
     tags: ["Вебхуки"],
     toolFiles: ["webhooks"],
     toolsNote: null,
@@ -460,6 +490,11 @@ ${DOMAIN_TRAILER}`,
     );
   }
   for (const skill of SKILLS) {
+    if (skill.tags === null ? skill.domainDetails !== undefined : skill.domainDetails === undefined) {
+      throw new Error(
+        `domainDetails must be set for domain skills and absent for the router (${skill.name})`,
+      );
+    }
     if (!registry.ops[skill.exampleOp]) {
       throw new Error(`Example operation ${skill.exampleOp} of ${skill.name} not in registry`);
     }
@@ -654,6 +689,27 @@ function endpointsSection(tags: string[]): string {
   return lines.join("\n");
 }
 
+/**
+ * Progressive disclosure: the domain SKILL.md keeps the rules and the map,
+ * the density loads on demand from references/ (domain.md + endpoints.md).
+ */
+function referenceMapSection(skill: SkillDef): string {
+  const opsCount = skill.tags!.reduce(
+    (sum, tag) => sum + allOps.filter((op) => op.tag === tag).length,
+    0,
+  );
+  return `## Reference map
+
+Load only the page the task needs:
+
+- [\`references/domain.md\`](references/domain.md) — the domain contract:
+  identifiers, content types, lifecycle rules and edge cases. Read it before
+  planning any write.
+- [\`references/endpoints.md\`](references/endpoints.md) — the full operation
+  tables of this domain (${opsCount} operations: method, path, operationId,
+  Russian summary). Load it when you need an exact path or operationId.`;
+}
+
 function relatedToolsSection(skill: SkillDef): string {
   const lines: string[] = ["## Related MCP tools", ""];
   if (skill.tags === null) {
@@ -750,7 +806,7 @@ function renderSkillMd(skill: SkillDef): string {
   if (skill.tags === null) {
     parts.push("", ROUTER_DOMAIN_SKILLS, "", ROUTER_BOUNDARIES);
   } else {
-    parts.push("", endpointsSection(skill.tags));
+    parts.push("", referenceMapSection(skill));
   }
   parts.push("", relatedToolsSection(skill), "");
   return parts.join("\n");
@@ -802,6 +858,19 @@ for (const skill of SKILLS) {
   mkdirSync(dir + "data", { recursive: true });
   mkdirSync(dir + "scripts", { recursive: true });
   writeFileSync(dir + "SKILL.md", renderSkillMd(skill));
+  if (skill.domainDetails) {
+    mkdirSync(dir + "references", { recursive: true });
+    writeFileSync(
+      dir + "references/domain.md",
+      "<!-- Generated by packages/codegen/src/gen-skills.ts; do not edit. -->\n\n" +
+        `# ${SKILL_TITLES[skill.name]} — domain contract\n\n${skill.domainDetails}\n`,
+    );
+    writeFileSync(
+      dir + "references/endpoints.md",
+      "<!-- Generated by packages/codegen/src/gen-skills.ts; do not edit. -->\n\n" +
+        `# ${SKILL_TITLES[skill.name]} — endpoints\n\n${endpointsSection(skill.tags!)}\n`,
+    );
+  }
   writeFileSync(dir + "agents/openai.yaml", renderOpenAiInterface(skill));
   copyFileSync(ICON_LARGE_PATH, dir + "assets/icon-large.svg");
   copyFileSync(ICON_SMALL_PATH, dir + "assets/icon-small.svg");
