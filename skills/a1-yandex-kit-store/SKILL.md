@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-store
-description: "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, geo regions, file uploads, redirects, blog/news posts and system alerts. Use when reading store metadata, managing warehouses or redirects, uploading files, publishing news or triaging store alerts in a Yandex KIT store."
+description: "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, geo regions, file uploads, redirects, blog/news posts and system alerts. Use when reading store metadata, managing warehouses or redirects, uploading files, publishing news or triaging store alerts in a Yandex KIT store. Russian triggers include: «покажи склады», «создай склад», «загрузи файл», «опубликуй новость», «какие алерты у магазина», «настрой редирект»."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko

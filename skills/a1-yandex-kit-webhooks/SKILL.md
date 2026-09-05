@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-webhooks
-description: "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, payment and delivery events and handle the one-time signing secret. Use when creating, updating, validating or deleting KIT webhooks, verifying incoming calls, diagnosing missing order-status callbacks or migrating receipt-status automations."
+description: "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, payment and delivery events and handle the one-time signing secret. Use when creating, updating, validating or deleting KIT webhooks, verifying incoming calls, diagnosing missing order-status callbacks or migrating receipt-status automations. Russian triggers include: «настрой вебхук», «подпишись на статусы заказов», «почему не приходят уведомления о заказах», «проверь вебхук»."
 compatibility: "Requires Node.js >= 20"
 metadata:
   author: Aleksandr Kovalko
