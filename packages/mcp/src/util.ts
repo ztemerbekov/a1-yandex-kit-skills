@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
-import { getOp, KitApiError, KitValidationError } from "yandex-kit-core";
+import {
+  getOp,
+  KitApiError,
+  KitValidationError,
+  resolveOperationSchema,
+} from "yandex-kit-core";
 
 export const READ_ONLY = { readOnlyHint: true } as const;
 export const DESTRUCTIVE = { destructiveHint: true } as const;
@@ -211,6 +216,124 @@ export const COVERAGE_DESCRIPTION =
   'The response carries a machine-readable coverage envelope (coverage, received, total_count, ' +
   'pages_read); coverage:"partial" MUST be reflected in the user-facing answer and forbids ' +
   "claiming the listing is complete.";
+
+/** Shared `.describe()` text for the optional `format` parameter of list tools. */
+export const CSV_FORMAT_DESCRIPTION =
+  'Output format: "csv" renders the items as RFC 4180 CSV (a leading "# coverage:" comment ' +
+  "line, then the header row) instead of JSON — cheaper for wide exports. Default: JSON.";
+
+/** Shared `.describe()` text for the optional `fields` parameter of list tools. */
+export const CSV_FIELDS_DESCRIPTION =
+  'CSV columns; only valid together with format:"csv". Field names are validated against the ' +
+  "item schema of the operation's response — an unknown name fails with the list of allowed " +
+  "fields. Default: every top-level scalar field of the item.";
+
+const SCALAR_TYPES = new Set(["string", "number", "integer", "boolean"]);
+
+const listItemFieldsCache = new Map<string, { all: string[]; scalars: string[] }>();
+
+/**
+ * Top-level properties of a list operation's item, taken from the response
+ * schema in the generated registry/spec (the same source validateRequestBody
+ * uses for request bodies). `scalars` are the properties whose (deref'ed)
+ * type is string/number/integer/boolean — the default CSV columns.
+ */
+function listItemFields(operationId: string): { all: string[]; scalars: string[] } {
+  const cached = listItemFieldsCache.get(operationId);
+  if (cached) return cached;
+  const op = getOp(operationId);
+  const response = resolveOperationSchema(operationId).response as
+    | { properties?: Record<string, { items?: { properties?: Record<string, { type?: unknown }> } }> }
+    | undefined;
+  const props =
+    (op.itemsProp && response?.properties?.[op.itemsProp]?.items?.properties) || {};
+  const all = Object.keys(props);
+  const scalars = all.filter((name) => {
+    const type = props[name]?.type;
+    return typeof type === "string" && SCALAR_TYPES.has(type);
+  });
+  const result = { all, scalars };
+  listItemFieldsCache.set(operationId, result);
+  return result;
+}
+
+/** RFC 4180: quote a cell when it holds a quote, comma or line break; double the quotes. */
+function csvEscape(cell: string): string {
+  return /[",\r\n]/.test(cell) ? `"${cell.replaceAll('"', '""')}"` : cell;
+}
+
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "object") return csvEscape(JSON.stringify(value));
+  return csvEscape(String(value));
+}
+
+/**
+ * CSV rendering of a list response that already carries the coverage envelope
+ * (research §3 item 12: an empty column must not read as a fact about the
+ * store, so requested fields are checked against the schema first).
+ *
+ * Returns null when neither `format` nor `fields` was passed — the caller
+ * falls back to the JSON path. The coverage envelope survives as a leading
+ * `# coverage:` comment line: embedding CSV in a JSON string would double-
+ * escape every quote and newline, while a comment line keeps the CSV
+ * copy-pasteable and is trivially stripped.
+ */
+export function csvListResult(
+  operationId: string,
+  data: Record<string, unknown>,
+  format: "csv" | undefined,
+  fields: string[] | undefined,
+): ToolResult | null {
+  if (format === undefined && fields === undefined) return null;
+  if (format === undefined) {
+    return fail(
+      new KitValidationError(
+        'fields is only valid together with format:"csv".',
+        [],
+        "FIELDS_REQUIRE_CSV",
+      ),
+    );
+  }
+  const known = listItemFields(operationId);
+  if (fields !== undefined) {
+    const allowed = new Set(known.all);
+    const unknown = fields.filter((name) => !allowed.has(name));
+    if (unknown.length > 0) {
+      return fail(
+        new KitValidationError(
+          `Unknown CSV field(s) for ${operationId}: ${unknown.join(", ")}. ` +
+            `Allowed fields: ${known.all.join(", ")}.`,
+          [],
+          "UNKNOWN_CSV_FIELD",
+        ),
+      );
+    }
+  }
+  const columns = fields ?? known.scalars;
+  const itemsProp = getOp(operationId).itemsProp;
+  const rawByProp = itemsProp ? data[itemsProp] : undefined;
+  const raw = Array.isArray(rawByProp) ? rawByProp : data.items;
+  const items = Array.isArray(raw) ? raw : [];
+  const commentParts = [
+    `coverage: ${String(data.coverage)}`,
+    `received: ${String(data.received)}`,
+    ...(typeof data.total_count === "number" ? [`total_count: ${data.total_count}`] : []),
+    `pages_read: ${String(data.pages_read)}`,
+  ];
+  const lines = [
+    `# ${commentParts.join("; ")}`,
+    columns.map(csvEscape).join(","),
+    ...items.map((item) =>
+      columns
+        .map((name) =>
+          csvCell(item !== null && typeof item === "object" ? (item as Record<string, unknown>)[name] : undefined),
+        )
+        .join(","),
+    ),
+  ];
+  return { content: [{ type: "text", text: lines.join("\r\n") }] };
+}
 
 interface ListAllResult {
   items: unknown[];

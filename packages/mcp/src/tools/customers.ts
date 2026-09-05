@@ -5,6 +5,9 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   emptyUpdateFailure,
   fail,
   ok,
@@ -34,9 +37,11 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
         redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, redact }) => {
+    async ({ page, per_page, all, redact, format, fields }) => {
       try {
         const perPage = clampPerPage(per_page);
         const data = all
@@ -46,7 +51,8 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
               operationId: "GetCustomers",
               perPage,
             });
-        return ok(redact ? redactPii(data) : data);
+        const out = redact ? redactPii(data) : data;
+        return csvListResult("GetCustomers", out, format, fields) ?? ok(out);
       } catch (e) {
         return fail(e);
       }

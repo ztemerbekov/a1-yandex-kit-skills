@@ -129,6 +129,91 @@ test("list_orders single page without total_count: a short page is complete", as
   assert.equal(data.pages_read, 1);
 });
 
+test("list_orders format:csv renders RFC 4180 CSV with a coverage comment line", async () => {
+  const { mcp } = await setup({
+    orders: [
+      { id: "o1", status: "CREATED", total_price: "1200.00" },
+      { id: "o2", status: "DELIVERED", total_price: "50.00" },
+    ],
+    total_count: 2,
+  });
+  const res = await mcp.callTool({
+    name: "list_orders",
+    arguments: { format: "csv", fields: ["id", "status", "total_price"] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  const text = (res as { content: { text: string }[] }).content[0]!.text;
+  const lines = text.split("\r\n");
+  assert.equal(lines[0], "# coverage: complete; received: 2; total_count: 2; pages_read: 1");
+  assert.equal(lines[1], "id,status,total_price");
+  assert.equal(lines[2], "o1,CREATED,1200.00");
+  assert.equal(lines[3], "o2,DELIVERED,50.00");
+  assert.equal(lines.length, 4);
+});
+
+test("list_orders CSV escapes quotes, commas and line breaks per RFC 4180", async () => {
+  const { mcp } = await setup({
+    orders: [{ id: "o1", acquiring_id: 'He said "hi", twice\nand left' }],
+    total_count: 1,
+  });
+  const res = await mcp.callTool({
+    name: "list_orders",
+    arguments: { format: "csv", fields: ["id", "acquiring_id"] },
+  });
+  const text = (res as { content: { text: string }[] }).content[0]!.text;
+  const [, header, ...rest] = text.split("\r\n");
+  assert.equal(header, "id,acquiring_id");
+  // The embedded LF stays inside the quoted cell, so the row spans two physical lines.
+  assert.equal(rest.join("\r\n"), 'o1,"He said ""hi"", twice\nand left"');
+});
+
+test("list_orders CSV serializes an object column as escaped JSON and honors redact", async () => {
+  const { mcp } = await setup({
+    orders: [{ id: "o1", client: { first_name: "Иван", is_notify: true } }],
+    total_count: 1,
+  });
+  const res = await mcp.callTool({
+    name: "list_orders",
+    arguments: { format: "csv", fields: ["id", "client"], redact: true },
+  });
+  const text = (res as { content: { text: string }[] }).content[0]!.text;
+  const lines = text.split("\r\n");
+  assert.equal(lines[2], 'o1,"{""first_name"":""[redacted]"",""is_notify"":true}"');
+});
+
+test("list_orders CSV with an unknown field fails listing the allowed fields, no output", async () => {
+  const { mcp } = await setup({ orders: [{ id: "o1" }], total_count: 1 });
+  const res = await mcp.callTool({
+    name: "list_orders",
+    arguments: { format: "csv", fields: ["id", "customer_phone"] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  const payload = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(payload.code, "UNKNOWN_CSV_FIELD");
+  assert.match(payload.error, /customer_phone/);
+  assert.match(payload.error, /Allowed fields: .*order_number.*client/);
+});
+
+test("list_orders fields without format:csv fails before returning anything", async () => {
+  const { mcp } = await setup({ orders: [{ id: "o1" }], total_count: 1 });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { fields: ["id"] } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  const payload = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(payload.code, "FIELDS_REQUIRE_CSV");
+});
+
+test("list_orders CSV of an empty listing is the comment plus the header row only", async () => {
+  const { mcp } = await setup({ orders: [], total_count: 0 });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { format: "csv" } });
+  const text = (res as { content: { text: string }[] }).content[0]!.text;
+  const lines = text.split("\r\n");
+  assert.equal(lines[0], "# coverage: complete; received: 0; total_count: 0; pages_read: 1");
+  // Default columns: every top-level scalar field of Order from the response schema.
+  assert.match(lines[1]!, /^id,order_number,created_at/);
+  assert.doesNotMatch(lines[1]!, /client|delivery_chunks/);
+  assert.equal(lines.length, 2);
+});
+
 const PII_ORDER = {
   id: "o1",
   order_number: 1234567,

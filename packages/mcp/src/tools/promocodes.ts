@@ -5,6 +5,9 @@ import { SERVER_PER_PAGE_LIMITS, validateRequestBody, type KitClient } from "yan
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   emptyUpdateFailure,
   fail,
   ok,
@@ -40,24 +43,23 @@ export function registerPromocodeTools(server: McpServer, client: KitClient): vo
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ status, page, per_page, all }) => {
+    async ({ status, page, per_page, all, format, fields }) => {
       try {
         const perPage = clampPerPage(per_page, SERVER_PER_PAGE_LIMITS.GetPromocodes);
-        if (all)
-          return ok(
-            withCoverage({ all: await client.listAll("GetPromocodes", { query: { status } }) }),
-          );
-        return ok(
-          withCoverage({
-            page: await client.call("GetPromocodes", {
-              query: { page, per_page: perPage, status },
-            }),
-            operationId: "GetPromocodes",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetPromocodes", { query: { status } }) })
+          : withCoverage({
+              page: await client.call("GetPromocodes", {
+                query: { page, per_page: perPage, status },
+              }),
+              operationId: "GetPromocodes",
+              perPage,
+            });
+        return csvListResult("GetPromocodes", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }

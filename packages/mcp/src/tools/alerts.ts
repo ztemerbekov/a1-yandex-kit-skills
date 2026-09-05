@@ -2,7 +2,17 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, COVERAGE_DESCRIPTION, fail, ok, READ_ONLY, withCoverage } from "../util.js";
+import {
+  clampPerPage,
+  COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
+  fail,
+  ok,
+  READ_ONLY,
+  withCoverage,
+} from "../util.js";
 
 export function registerAlertTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -29,23 +39,25 @@ export function registerAlertTools(server: McpServer, client: KitClient): void {
           .array(z.enum(["ACTIVE", "RESOLVED"]))
           .optional()
           .describe("Filter by alert status (default: [ACTIVE])."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, status }) => {
+    async ({ page, per_page, all, status, format, fields }) => {
       // The status query parameter is required by the API.
       const filters = { status: status ?? ["ACTIVE"] };
       try {
         const perPage = clampPerPage(per_page);
-        if (all) return ok(withCoverage({ all: await client.listAll("GetAlerts", { query: filters }) }));
-        return ok(
-          withCoverage({
-            page: await client.call("GetAlerts", {
-              query: { page, per_page: perPage, ...filters },
-            }),
-            operationId: "GetAlerts",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetAlerts", { query: filters }) })
+          : withCoverage({
+              page: await client.call("GetAlerts", {
+                query: { page, per_page: perPage, ...filters },
+              }),
+              operationId: "GetAlerts",
+              perPage,
+            });
+        return csvListResult("GetAlerts", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }

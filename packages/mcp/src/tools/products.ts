@@ -5,6 +5,9 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   emptyUpdateFailure,
   fail,
   ok,
@@ -34,19 +37,21 @@ export function registerProductTools(server: McpServer, client: KitClient): void
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all }) => {
+    async ({ page, per_page, all, format, fields }) => {
       try {
         const perPage = clampPerPage(per_page);
-        if (all) return ok(withCoverage({ all: await client.listAll("GetProducts") }));
-        return ok(
-          withCoverage({
-            page: await client.call("GetProducts", { query: { page, per_page: perPage } }),
-            operationId: "GetProducts",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetProducts") })
+          : withCoverage({
+              page: await client.call("GetProducts", { query: { page, per_page: perPage } }),
+              operationId: "GetProducts",
+              perPage,
+            });
+        return csvListResult("GetProducts", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }

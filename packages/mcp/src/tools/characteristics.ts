@@ -5,6 +5,9 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 import {
   clampPerPage,
   COVERAGE_DESCRIPTION,
+  CSV_FIELDS_DESCRIPTION,
+  CSV_FORMAT_DESCRIPTION,
+  csvListResult,
   emptyUpdateFailure,
   fail,
   ok,
@@ -31,21 +34,23 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all }) => {
+    async ({ page, per_page, all, format, fields }) => {
       try {
         const perPage = clampPerPage(per_page);
-        if (all) return ok(withCoverage({ all: await client.listAll("GetCharacteristics") }));
-        return ok(
-          withCoverage({
-            page: await client.call("GetCharacteristics", {
-              query: { page, per_page: perPage },
-            }),
-            operationId: "GetCharacteristics",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetCharacteristics") })
+          : withCoverage({
+              page: await client.call("GetCharacteristics", {
+                query: { page, per_page: perPage },
+              }),
+              operationId: "GetCharacteristics",
+              perPage,
+            });
+        return csvListResult("GetCharacteristics", data, format, fields) ?? ok(data);
       } catch (error) {
         return fail(error);
       }
@@ -139,21 +144,23 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all }) => {
+    async ({ page, per_page, all, format, fields }) => {
       try {
         const perPage = clampPerPage(per_page);
-        if (all) return ok(withCoverage({ all: await client.listAll("GetCharacteristicGroups") }));
-        return ok(
-          withCoverage({
-            page: await client.call("GetCharacteristicGroups", {
-              query: { page, per_page: perPage },
-            }),
-            operationId: "GetCharacteristicGroups",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetCharacteristicGroups") })
+          : withCoverage({
+              page: await client.call("GetCharacteristicGroups", {
+                query: { page, per_page: perPage },
+              }),
+              operationId: "GetCharacteristicGroups",
+              perPage,
+            });
+        return csvListResult("GetCharacteristicGroups", data, format, fields) ?? ok(data);
       } catch (error) {
         return fail(error);
       }
@@ -254,25 +261,24 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
           .string()
           .optional()
           .describe("Partial search by color value (e.g. «крас»)."),
+        format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
+        fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, search_text }) => {
+    async ({ page, per_page, all, search_text, format, fields }) => {
       const filters = { search_text };
       try {
         const perPage = clampPerPage(per_page);
-        if (all)
-          return ok(
-            withCoverage({ all: await client.listAll("GetCharacteristicColors", { query: filters }) }),
-          );
-        return ok(
-          withCoverage({
-            page: await client.call("GetCharacteristicColors", {
-              query: { page, per_page: perPage, ...filters },
-            }),
-            operationId: "GetCharacteristicColors",
-            perPage,
-          }),
-        );
+        const data = all
+          ? withCoverage({ all: await client.listAll("GetCharacteristicColors", { query: filters }) })
+          : withCoverage({
+              page: await client.call("GetCharacteristicColors", {
+                query: { page, per_page: perPage, ...filters },
+              }),
+              operationId: "GetCharacteristicColors",
+              perPage,
+            });
+        return csvListResult("GetCharacteristicColors", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);
       }
