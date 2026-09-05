@@ -28,8 +28,9 @@ docs are in Russian; the full OpenAPI spec (162 operations) is bundled with this
   generated in the merchant cabinet: **Settings → API → Generate token** — it is shown
   **only once**, store it securely and generate a new one if lost.
 - **Rate limit**: 3 requests per second per store, no quota headers. Exceeding it returns
-  code `LIMIT_EXCEEDED` with **HTTP 400 (not 429)** — throttle client-side and detect the
-  error by its `code`, not by the status.
+  **HTTP 429 with the plain-text body `limited`** (no `Retry-After`, no JSON envelope);
+  the same condition can also surface as code `LIMIT_EXCEEDED` with HTTP 400. Throttle
+  client-side and treat both forms as the same rate-limit signal.
 - **Error contract**: every error is JSON `{"code", "message", "trace_id"}`. Codes:
   `AUTHENTICATION_ERROR` (401), `FORBIDDEN_ERROR` (403), `VALIDATION_ERROR` (400),
   `LIMIT_EXCEEDED` (400), `UNSUPPORTED_MEDIA_TYPE` (415), `NOT_FOUND` (404),
