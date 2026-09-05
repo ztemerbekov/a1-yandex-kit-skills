@@ -4,6 +4,7 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import {
   clampPerPage,
+  COVERAGE_DESCRIPTION,
   emptyUpdateFailure,
   fail,
   ok,
@@ -11,6 +12,7 @@ import {
   REDACT_PARAM_DESCRIPTION,
   redactPii,
   validationFailure,
+  withCoverage,
 } from "../util.js";
 
 export function registerCustomerTools(server: McpServer, client: KitClient): void {
@@ -18,7 +20,7 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     "list_customers",
     {
       title: "List customers",
-      description: "List customers of the store (paginated).",
+      description: "List customers of the store (paginated). " + COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -36,10 +38,13 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     },
     async ({ page, per_page, all, redact }) => {
       try {
+        const perPage = clampPerPage(per_page);
         const data = all
-          ? await client.listAll("GetCustomers")
-          : await client.call("GetCustomers", {
-              query: { page, per_page: clampPerPage(per_page) },
+          ? withCoverage({ all: await client.listAll("GetCustomers") })
+          : withCoverage({
+              page: await client.call("GetCustomers", { query: { page, per_page: perPage } }),
+              operationId: "GetCustomers",
+              perPage,
             });
         return ok(redact ? redactPii(data) : data);
       } catch (e) {
@@ -106,7 +111,8 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     "get_customer_orders",
     {
       title: "Get customer orders",
-      description: "List order IDs of a customer by their customer ID (paginated).",
+      description:
+        "List order IDs of a customer by their customer ID (paginated). " + COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Customer ID (UUID)."),
@@ -120,10 +126,15 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     },
     async ({ id, page, per_page }) => {
       try {
+        const perPage = clampPerPage(per_page);
         return ok(
-          await client.call("GetOrdersByCustomerId", {
-            pathParams: { customer_id: id },
-            query: { page, per_page: clampPerPage(per_page) },
+          withCoverage({
+            page: await client.call("GetOrdersByCustomerId", {
+              pathParams: { customer_id: id },
+              query: { page, per_page: perPage },
+            }),
+            operationId: "GetOrdersByCustomerId",
+            perPage,
           }),
         );
       } catch (e) {

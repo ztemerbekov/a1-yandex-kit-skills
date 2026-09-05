@@ -4,12 +4,14 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import {
   clampPerPage,
+  COVERAGE_DESCRIPTION,
   fail,
   fileFormData,
   ok,
   READ_ONLY,
   resolveUploadSource,
   validationFailure,
+  withCoverage,
 } from "../util.js";
 
 const VIDEO_STATUSES = ["UPLOADED", "PROCESSING", "READY", "ERROR"] as const;
@@ -21,7 +23,8 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
       title: "List videos",
       description:
         "List product videos of the store (paginated), oldest upload first. The API requires a " +
-        "status filter; defaults to all four statuses when not provided.",
+        "status filter; defaults to all four statuses when not provided. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -46,10 +49,15 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
       // The status query parameter is required by the API.
       const filters = { status: status ?? [...VIDEO_STATUSES] };
       try {
-        if (all) return ok(await client.listAll("GetVideos", { query: filters }));
+        const perPage = clampPerPage(per_page);
+        if (all) return ok(withCoverage({ all: await client.listAll("GetVideos", { query: filters }) }));
         return ok(
-          await client.call("GetVideos", {
-            query: { page, per_page: clampPerPage(per_page), ...filters },
+          withCoverage({
+            page: await client.call("GetVideos", {
+              query: { page, per_page: perPage, ...filters },
+            }),
+            operationId: "GetVideos",
+            perPage,
           }),
         );
       } catch (e) {

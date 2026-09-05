@@ -2,7 +2,16 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  clampPerPage,
+  COVERAGE_DESCRIPTION,
+  emptyUpdateFailure,
+  fail,
+  ok,
+  READ_ONLY,
+  validationFailure,
+  withCoverage,
+} from "../util.js";
 
 export function registerCategoryTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -11,7 +20,8 @@ export function registerCategoryTools(server: McpServer, client: KitClient): voi
       title: "List categories",
       description:
         "List product categories of the store (paginated). The API requires a status filter; " +
-        "defaults to ACTIVE when not provided.",
+        "defaults to ACTIVE when not provided. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -34,10 +44,16 @@ export function registerCategoryTools(server: McpServer, client: KitClient): voi
       // The status query parameter is required by the API.
       const filters = { status: status ?? ["ACTIVE"] };
       try {
-        if (all) return ok(await client.listAll("GetCategories", { query: filters }));
+        const perPage = clampPerPage(per_page);
+        if (all)
+          return ok(withCoverage({ all: await client.listAll("GetCategories", { query: filters }) }));
         return ok(
-          await client.call("GetCategories", {
-            query: { page, per_page: clampPerPage(per_page), ...filters },
+          withCoverage({
+            page: await client.call("GetCategories", {
+              query: { page, per_page: perPage, ...filters },
+            }),
+            operationId: "GetCategories",
+            perPage,
           }),
         );
       } catch (e) {

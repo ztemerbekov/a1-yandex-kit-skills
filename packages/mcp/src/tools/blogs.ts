@@ -4,11 +4,13 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import {
   clampPerPage,
+  COVERAGE_DESCRIPTION,
   emptyUpdateFailure,
   fail,
   ok,
   READ_ONLY,
   validationFailure,
+  withCoverage,
 } from "../util.js";
 
 export function registerBlogTools(server: McpServer, client: KitClient): void {
@@ -16,7 +18,7 @@ export function registerBlogTools(server: McpServer, client: KitClient): void {
     "list_blogs",
     {
       title: "List news articles",
-      description: "List store news articles (paginated).",
+      description: "List store news articles (paginated). " + COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -33,10 +35,13 @@ export function registerBlogTools(server: McpServer, client: KitClient): void {
     },
     async ({ page, per_page, all }) => {
       try {
-        if (all) return ok(await client.listAll("GetBlogs"));
+        const perPage = clampPerPage(per_page);
+        if (all) return ok(withCoverage({ all: await client.listAll("GetBlogs") }));
         return ok(
-          await client.call("GetBlogs", {
-            query: { page, per_page: clampPerPage(per_page) },
+          withCoverage({
+            page: await client.call("GetBlogs", { query: { page, per_page: perPage } }),
+            operationId: "GetBlogs",
+            perPage,
           }),
         );
       } catch (error) {

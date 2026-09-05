@@ -76,7 +76,57 @@ test("list_orders all=true fetches via listAll with per_page=100", async () => {
   assert.equal(url.searchParams.get("page"), "1");
   assert.equal(url.searchParams.get("per_page"), "100");
   const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
-  assert.deepEqual(data, { items: [{ id: "o1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "o1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
+});
+
+test("list_orders all=true reports coverage partial when the listing is truncated", async () => {
+  // A short page that contradicts total_count: listAll flags truncation.
+  const { mcp } = await setup({
+    orders: Array.from({ length: 50 }, (_, i) => ({ id: `o${i}` })),
+    total_count: 700,
+  });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { all: true } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(data.coverage, "partial");
+  assert.equal(data.received, 50);
+  assert.equal(data.total_count, 700);
+  assert.equal(data.pages_read, 1);
+});
+
+test("list_orders single page reports coverage partial when total_count exceeds received", async () => {
+  const { mcp } = await setup({ orders: [{ id: "o1" }, { id: "o2" }], total_count: 50 });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { page: 1 } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(data.coverage, "partial");
+  assert.equal(data.received, 2);
+  assert.equal(data.total_count, 50);
+  assert.equal(data.pages_read, 1);
+  assert.deepEqual(data.orders, [{ id: "o1" }, { id: "o2" }]);
+});
+
+test("list_orders single page without total_count: a full page is partial (may continue)", async () => {
+  const { mcp } = await setup({ orders: [{ id: "o1" }, { id: "o2" }, { id: "o3" }] });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { per_page: 3 } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(data.coverage, "partial");
+  assert.equal(data.received, 3);
+  assert.equal(data.total_count, undefined);
+  assert.equal(data.pages_read, 1);
+});
+
+test("list_orders single page without total_count: a short page is complete", async () => {
+  const { mcp } = await setup({ orders: [{ id: "o1" }, { id: "o2" }] });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { per_page: 5 } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(data.coverage, "complete");
+  assert.equal(data.received, 2);
+  assert.equal(data.pages_read, 1);
 });
 
 const PII_ORDER = {

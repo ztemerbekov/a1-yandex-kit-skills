@@ -299,12 +299,13 @@ export class KitClient {
    * Fetch all pages of a paginated list operation (per_page=100, or the
    * operation's SERVER_PER_PAGE_LIMITS cap when the live API enforces less).
    * Stops on a short page or once maxItems is reached (truncated=true).
+   * total_count is passed through from the API response when it carries one.
    */
   async listAll<T = unknown>(
     operationId: string,
     params: CallParams = {},
     opts: { maxItems?: number } = {},
-  ): Promise<{ items: T[]; pages: number; truncated: boolean }> {
+  ): Promise<{ items: T[]; pages: number; truncated: boolean; total_count?: number }> {
     const op = getOp(operationId);
     if (!op.paginated || !op.itemsProp) {
       throw new KitValidationError(
@@ -352,7 +353,7 @@ export class KitClient {
     if (!truncated && totalCount !== undefined && items.length < totalCount) {
       truncated = true;
     }
-    return { items, pages, truncated };
+    return { items, pages, truncated, ...(totalCount !== undefined ? { total_count: totalCount } : {}) };
   }
 
   private backoffDelayMs(attempt: number): number {

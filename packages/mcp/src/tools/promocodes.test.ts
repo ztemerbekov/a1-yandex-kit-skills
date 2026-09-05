@@ -87,7 +87,13 @@ test("list_promocodes all=true fetches via listAll within the server per_page ca
   assert.equal(url.searchParams.get("per_page"), "25");
   assert.equal(url.searchParams.get("status"), "INACTIVE");
   const data = JSON.parse(resultText(res));
-  assert.deepEqual(data, { items: [{ id: "pc1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "pc1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
 });
 
 test("get_promocode hits /v1/promocodes/{id}", async () => {

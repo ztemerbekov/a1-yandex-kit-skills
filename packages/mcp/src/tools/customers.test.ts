@@ -77,7 +77,13 @@ test("list_customers all=true fetches via listAll with per_page=100", async () =
   assert.equal(url.searchParams.get("page"), "1");
   assert.equal(url.searchParams.get("per_page"), "100");
   const data = JSON.parse(resultText(res));
-  assert.deepEqual(data, { items: [{ id: "c1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "c1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
 });
 
 test("list_customers redact:true masks personal fields but keeps ids, sums and dates", async () => {
@@ -176,4 +182,18 @@ test("get_customer_orders hits /v1/customers/{customer_id}/orders and clamps per
   assert.equal(url.searchParams.get("page"), "2");
   assert.equal(url.searchParams.get("per_page"), "100");
   assert.equal(calls[0]!.init?.method, "GET");
+});
+
+test("get_customer_orders carries a coverage envelope for its single page", async () => {
+  const { mcp } = await setup({ order_ids: ["o1", "o2"], total_count: 9 });
+  const res = await mcp.callTool({
+    name: "get_customer_orders",
+    arguments: { id: "cust-42" },
+  });
+  const data = JSON.parse(resultText(res));
+  assert.equal(data.coverage, "partial");
+  assert.equal(data.received, 2);
+  assert.equal(data.total_count, 9);
+  assert.equal(data.pages_read, 1);
+  assert.deepEqual(data.order_ids, ["o1", "o2"]);
 });

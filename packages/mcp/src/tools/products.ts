@@ -2,7 +2,16 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  clampPerPage,
+  COVERAGE_DESCRIPTION,
+  emptyUpdateFailure,
+  fail,
+  ok,
+  READ_ONLY,
+  validationFailure,
+  withCoverage,
+} from "../util.js";
 
 export function registerProductTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -11,7 +20,8 @@ export function registerProductTools(server: McpServer, client: KitClient): void
       title: "List products",
       description:
         "List products of the store (paginated). A product groups one or more variants (SKUs) " +
-        "and links them to categories.",
+        "and links them to categories. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -28,10 +38,13 @@ export function registerProductTools(server: McpServer, client: KitClient): void
     },
     async ({ page, per_page, all }) => {
       try {
-        if (all) return ok(await client.listAll("GetProducts"));
+        const perPage = clampPerPage(per_page);
+        if (all) return ok(withCoverage({ all: await client.listAll("GetProducts") }));
         return ok(
-          await client.call("GetProducts", {
-            query: { page, per_page: clampPerPage(per_page) },
+          withCoverage({
+            page: await client.call("GetProducts", { query: { page, per_page: perPage } }),
+            operationId: "GetProducts",
+            perPage,
           }),
         );
       } catch (e) {

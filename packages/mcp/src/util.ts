@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
-import { KitApiError, KitValidationError } from "yandex-kit-core";
+import { getOp, KitApiError, KitValidationError } from "yandex-kit-core";
 
 export const READ_ONLY = { readOnlyHint: true } as const;
 export const DESTRUCTIVE = { destructiveHint: true } as const;
@@ -204,6 +204,69 @@ export const REDACT_PARAM_DESCRIPTION =
 export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): number {
   if (perPage === undefined) return Math.min(DEFAULT_PER_PAGE, max);
   return Math.max(1, Math.min(max, Math.trunc(perPage)));
+}
+
+/** Shared description line for tools whose responses carry a coverage envelope. */
+export const COVERAGE_DESCRIPTION =
+  'The response carries a machine-readable coverage envelope (coverage, received, total_count, ' +
+  'pages_read); coverage:"partial" MUST be reflected in the user-facing answer and forbids ' +
+  "claiming the listing is complete.";
+
+interface ListAllResult {
+  items: unknown[];
+  pages: number;
+  truncated: boolean;
+  total_count?: number;
+}
+
+/**
+ * Coverage envelope for list responses — the completeness verdict as a machine
+ * fact rather than a duty of the consumer model (the official client prints
+ * `{coverage, received, total_count, pages_read, items}` from `kit.py list`;
+ * docs/YANDEX-KIT-SKILLS-OFFICIAL-RESEARCH.md §1.3, §2.2 item 7).
+ *
+ * - `all` mode (client.listAll): coverage follows `truncated`; `pages` becomes
+ *   `pages_read`; `total_count` is whatever the API reported, if anything.
+ * - single-page mode: `pages_read` is 1 and coverage is "partial" when
+ *   `total_count > received`, or when a full page of `perPage` items arrived
+ *   without a `total_count` (a continuation may exist); otherwise "complete".
+ *
+ * Single-page mode spreads the raw API response, so its own fields (including
+ * `total_count`) stay where consumers already expect them.
+ */
+export function withCoverage(
+  source:
+    | { all: ListAllResult }
+    | { page: unknown; operationId: string; perPage: number },
+): Record<string, unknown> {
+  if ("all" in source) {
+    const { items, pages, truncated, total_count } = source.all;
+    return {
+      items,
+      coverage: truncated ? "partial" : "complete",
+      received: items.length,
+      ...(total_count !== undefined ? { total_count } : {}),
+      pages_read: pages,
+    };
+  }
+  const res =
+    source.page !== null && typeof source.page === "object"
+      ? (source.page as Record<string, unknown>)
+      : {};
+  const itemsProp = getOp(source.operationId).itemsProp;
+  const raw = itemsProp ? res[itemsProp] : undefined;
+  const received = Array.isArray(raw) ? raw.length : 0;
+  const totalCount = typeof res.total_count === "number" ? res.total_count : undefined;
+  const partial =
+    totalCount !== undefined
+      ? totalCount > received
+      : received >= source.perPage && source.perPage > 0;
+  return {
+    ...res,
+    coverage: partial ? "partial" : "complete",
+    received,
+    pages_read: 1,
+  };
 }
 
 /**
