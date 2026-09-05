@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.5.2"
+  version: "1.6.0"
 ---
 
 # A1 Yandex KIT — Catalog

@@ -3,7 +3,7 @@ name: a1-yandex-kit-promo-launcher
 description: "Launch and manage Yandex KIT promotions. Use when the user asks «Запусти скидку», «Создай промокод» or «Добавь подарок»; wants to inspect promotions («Покажи акции»); or change dates, conditions, bindings or status («Продли акцию», «Останови промо»)."
 metadata:
   author: Zinnur Temerbekov
-  version: "1.3.1"
+  version: "1.4.0"
 ---
 
 # A1 Yandex KIT Promo Launcher
