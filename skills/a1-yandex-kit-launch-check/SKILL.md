@@ -3,7 +3,7 @@ name: a1-yandex-kit-launch-check
 description: "Use for a Yandex KIT store launch-readiness review: «Можно запускать?», «Проверь готовность», «Что мешает открытию?», «Можно вести покупателей?». Model-invoked; the default workflow is fully read-only and distinguishes proven blockers, risks and unverified checkout links."
 metadata:
   author: Zinnur Temerbekov
-  version: "1.3.1"
+  version: "1.4.0"
 ---
 
 # A1 Yandex KIT Launch Check
