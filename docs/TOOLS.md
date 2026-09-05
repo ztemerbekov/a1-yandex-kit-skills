@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **84 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 162 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 166 API operations, including those without a dedicated tool.
 
 ## Alerts (`alerts.ts`)
 
@@ -80,6 +80,7 @@ The `mcp-yandex-kit` MCP server exposes **84 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
+| `list_files` | yes | List the store's uploaded files with their URLs (paginated). |
 | `upload_file` | no | Upload a file (e.g. an image for a variant or collection) via multipart/form-data. |
 | `get_file` | yes | Get metadata of a previously uploaded file by its ID (name, size, URL). |
 
@@ -94,9 +95,9 @@ The `mcp-yandex-kit` MCP server exposes **84 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 162 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 166 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 162 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 166 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -109,6 +110,8 @@ The `mcp-yandex-kit` MCP server exposes **84 tools** for the Yandex KIT e-commer
 | `complete_order_delivery` | no | Mark the delivery of an order as fully completed. |
 | `set_order_marking_codes` | no | Write «Честный знак» (Chestny ZNAK) marking codes onto order items, or remove them. |
 | `get_order_addons` | yes | List additional services (addons) attached to an order by the order ID. |
+| `get_order_payment_link` | yes | Get the signed payment-page link for an order, to be sent to the buyer — they can pay without logging in. |
+| `generate_order_waybills` | no | Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and return links to PDF documents. |
 
 ## Products (`products.ts`)
 
@@ -135,6 +138,7 @@ The `mcp-yandex-kit` MCP server exposes **84 tools** for the Yandex KIT e-commer
 | --- | --- | --- |
 | `get_store` | yes | Get information about the current store (id, slug, b2c_url). |
 | `get_current_user` | yes | Get the user that owns the API token. |
+| `get_store_feeds` | yes | Get permanent links to the store's catalog feeds: ICML (RetailCRM), YML (Yandex Direct) and YML_GOODS (Yandex Tovary). |
 | `get_regions` | yes | Get the list of geographic regions (countries, regions, cities). |
 
 ## Variants (`variants.ts`)
@@ -180,7 +184,7 @@ The `mcp-yandex-kit` MCP server exposes **84 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**88 of 162 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**92 of 166 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 

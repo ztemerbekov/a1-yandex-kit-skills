@@ -2,13 +2,14 @@
 
 # A1 Yandex KIT — Store — endpoints
 
-## Endpoints (23 operations)
+## Endpoints (25 operations)
 
 ### Магазин
 
 | Method | Path | OperationId | Summary (RU) |
 | --- | --- | --- | --- |
 | GET | `/v1/store` | `GetStore` | Получение информации о магазине |
+| GET | `/v1/store/feeds` | `GetStoreFeeds` | Получение ссылок на фиды каталога |
 
 ### Склады
 
@@ -37,6 +38,7 @@
 
 | Method | Path | OperationId | Summary (RU) |
 | --- | --- | --- | --- |
+| GET | `/v1/files` | `GetFiles` | Получение списка файлов |
 | POST | `/v1/files` | `UploadFile` | Загрузка файла |
 | GET | `/v1/files/{id}` | `GetFileById` | Получение файла по ID |
 

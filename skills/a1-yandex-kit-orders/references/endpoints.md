@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT — Orders — endpoints
 
-## Endpoints (23 operations)
+## Endpoints (25 operations)
 
 ### Заказы
 
@@ -10,12 +10,14 @@
 | --- | --- | --- | --- |
 | GET | `/v1/customers/{customer_id}/orders` | `GetOrdersByCustomerId` | Получение списка заказов по ID клиента |
 | GET | `/v1/orders` | `GetOrders` | Получение списка заказов |
+| POST | `/v1/orders/waybills` | `GenerateOrderWaybills` | Получение накладных для частей заказов |
 | GET | `/v1/orders/{id}` | `GetOrderById` | Получение заказа по ID |
 | GET | `/v1/orders/{id}/addons` | `GetOrderAddons` | Получение списка услуг заказа |
 | POST | `/v1/orders/{id}/confirm` | `ConfirmOrder` | Подтверждение заказа |
 | POST | `/v1/orders/{id}/cancel` | `CancelOrder` | Отмена заказа |
 | POST | `/v1/orders/{id}/delivery/complete` | `CompleteOrderDelivery` | Завершение доставки заказа |
 | POST | `/v1/orders/{id}/marking-codes` | `SetOrderMarkingCodes` | Запись кодов маркировки «Честный знак» |
+| GET | `/v1/orders/{id}/payment-link` | `GetOrderPaymentLink` | Получение ссылки на оплату заказа |
 
 ### Клиенты
 

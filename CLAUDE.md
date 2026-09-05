@@ -2,7 +2,7 @@
 
 npm-workspaces monorepo: typed client, MCP server (stdio) and Claude agent skills for the
 Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
-(`specs/kit-swagger.openapi.json` — 162 operations, 24 tag groups, the single source of truth).
+(`specs/kit-swagger.openapi.json` — 166 operations, 24 tag groups, the single source of truth).
 
 ## Commands
 
@@ -10,7 +10,7 @@ Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
 npm ci
 npm run typecheck   # builds core first, then checks every workspace
 npm run build       # core + mcp -> dist/
-npm test            # unit tests, no network (currently 422: core 37 + codegen 7 + mcp 336 + setup 42)
+npm test            # unit tests, no network (currently 465: core 38 + codegen 7 + mcp 366 + setup 54)
 npm run gen         # regenerate registry/types/TOOLS.md/skills (deterministic)
 npm run validate:agent-plugin # validate root Agent Plugins manifest, MCP config and skills
 npm run spec:fetch  # refresh specs/ from Yandex + diff report
@@ -40,9 +40,9 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   duplicate the change), auto-pagination via `listAll`, per-operation content type:
   merge-patch and multipart where the spec says so), `KitApiError`, ajv-based
   `validateRequestBody`/`resolveOperationSchema`, and `src/generated/{registry.json,types.ts}`.
-- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 84 tools; `src/tools/*.ts` is
+- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 88 tools; `src/tools/*.ts` is
   one file per domain; `meta.ts` hosts the trio (`search_operations`,
-  `get_operation_schema`, `kit_request`) that covers all 162 operations (88 have curated tools).
+  `get_operation_schema`, `kit_request`) that covers all 166 operations (92 have curated tools).
   `telemetry.ts` — anonymous usage pings to usage.gistrec.cloud (ids/names/versions only,
   never data or arguments; fire-and-forget, must never block or throw; opt-out
   `YANDEX_KIT_TELEMETRY=0`). `startup_failed` is the exception: `sendBlocking` awaits it,

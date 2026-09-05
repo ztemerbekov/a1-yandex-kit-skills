@@ -5,7 +5,11 @@
 This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; `UpdateWarehouse`
 uses JSON Merge Patch), upload files (`POST /v1/files` — with `POST /v1/videos` in the
-catalog domain, one of the API's two `multipart/form-data` endpoints), and maintain SEO
+catalog domain, one of the API's two `multipart/form-data` endpoints), list
+uploaded files with their URLs (`GetFiles` — images and other files only, videos
+live in the catalog domain), read the permanent catalog-feed links
+(`GetStoreFeeds`: ICML for RetailCRM, YML for Yandex Direct, YML_GOODS for
+Yandex Tovary), and maintain SEO
 redirects and blog/news posts.
 
 Alerts are the store's system-problem feed: `GET /v1/alerts` **requires** a status filter
@@ -14,4 +18,4 @@ severity. Only `WARNING` alerts can be closed by hand via
 `POST /v1/alerts/{alert_id}/resolve`; an active `CRITICAL` one is rejected with 400 and
 clears itself once the underlying problem is fixed.
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, label printing, feeds, payments) and where in the cabinet to send the owner instead.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, reviews, feed import, acquiring setup) and where in the cabinet to send the owner instead.

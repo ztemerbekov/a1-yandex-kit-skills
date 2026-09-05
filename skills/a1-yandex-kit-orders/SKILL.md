@@ -83,14 +83,14 @@ Load only the page the task needs:
   identifiers, content types, lifecycle rules and edge cases. Read it before
   planning any write.
 - [`references/endpoints.md`](references/endpoints.md) — the full operation
-  tables of this domain (23 operations: method, path, operationId,
+  tables of this domain (25 operations: method, path, operationId,
   Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-162 operations):
+166 operations):
 
 - `list_orders` — List orders of the store (paginated), newest first.
 - `get_order` — Get a single order by its ID, including line items, delivery chunks, payment and status.
@@ -99,6 +99,8 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `complete_order_delivery` — Mark the delivery of an order as fully completed.
 - `set_order_marking_codes` — Write «Честный знак» (Chestny ZNAK) marking codes onto order items, or remove them.
 - `get_order_addons` — List additional services (addons) attached to an order by the order ID.
+- `get_order_payment_link` — Get the signed payment-page link for an order, to be sent to the buyer — they can pay without logging in.
+- `generate_order_waybills` — Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and return links to PDF documents.
 - `list_customers` — List customers of the store (paginated).
 - `get_customer` — Get a single customer by their ID.
 - `update_customer` — Update a customer (plain JSON PATCH).

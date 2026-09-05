@@ -9,7 +9,12 @@ delivery automation is off), write «Честный знак» marking codes ont
 (`POST /v1/orders/{id}/marking-codes` — one code per item, null removes a code), and read
 the attached additional services (addons), customer records and gift cards. A customer record also carries the marketing-consent pair
 `agreement_for_promo` + `agreement_at` — read it before adding anyone to a mailing list
-and mirror it into your CRM. All datetimes are UTC, and list endpoints paginate with
+and mirror it into your CRM. Waybills (акты приёма-передачи) for delivery chunks come
+from `GenerateOrderWaybills` — one signed, expiring PDF per warehouse + delivery
+service group, regenerated on every call, with unprintable chunks listed in
+`skipped` with a reason. `GetOrderPaymentLink` returns the order's permanent
+signed payment-page URL: same value every time, works in any status, never
+expires and cannot be revoked — hand it out deliberately. All datetimes are UTC, and list endpoints paginate with
 `page`/`per_page` (max 100).
 
-For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, label printing, feeds, payments) and where in the cabinet to send the owner instead.
+For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, reviews, feed import, acquiring setup) and where in the cabinet to send the owner instead.

@@ -41,13 +41,15 @@ function resultText(res: unknown): string {
   return (res as { content: { text: string }[] }).content[0]!.text;
 }
 
-test("registers exactly upload_file and get_file", async () => {
+test("registers exactly upload_file, get_file and list_files", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   const names = tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ["get_file", "upload_file"]);
+  assert.deepEqual(names, ["get_file", "list_files", "upload_file"]);
   const getFile = tools.find((t) => t.name === "get_file");
   assert.equal(getFile?.annotations?.readOnlyHint, true);
+  const listFiles = tools.find((t) => t.name === "list_files");
+  assert.equal(listFiles?.annotations?.readOnlyHint, true);
 });
 
 test("upload_file with both file_path and content_base64 fails without any network call", async () => {
@@ -164,4 +166,25 @@ test("get_file hits /v1/files/{id}", async () => {
   assert.equal(calls.length, 1);
   assert.equal(new URL(calls[0]!.url).pathname, "/v1/files/file-42");
   assert.equal(calls[0]!.init?.method, "GET");
+});
+
+test("list_files passes page/per_page and wraps the coverage envelope", async () => {
+  const { calls, mcp } = await setup({ files: [{ id: "f1" }], total_count: 1 });
+  const res = await mcp.callTool({ name: "list_files", arguments: { page: 2, per_page: 10 } });
+  const data = JSON.parse(resultText(res));
+  assert.equal(data.coverage, "complete");
+  assert.equal(data.received, 1);
+  assert.equal(data.pages_read, 1);
+  assert.deepEqual(data.files, [{ id: "f1" }]);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/files");
+  assert.equal(url.searchParams.get("page"), "2");
+  assert.equal(url.searchParams.get("per_page"), "10");
+});
+
+test("list_files reports partial coverage when total_count exceeds received", async () => {
+  const { mcp } = await setup({ files: [{ id: "f1" }], total_count: 5 });
+  const res = await mcp.callTool({ name: "list_files", arguments: {} });
+  const data = JSON.parse(resultText(res));
+  assert.equal(data.coverage, "partial");
 });

@@ -34,7 +34,7 @@ async function setup(payload: unknown = { ok: true }) {
   return { calls, mcp };
 }
 
-test("registers exactly the seven order tools with correct annotations", async () => {
+test("registers exactly the nine order tools with correct annotations", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   const names = tools.map((t) => t.name).sort();
@@ -42,12 +42,14 @@ test("registers exactly the seven order tools with correct annotations", async (
     "cancel_order",
     "complete_order_delivery",
     "confirm_order",
+    "generate_order_waybills",
     "get_order",
     "get_order_addons",
+    "get_order_payment_link",
     "list_orders",
     "set_order_marking_codes",
   ]);
-  const readOnly = new Set(["list_orders", "get_order", "get_order_addons"]);
+  const readOnly = new Set(["list_orders", "get_order", "get_order_addons", "get_order_payment_link"]);
   for (const tool of tools) {
     assert.equal(
       tool.annotations?.readOnlyHint,
@@ -426,5 +428,46 @@ test("set_order_marking_codes rejects an empty batch before the network call", a
     errored = true;
   }
   assert.equal(errored, true);
+  assert.equal(calls.length, 0);
+});
+
+test("get_order_payment_link hits the path and passes the source label", async () => {
+  const payload = { payment_url: "https://checkout.kit.yandex.ru/orders/x?signature=s" };
+  const { calls, mcp } = await setup(payload);
+  const res = (await mcp.callTool({
+    name: "get_order_payment_link",
+    arguments: { id: "o1", source: "crm" },
+  })) as { isError?: boolean; content: { text: string }[] };
+  assert.ok(!res.isError);
+  assert.deepEqual(JSON.parse(res.content[0]!.text), payload);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/orders/o1/payment-link");
+  assert.equal(url.searchParams.get("source"), "crm");
+});
+
+test("generate_order_waybills posts the validated body", async () => {
+  const payload = { waybills: [], skipped: [] };
+  const { calls, mcp } = await setup(payload);
+  const items = [{ order_id: "0198a4c0-0000-7000-8000-000000000001", delivery_chunk_id: 1 }];
+  const res = (await mcp.callTool({
+    name: "generate_order_waybills",
+    arguments: { items },
+  })) as { isError?: boolean; content: { text: string }[] };
+  assert.ok(!res.isError);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/orders/waybills");
+  assert.equal(calls[0]!.init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0]!.init?.body)), { items });
+});
+
+test("generate_order_waybills rejects a repeated order+chunk pair before any network call", async () => {
+  const { calls, mcp } = await setup();
+  const item = { order_id: "0198a4c0-0000-7000-8000-000000000001", delivery_chunk_id: 1 };
+  const res = (await mcp.callTool({
+    name: "generate_order_waybills",
+    arguments: { items: [item, item] },
+  })) as { isError?: boolean; content: { text: string }[] };
+  assert.ok(res.isError);
+  assert.match(res.content[0]!.text, /only once per request/);
   assert.equal(calls.length, 0);
 });
