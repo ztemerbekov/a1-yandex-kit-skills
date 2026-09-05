@@ -2,7 +2,16 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  clampPerPage,
+  emptyUpdateFailure,
+  fail,
+  ok,
+  READ_ONLY,
+  REDACT_PARAM_DESCRIPTION,
+  redactPii,
+  validationFailure,
+} from "../util.js";
 
 export function registerCustomerTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -22,16 +31,17 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all }) => {
+    async ({ page, per_page, all, redact }) => {
       try {
-        if (all) return ok(await client.listAll("GetCustomers"));
-        return ok(
-          await client.call("GetCustomers", {
-            query: { page, per_page: clampPerPage(per_page) },
-          }),
-        );
+        const data = all
+          ? await client.listAll("GetCustomers")
+          : await client.call("GetCustomers", {
+              query: { page, per_page: clampPerPage(per_page) },
+            });
+        return ok(redact ? redactPii(data) : data);
       } catch (e) {
         return fail(e);
       }
@@ -46,11 +56,13 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Customer ID (UUID)."),
+        redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
       },
     },
-    async ({ id }) => {
+    async ({ id, redact }) => {
       try {
-        return ok(await client.call("GetCustomerById", { pathParams: { customer_id: id } }));
+        const data = await client.call("GetCustomerById", { pathParams: { customer_id: id } });
+        return ok(redact ? redactPii(data) : data);
       } catch (e) {
         return fail(e);
       }

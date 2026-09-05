@@ -79,6 +79,92 @@ test("list_orders all=true fetches via listAll with per_page=100", async () => {
   assert.deepEqual(data, { items: [{ id: "o1" }], pages: 1, truncated: false });
 });
 
+const PII_ORDER = {
+  id: "o1",
+  order_number: 1234567,
+  created_at: "2020-01-01T00:00:00Z",
+  status: "CREATED",
+  total_price: "1200.00",
+  client: {
+    first_name: "Иван",
+    last_name: "Иванов",
+    patronymic: "Иванович",
+    phone: "+79991234567",
+    email: "ivan@example.com",
+    is_notify: true,
+  },
+  delivery_chunks: [
+    {
+      id: 0,
+      total_price: "1200.00",
+      delivery_info: {
+        raw_status: "IN_TRANSIT",
+        delivery_notes: "код домофона 42",
+        address: {
+          courier_locality: "Москва",
+          courier_address: "ул. Ленина, 1",
+          appartment: "5",
+          entrance: "2",
+          intercom: "42",
+          pickup_point_id: "pp-1",
+        },
+      },
+      items: [{ id: "i1", price: "1200.00", quantity: 2 }],
+    },
+  ],
+};
+
+test("get_order redact:true masks nested personal fields but not ids/amounts/statuses", async () => {
+  const { mcp } = await setup(PII_ORDER);
+  const res = await mcp.callTool({ name: "get_order", arguments: { id: "o1", redact: true } });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  // personal fields masked, including nested ones
+  assert.deepEqual(data.client, {
+    first_name: "[redacted]",
+    last_name: "[redacted]",
+    patronymic: "[redacted]",
+    phone: "[redacted]",
+    email: "[redacted]",
+    is_notify: true,
+  });
+  const info = data.delivery_chunks[0].delivery_info;
+  assert.equal(info.delivery_notes, "[redacted]");
+  assert.deepEqual(info.address, {
+    courier_locality: "[redacted]",
+    courier_address: "[redacted]",
+    appartment: "[redacted]",
+    entrance: "[redacted]",
+    intercom: "[redacted]",
+    pickup_point_id: "pp-1", // identifier, not PII
+  });
+  // ids, amounts, statuses and dates survive untouched
+  assert.equal(data.id, "o1");
+  assert.equal(data.order_number, 1234567);
+  assert.equal(data.created_at, "2020-01-01T00:00:00Z");
+  assert.equal(data.status, "CREATED");
+  assert.equal(data.total_price, "1200.00");
+  assert.deepEqual(data.delivery_chunks[0].items, [{ id: "i1", price: "1200.00", quantity: 2 }]);
+});
+
+test("get_order without redact returns personal fields untouched", async () => {
+  const { mcp } = await setup(PII_ORDER);
+  const res = await mcp.callTool({ name: "get_order", arguments: { id: "o1" } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.deepEqual(data, PII_ORDER);
+});
+
+test("list_orders redact:true masks personal fields inside every listed order", async () => {
+  const { calls, mcp } = await setup({ orders: [PII_ORDER], total_count: 1 });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { redact: true } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.equal(data.orders[0].client.phone, "[redacted]");
+  assert.equal(data.orders[0].id, "o1");
+  assert.equal(data.total_count, 1);
+  // redact is response-side only: the request carries no redact flag
+  assert.equal(new URL(calls[0]!.url).searchParams.get("redact"), null);
+});
+
 test("get_order hits /v1/orders/{id}", async () => {
   const { calls, mcp } = await setup({ id: "o1" });
   await mcp.callTool({ name: "get_order", arguments: { id: "abc-123" } });
