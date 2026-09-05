@@ -68,6 +68,7 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
               }),
               operationId: "GetCollections",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetCollections", data, format, fields) ?? ok(data);
       } catch (e) {

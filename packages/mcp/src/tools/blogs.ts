@@ -47,6 +47,7 @@ export function registerBlogTools(server: McpServer, client: KitClient): void {
               page: await client.call("GetBlogs", { query: { page, per_page: perPage } }),
               operationId: "GetBlogs",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetBlogs", data, format, fields) ?? ok(data);
       } catch (error) {

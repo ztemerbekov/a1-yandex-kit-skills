@@ -354,8 +354,9 @@ interface ListAllResult {
  *   records the pages consumed and the legacy `pages`/`truncated` aliases are
  *   retained; `total_count` is whatever the API reported, if anything.
  * - single-page mode: `pages_read` is 1 and coverage is "partial" when
- *   `total_count > received`, or when a full page of `perPage` items arrived
- *   without a `total_count` (a continuation may exist); otherwise "complete".
+ *   `total_count > received`, or, without a `total_count`, when the requested
+ *   page is past page 1 or a full page of `perPage` items arrived (a
+ *   continuation may exist); otherwise "complete".
  *
  * Single-page mode spreads the raw API response, so its own fields (including
  * `total_count`) stay where consumers already expect them.
@@ -363,7 +364,7 @@ interface ListAllResult {
 export function withCoverage(
   source:
     | { all: ListAllResult }
-    | { page: unknown; operationId: string; perPage: number },
+    | { page: unknown; operationId: string; perPage: number; pageNumber: number },
 ): Record<string, unknown> {
   if ("all" in source) {
     const { items, pages, truncated, total_count } = source.all;
@@ -390,7 +391,7 @@ export function withCoverage(
   const partial =
     totalCount !== undefined
       ? totalCount > received
-      : received >= source.perPage && source.perPage > 0;
+      : source.pageNumber > 1 || (received >= source.perPage && source.perPage > 0);
   return {
     ...res,
     coverage: partial ? "partial" : "complete",

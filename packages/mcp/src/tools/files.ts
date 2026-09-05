@@ -51,6 +51,7 @@ export function registerFileTools(server: McpServer, client: KitClient): void {
               page: await client.call("GetFiles", { query: { page, per_page: perPage } }),
               operationId: "GetFiles",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetFiles", data, format, fields) ?? ok(data);
       } catch (e) {

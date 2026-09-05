@@ -49,6 +49,7 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
               page: await client.call("GetOrders", { query: { page, per_page: perPage } }),
               operationId: "GetOrders",
               perPage,
+              pageNumber: page ?? 1,
             });
         const out = redact ? redactPii(data) : data;
         return csvListResult("GetOrders", out, format, fields) ?? ok(out);
