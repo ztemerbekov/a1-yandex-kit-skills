@@ -522,12 +522,30 @@ function escapeCell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
 
+/**
+ * allowed-tools is a pre-approval list (it does not restrict other tools):
+ * the skill's own offline scripts plus the bundled MCP server under every
+ * name the setup flow manages (a1-yandex-kit, the a1-yandex-kit-global
+ * collision fallback, and the portable mcp.json name yandex-kit). Unknown
+ * names are inert, so a differently-named server simply keeps prompting.
+ * user-invocable is deliberately absent: true is the default, and the field
+ * is not part of the Agent Skills frontmatter spec.
+ */
+const ALLOWED_TOOLS = [
+  "mcp__a1-yandex-kit__*",
+  "mcp__a1-yandex-kit-global__*",
+  "mcp__yandex-kit__*",
+  "Bash(node scripts/search_docs.mjs:*)",
+  "Bash(node scripts/validate.mjs:*)",
+].join(" ");
+
 function frontmatter(skill: SkillDef): string {
   return [
     "---",
     `name: ${skill.name}`,
     `description: ${yamlQuote(skill.description)}`,
     'compatibility: "Requires Node.js >= 20"',
+    `allowed-tools: ${ALLOWED_TOOLS}`,
     "metadata:",
     `  author: ${SKILL_AUTHOR}`,
     `  version: "${SKILL_VERSION}"`,
