@@ -117,15 +117,14 @@ same scripts and data, plus the endpoint tables of its tags:
   blog/news, alerts.
 - `a1-yandex-kit-webhooks` — webhooks: order events, HTTPS callbacks, signing secret.
 
-## Boundaries: not in the public API
+## API capabilities and cabinet boundaries
 
-Merchants see these features in the cabinet and will ask for them, but the
-public API (166 operations) has no endpoints for them. The only correct answer
-is to say that the operation does not exist in the public API and route the
-owner to the cabinet — never invent an operation, substitute a similar-looking
+Use the documented API operation when the table names a supported capability.
+For a cabinet-only feature, explain that no public operation exists and route the
+owner to the cabinet. Never invent an operation, substitute a similar-looking
 one, or offer to drive the browser UI instead.
 
-| Asked for | Public API reality | Send the owner to |
+| Asked for | Public API reality | Next step |
 | --- | --- | --- |
 | Refunds, partial refunds | No endpoints. `CancelOrder` is **not** a refund: a different operation with different consequences for the buyer's money. | Cabinet → Orders → the order's page |
 | Editing order contents, merging orders, bulk order actions | Only the documented status transitions exist. | Cabinet → Orders |
@@ -135,7 +134,8 @@ one, or offer to drive the browser UI instead.
 | Payments and acquiring, Metrica/Webmaster, external integrations | Almost none: the single payment-side endpoint is `GET /v1/orders/{id}/payment-link`. Acquiring setup — nothing; webhooks (`/v1/webhooks`) are outgoing notifications, **not** an integration mechanism. | Cabinet → Settings → Integrations |
 | Feed import/export (YML) | Feed links exist: `GET /v1/store/feeds` returns permanent ICML/YML/YML_GOODS URLs. Import — nothing, and listing `/v1/variants` is not the feed either — say so explicitly. | Cabinet → Catalog → Import/export |
 | Issuing or revoking API tokens | Cabinet only. | Cabinet → Settings → API |
-| Domain, mailboxes, SEO, meta tags | Only redirects (`/v1/redirects`) exist from this area. | Cabinet → Settings → Domain; Site → SEO |
+| Catalog SEO and meta tags for variants, categories and collections | `UpdateVariant`, `UpdateCategory` and `UpdateCollection` accept `seo_title`, `seo_h1` and `seo_description` in their request schemas. | Use the corresponding documented operation in `a1-yandex-kit-catalog`. |
+| Global site, domain and mailbox SEO/meta-tag settings | No public API endpoints for these settings. Redirects remain available through `/v1/redirects`. | Cabinet → Settings → Domain; Site → SEO |
 | Delivery tariffs, parcels, pickup points | Only warehouses (`/v1/warehouses`) exist; the boundary runs exactly there. | Cabinet → Settings → Delivery |
 | Employees, roles, company, business account | Only `GET /v1/users/current` and `GET /v1/store`. | Cabinet → Settings → Employees / Company |
 | Messages and Telegram notifications | Only alerts (`/v1/alerts`) exist. | Cabinet → Settings → Notifications |
