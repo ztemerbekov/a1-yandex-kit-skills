@@ -4,8 +4,9 @@
  * Features (see docs/history/PLAN.md §2/§6): Bearer auth, per-attempt timeout via
  * AbortController, token-bucket rate limiter (default 3 rps, gates every
  * attempt including retries), exponential backoff retries for GET requests
- * (network/abort, 429, >=500, and HTTP 400 with code LIMIT_EXCEEDED — KIT
- * returns rate-limit errors as 400; mutations are never retried: the API
+ * (network/abort, 429, >=500, and HTTP 400 with code LIMIT_EXCEEDED — the
+ * live KIT limiter answers with a plain-text 429 "limited" and rate limits
+ * can also surface as 400 LIMIT_EXCEEDED; mutations are never retried: the API
  * gives no idempotency contract, so a timed-out write may already have been
  * executed server-side and a repeat could duplicate it), per-operation
  * content type from the generated registry (json / merge-patch+json /
@@ -59,7 +60,11 @@ export const SERVER_PER_PAGE_LIMITS = {
   GetPromocodes: 25,
 } as const;
 
-/** Codes of a parsed KIT error body. LIMIT_EXCEEDED arrives with HTTP 400. */
+/**
+ * Codes of a parsed KIT error body. Rate limiting arrives primarily as a
+ * plain-text HTTP 429 ("limited", no Retry-After) and can also surface as
+ * HTTP 400 with code LIMIT_EXCEEDED — both are retried for GET.
+ */
 const RETRYABLE_400_CODE = "LIMIT_EXCEEDED";
 
 /**
