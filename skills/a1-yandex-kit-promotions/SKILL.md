@@ -2,6 +2,7 @@
 name: a1-yandex-kit-promotions
 description: "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes, promocode groups (shared codes and single-use coupon batches) and gifts. Use when creating or updating discounts, promocodes, promocode groups or gifts, or when binding them to products, categories or collections. Russian triggers include: «создай скидку», «сделай промокод», «выпусти партию промокодов», «добавь подарок к товару», «останови акцию»."
 compatibility: "Requires Node.js >= 20"
+allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
   version: "1.5.2"

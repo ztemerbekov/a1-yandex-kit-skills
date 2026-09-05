@@ -2,6 +2,7 @@
 name: a1-yandex-kit-orders
 description: "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, gift cards and additional services (addons). Use when listing, confirming or cancelling KIT orders, or when looking up customers, their orders or gift cards. Russian triggers include: «покажи заказы», «подтверди заказ», «отмени заказ», «что с заказом», «найди клиента», «выгрузи заказы за неделю»."
 compatibility: "Requires Node.js >= 20"
+allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
   version: "1.5.2"

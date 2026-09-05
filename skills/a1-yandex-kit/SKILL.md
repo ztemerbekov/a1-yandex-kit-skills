@@ -2,6 +2,7 @@
 name: a1-yandex-kit
 description: "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, base URL, rate limits, error contract, pagination and offline spec search/validation scripts. Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, promotions, store, webhooks) clearly fits, or when you need auth, limits or error-handling basics. Russian triggers include: «что умеет API Яндекс КИТ», «найди операцию в API», «какой лимит запросов», «почему ошибка LIMIT_EXCEEDED», «как авторизоваться в Ките»."
 compatibility: "Requires Node.js >= 20"
+allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
   version: "1.5.2"
