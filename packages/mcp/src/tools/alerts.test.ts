@@ -73,7 +73,13 @@ test("list_alerts all=true fetches via listAll", async () => {
   assert.equal(url.searchParams.get("per_page"), "100");
   assert.deepEqual(url.searchParams.getAll("status"), ["ACTIVE"]);
   const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
-  assert.deepEqual(data, { items: [{ id: "a1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "a1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
 });
 
 test("resolve_alert POSTs to /v1/alerts/{alert_id}/resolve without a body", async () => {

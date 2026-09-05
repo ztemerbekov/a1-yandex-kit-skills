@@ -74,7 +74,13 @@ test("list_warehouses all=true fetches via listAll keeping the status filter", a
   assert.equal(url.searchParams.get("per_page"), "100");
   assert.deepEqual(url.searchParams.getAll("status"), ["ARCHIVED"]);
   const data = JSON.parse(resultText(res));
-  assert.deepEqual(data, { items: [{ id: "w1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "w1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
 });
 
 test("get_warehouse hits /v1/warehouses/{id}", async () => {

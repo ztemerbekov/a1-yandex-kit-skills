@@ -484,4 +484,15 @@ test("listAll flags truncation when a short page contradicts total_count", async
 
   assert.equal(result.items.length, 50);
   assert.equal(result.truncated, true, "fewer items than total_count is an incomplete listing");
+  assert.equal(result.total_count, 120, "total_count from the API is passed through");
+});
+
+test("listAll omits total_count when the API response carries none", async () => {
+  const { fetchImpl } = stubFetch(() => jsonResponse({ variants: [{ id: "v1" }] }));
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  const result = await client.listAll<{ id: string }>("GetVariants");
+
+  assert.equal("total_count" in result, false);
+  assert.deepEqual(result, { items: [{ id: "v1" }], pages: 1, truncated: false });
 });

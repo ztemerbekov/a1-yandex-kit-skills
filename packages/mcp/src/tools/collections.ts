@@ -2,7 +2,17 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, DESTRUCTIVE, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  clampPerPage,
+  COVERAGE_DESCRIPTION,
+  DESTRUCTIVE,
+  emptyUpdateFailure,
+  fail,
+  ok,
+  READ_ONLY,
+  validationFailure,
+  withCoverage,
+} from "../util.js";
 
 // The API requires the status filter on GetCollections; default to all statuses.
 const ALL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
@@ -14,7 +24,9 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
       title: "List collections",
       description:
         "List collections of the store (paginated). A collection is a curated set of product " +
-        "cards: STATIC (filled manually via manage_collection_cards) or DYNAMIC (filled by filters).",
+        "cards: STATIC (filled manually via manage_collection_cards) or DYNAMIC (filled by " +
+        "filters). " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -40,12 +52,21 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
     async ({ page, per_page, all, status, type }) => {
       const filters = { status: status ?? ALL_STATUSES, type };
       try {
+        const perPage = clampPerPage(per_page);
         if (all) {
-          return ok(await client.listAll("GetCollections", { query: filters }, { maxItems: 500 }));
+          return ok(
+            withCoverage({
+              all: await client.listAll("GetCollections", { query: filters }, { maxItems: 500 }),
+            }),
+          );
         }
         return ok(
-          await client.call("GetCollections", {
-            query: { page, per_page: clampPerPage(per_page), ...filters },
+          withCoverage({
+            page: await client.call("GetCollections", {
+              query: { page, per_page: perPage, ...filters },
+            }),
+            operationId: "GetCollections",
+            perPage,
           }),
         );
       } catch (e) {

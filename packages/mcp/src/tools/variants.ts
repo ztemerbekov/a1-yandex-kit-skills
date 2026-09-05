@@ -5,6 +5,7 @@ import { KitValidationError, validateRequestBody, type KitClient } from "yandex-
 import {
   archiveReadUnsupportedFailure,
   clampPerPage,
+  COVERAGE_DESCRIPTION,
   emptyUpdateFailure,
   fail,
   mixedArchivedFilterFailure,
@@ -13,6 +14,7 @@ import {
   statusesOutsideFilter,
   statusFilterIgnoredFailure,
   validationFailure,
+  withCoverage,
   type ToolResult,
 } from "../util.js";
 
@@ -74,7 +76,8 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         "archived variants cannot be listed (only read by ID via get_variant); the tool " +
         "detects this and fails with STATUS_FILTER_IGNORED, ARCHIVE_READ_UNSUPPORTED or " +
         "MIXED_ARCHIVED_FILTER_UNSUPPORTED (for filters mixing ARCHIVED with other " +
-        "statuses) instead of returning the wrong catalog slice.",
+        "statuses) instead of returning the wrong catalog slice. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -102,18 +105,19 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
       const filters = { product_id, status, name };
       const scope = { product_id, name };
       try {
+        const perPage = clampPerPage(per_page);
         if (all) {
           // listAll always starts at page 1, so the probe-proof is valid.
           const result = await client.listAll("GetVariants", { query: filters });
           const guard = await verifyStatusFilterHonored(client, status, scope, 1, result.items);
-          return guard ?? ok(result);
+          return guard ?? ok(withCoverage({ all: result }));
         }
         const res = await client.call<{ variants?: unknown[] }>("GetVariants", {
-          query: { page, per_page: clampPerPage(per_page), ...filters },
+          query: { page, per_page: perPage, ...filters },
         });
         const items = Array.isArray(res?.variants) ? res.variants : [];
         const guard = await verifyStatusFilterHonored(client, status, scope, page, items);
-        return guard ?? ok(res);
+        return guard ?? ok(withCoverage({ page: res, operationId: "GetVariants", perPage }));
       } catch (e) {
         return fail(e);
       }

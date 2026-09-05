@@ -4,12 +4,14 @@ import { KitValidationError, validateRequestBody, type KitClient } from "yandex-
 
 import {
   clampPerPage,
+  COVERAGE_DESCRIPTION,
   fail,
   ok,
   READ_ONLY,
   REDACT_PARAM_DESCRIPTION,
   redactPii,
   validationFailure,
+  withCoverage,
 } from "../util.js";
 
 export function registerOrderTools(server: McpServer, client: KitClient): void {
@@ -17,7 +19,7 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     "list_orders",
     {
       title: "List orders",
-      description: "List orders of the store (paginated), newest first.",
+      description: "List orders of the store (paginated), newest first. " + COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -35,10 +37,13 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     },
     async ({ page, per_page, all, redact }) => {
       try {
+        const perPage = clampPerPage(per_page);
         const data = all
-          ? await client.listAll("GetOrders")
-          : await client.call("GetOrders", {
-              query: { page, per_page: clampPerPage(per_page) },
+          ? withCoverage({ all: await client.listAll("GetOrders") })
+          : withCoverage({
+              page: await client.call("GetOrders", { query: { page, per_page: perPage } }),
+              operationId: "GetOrders",
+              perPage,
             });
         return ok(redact ? redactPii(data) : data);
       } catch (e) {

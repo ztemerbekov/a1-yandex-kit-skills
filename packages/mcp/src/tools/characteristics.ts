@@ -4,11 +4,13 @@ import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import {
   clampPerPage,
+  COVERAGE_DESCRIPTION,
   emptyUpdateFailure,
   fail,
   ok,
   READ_ONLY,
   validationFailure,
+  withCoverage,
 } from "../util.js";
 
 export function registerCharacteristicTools(server: McpServer, client: KitClient): void {
@@ -16,7 +18,7 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
     "list_characteristics",
     {
       title: "List characteristics",
-      description: "List product characteristics (paginated).",
+      description: "List product characteristics (paginated). " + COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -33,10 +35,17 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
     },
     async ({ page, per_page, all }) => {
       try {
-        if (all) return ok(await client.listAll("GetCharacteristics"));
-        return ok(await client.call("GetCharacteristics", {
-          query: { page, per_page: clampPerPage(per_page) },
-        }));
+        const perPage = clampPerPage(per_page);
+        if (all) return ok(withCoverage({ all: await client.listAll("GetCharacteristics") }));
+        return ok(
+          withCoverage({
+            page: await client.call("GetCharacteristics", {
+              query: { page, per_page: perPage },
+            }),
+            operationId: "GetCharacteristics",
+            perPage,
+          }),
+        );
       } catch (error) {
         return fail(error);
       }
@@ -117,7 +126,7 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
     "list_characteristic_groups",
     {
       title: "List characteristic groups",
-      description: "List product characteristic groups (paginated).",
+      description: "List product characteristic groups (paginated). " + COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -134,10 +143,17 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
     },
     async ({ page, per_page, all }) => {
       try {
-        if (all) return ok(await client.listAll("GetCharacteristicGroups"));
-        return ok(await client.call("GetCharacteristicGroups", {
-          query: { page, per_page: clampPerPage(per_page) },
-        }));
+        const perPage = clampPerPage(per_page);
+        if (all) return ok(withCoverage({ all: await client.listAll("GetCharacteristicGroups") }));
+        return ok(
+          withCoverage({
+            page: await client.call("GetCharacteristicGroups", {
+              query: { page, per_page: perPage },
+            }),
+            operationId: "GetCharacteristicGroups",
+            perPage,
+          }),
+        );
       } catch (error) {
         return fail(error);
       }
@@ -220,7 +236,8 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
       title: "List characteristic colors",
       description:
         "List the color values of the store's characteristics with their hex codes (paginated). " +
-        "Colors are keyed by the characteristic value itself (e.g. «Красный»), not by an ID.",
+        "Colors are keyed by the characteristic value itself (e.g. «Красный»), not by an ID. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -242,10 +259,18 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
     async ({ page, per_page, all, search_text }) => {
       const filters = { search_text };
       try {
-        if (all) return ok(await client.listAll("GetCharacteristicColors", { query: filters }));
+        const perPage = clampPerPage(per_page);
+        if (all)
+          return ok(
+            withCoverage({ all: await client.listAll("GetCharacteristicColors", { query: filters }) }),
+          );
         return ok(
-          await client.call("GetCharacteristicColors", {
-            query: { page, per_page: clampPerPage(per_page), ...filters },
+          withCoverage({
+            page: await client.call("GetCharacteristicColors", {
+              query: { page, per_page: perPage, ...filters },
+            }),
+            operationId: "GetCharacteristicColors",
+            perPage,
           }),
         );
       } catch (e) {

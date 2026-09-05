@@ -2,7 +2,16 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, emptyUpdateFailure, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  clampPerPage,
+  COVERAGE_DESCRIPTION,
+  emptyUpdateFailure,
+  fail,
+  ok,
+  READ_ONLY,
+  validationFailure,
+  withCoverage,
+} from "../util.js";
 
 export function registerDiscountTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -11,7 +20,8 @@ export function registerDiscountTools(server: McpServer, client: KitClient): voi
       title: "List discounts",
       description:
         "List discounts of the store filtered by status (paginated). " +
-        "The status filter is required by the API.",
+        "The status filter is required by the API. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         status: z
@@ -32,10 +42,16 @@ export function registerDiscountTools(server: McpServer, client: KitClient): voi
     },
     async ({ status, page, per_page, all }) => {
       try {
-        if (all) return ok(await client.listAll("GetDiscounts", { query: { status } }));
+        const perPage = clampPerPage(per_page);
+        if (all)
+          return ok(withCoverage({ all: await client.listAll("GetDiscounts", { query: { status } }) }));
         return ok(
-          await client.call("GetDiscounts", {
-            query: { page, per_page: clampPerPage(per_page), status },
+          withCoverage({
+            page: await client.call("GetDiscounts", {
+              query: { page, per_page: perPage, status },
+            }),
+            operationId: "GetDiscounts",
+            perPage,
           }),
         );
       } catch (e) {

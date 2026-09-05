@@ -96,7 +96,13 @@ test("list_gift_cards all=true fetches via listAll with per_page=100", async () 
   assert.equal(url.searchParams.get("page"), "1");
   assert.equal(url.searchParams.get("per_page"), "100");
   const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
-  assert.deepEqual(data, { items: [{ id: "g1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "g1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
 });
 
 test("get_gift_card maps id to the gift_card_id path param", async () => {

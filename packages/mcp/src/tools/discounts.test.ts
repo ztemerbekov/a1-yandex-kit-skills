@@ -87,7 +87,13 @@ test("list_discounts all=true fetches via listAll keeping the status filter", as
   assert.equal(url.searchParams.get("per_page"), "100");
   assert.deepEqual(url.searchParams.getAll("status"), ["ACTIVE"]);
   const data = JSON.parse(resultText(res));
-  assert.deepEqual(data, { items: [{ id: "d1" }], pages: 1, truncated: false });
+  assert.deepEqual(data, {
+    items: [{ id: "d1" }],
+    coverage: "complete",
+    received: 1,
+    total_count: 1,
+    pages_read: 1,
+  });
 });
 
 test("get_discount hits /v1/discounts/{id}", async () => {
