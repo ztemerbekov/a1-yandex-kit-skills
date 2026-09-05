@@ -180,6 +180,13 @@ plus `smoke`: when it reports `configured: true`, steps 3 and 4 are complete
 — keep its rollback values (`changed`, `backupPath`, `backupHash`,
 `configHash`) and continue at step 5.
 
+The displayed lifetime bounds waiting for validation and the start of the
+configuration write. Once validation has passed and persistence begins, that
+commit finishes with its actual success or error and full metadata even if the
+lifetime expires or the browser closes. If the lifetime expires before
+persistence begins, `token-web` returns `TOKEN_WEB_TIMEOUT` and performs no
+write.
+
 Fall back to the chat route below when `token-web` ends with
 `TOKEN_WEB_UNAVAILABLE`, `TOKEN_WEB_TIMEOUT` or `TOKEN_WEB_ABUSE`, or when
 the user asks to paste the token in chat instead.

@@ -87,6 +87,20 @@ async function waitFor(check, { timeoutMs = 5_000, intervalMs = 50 } = {}) {
   }
 }
 
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function runCli(args, stdin = "", { env = process.env } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [setupScript, ...args], {
@@ -1598,6 +1612,251 @@ test("token page validates before persisting and closes after the first save", a
     ["persist", SECRET_ONE],
   ]);
   await assert.rejects(fetch(web.url));
+});
+
+test("token page preserves the full persistence result after the acquisition deadline", async () => {
+  const persistStarted = deferred();
+  const persist = deferred();
+  const persisted = {
+    configured: true,
+    changed: true,
+    backupPath: "/tmp/mcp.json.bak",
+    backupHash: "backup-hash",
+    configHash: "config-hash",
+  };
+  let doneSettled = false;
+  const web = await startTestTokenWeb({
+    timeoutSeconds: 0.2,
+    persistToken: async () => {
+      persistStarted.resolve();
+      return persist.promise;
+    },
+  });
+  try {
+    const responsePromise = fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_ONE }),
+    }).catch((error) => error);
+    await persistStarted.promise;
+    web.done.then(
+      () => {
+        doneSettled = true;
+      },
+      () => {
+        doneSettled = true;
+      },
+    );
+    await delay(250);
+    assert.equal(doneSettled, false);
+
+    persist.resolve(persisted);
+    assert.deepEqual(await web.done, {
+      validated: { ok: true },
+      persisted,
+    });
+    const response = await responsePromise;
+    assert.equal(response instanceof Error, false, String(response));
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /Готово/);
+  } finally {
+    persist.resolve(persisted);
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page returns a persistence error after the acquisition deadline", async () => {
+  const persistStarted = deferred();
+  const persist = deferred();
+  const error = new SetupError("config write failed", "CONFIG_WRITE_FAILED");
+  let doneSettled = false;
+  const web = await startTestTokenWeb({
+    timeoutSeconds: 0.2,
+    persistToken: async () => {
+      persistStarted.resolve();
+      return persist.promise;
+    },
+  });
+  try {
+    const responsePromise = fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_ONE }),
+    }).catch((error) => error);
+    await persistStarted.promise;
+    web.done.then(
+      () => {
+        doneSettled = true;
+      },
+      () => {
+        doneSettled = true;
+      },
+    );
+    await delay(250);
+    assert.equal(doneSettled, false);
+
+    persist.reject(error);
+    await assert.rejects(web.done, (received) => received === error);
+    const response = await responsePromise;
+    assert.equal(response instanceof Error, false, String(response));
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /Подключение прервано/);
+  } finally {
+    persist.reject(error);
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page settles with persistence result after the POST connection closes", async () => {
+  const persistStarted = deferred();
+  const persist = deferred();
+  const web = await startTestTokenWeb({
+    timeoutSeconds: 0.2,
+    persistToken: async () => {
+      persistStarted.resolve();
+      return persist.promise;
+    },
+  });
+  const request = http.request(
+    {
+      host: "127.0.0.1",
+      port: web.port,
+      method: "POST",
+      path: new URL(web.url).pathname + new URL(web.url).search,
+    },
+    () => {},
+  );
+  request.on("error", () => {});
+  request.end(new URLSearchParams({ token: SECRET_ONE }).toString());
+  try {
+    await persistStarted.promise;
+    request.destroy();
+    await new Promise((resolve) => request.once("close", resolve));
+    await delay(250);
+    persist.resolve({
+      configured: true,
+      changed: true,
+      backupPath: "/tmp/mcp.json.bak",
+      backupHash: "backup-hash",
+      configHash: "config-hash",
+    });
+    assert.deepEqual(await web.done, {
+      validated: { ok: true },
+      persisted: {
+        configured: true,
+        changed: true,
+        backupPath: "/tmp/mcp.json.bak",
+        backupHash: "backup-hash",
+        configHash: "config-hash",
+      },
+    });
+  } finally {
+    persist.resolve({ configured: true });
+    request.destroy();
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page lets an explicit stop finish an in-flight persistence", async () => {
+  const persistStarted = deferred();
+  const persist = deferred();
+  const web = await startTestTokenWeb({
+    persistToken: async () => {
+      persistStarted.resolve();
+      return persist.promise;
+    },
+  });
+  try {
+    const responsePromise = fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_ONE }),
+    }).catch(() => null);
+    await persistStarted.promise;
+    web.stop();
+    persist.resolve({ configured: true, configHash: "config-hash" });
+    assert.deepEqual(await web.done, {
+      validated: { ok: true },
+      persisted: { configured: true, configHash: "config-hash" },
+    });
+    const response = await responsePromise;
+    assert.ok(response);
+    assert.match(await response.text(), /Готово/);
+  } finally {
+    persist.resolve({ configured: true, configHash: "config-hash" });
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page lets the rejected-request budget finish an in-flight persistence", async () => {
+  const persistStarted = deferred();
+  const persist = deferred();
+  const web = await startTestTokenWeb({
+    maxRejectedRequests: 1,
+    persistToken: async () => {
+      persistStarted.resolve();
+      return persist.promise;
+    },
+  });
+  try {
+    const responsePromise = fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_ONE }),
+    }).catch(() => null);
+    await persistStarted.promise;
+    const rejected = await fetch(`http://127.0.0.1:${web.port}/?secret=wrong`);
+    assert.equal(rejected.status, 404);
+    persist.resolve({ configured: true, configHash: "config-hash" });
+    assert.deepEqual(await web.done, {
+      validated: { ok: true },
+      persisted: { configured: true, configHash: "config-hash" },
+    });
+    const response = await responsePromise;
+    assert.ok(response);
+    assert.match(await response.text(), /Готово/);
+  } finally {
+    persist.resolve({ configured: true, configHash: "config-hash" });
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page does not persist when validation expires first", async () => {
+  const validationStarted = deferred();
+  const validation = deferred();
+  let persistCalls = 0;
+  const web = await startTestTokenWeb({
+    timeoutSeconds: 0.2,
+    validateToken: () => {
+      validationStarted.resolve();
+      return validation.promise;
+    },
+    persistToken: async () => {
+      persistCalls += 1;
+      return { configured: true };
+    },
+  });
+  try {
+    const responsePromise = fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_ONE }),
+    }).catch(() => null);
+    await validationStarted.promise;
+    await delay(250);
+    await assert.rejects(
+      web.done,
+      (error) =>
+        error instanceof SetupError && error.code === "TOKEN_WEB_TIMEOUT",
+    );
+    validation.resolve({ ok: true });
+    await responsePromise;
+    assert.equal(persistCalls, 0);
+  } finally {
+    validation.resolve({ ok: true });
+    web.stop();
+    await web.done.catch(() => {});
+  }
 });
 
 test("token page re-shows the form on SMOKE_AUTH and accepts the retry", async () => {
