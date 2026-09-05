@@ -52,6 +52,7 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `gen-docs`, `gen-skills`, `fetch-spec`, plus the offline Agent Plugins validator.
 - `skills/` — 6 generated API skills plus setup and the manually maintained
   operator, catalog-doctor, promo-launcher and launch-check scenarios.
+  Each manual scenario skill records its editing invariants in `skills/<name>/AGENTS.md`.
 - `plugin.json` + `mcp.json` — portable Agent Plugins package; `mcp.json` deliberately
   contains no store token.
 - `.codex-plugin/`, `.cursor-plugin/`, `.claude-plugin/`, `.agents/` and `.mcp.json` —
