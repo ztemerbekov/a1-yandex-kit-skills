@@ -33,7 +33,8 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
 ## Repo map
 
 - `packages/core` — `yandex-kit-core`: `KitClient` (Bearer auth, timeout, token-bucket
-  rate limiter at 3 rps, backoff retries on network/5xx/429 **and** `LIMIT_EXCEEDED`
+  rate limiter at 3 rps, backoff retries on network/5xx/429 (the live limiter answers
+  429 with a plain-text `limited` body, no Retry-After) **and** `LIMIT_EXCEEDED`
   which arrives with HTTP 400 — **GET only**: mutations always make exactly one
   network attempt (no idempotency contract from the API, a repeated write could
   duplicate the change), auto-pagination via `listAll`, per-operation content type:
@@ -52,6 +53,7 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   `gen-docs`, `gen-skills`, `fetch-spec`, plus the offline Agent Plugins validator.
 - `skills/` — 6 generated API skills plus setup and the manually maintained
   operator, catalog-doctor, promo-launcher and launch-check scenarios.
+  Each manual scenario skill records its editing invariants in `skills/<name>/AGENTS.md`.
 - `plugin.json` + `mcp.json` — portable Agent Plugins package; `mcp.json` deliberately
   contains no store token.
 - `.codex-plugin/`, `.cursor-plugin/`, `.claude-plugin/`, `.agents/` and `.mcp.json` —

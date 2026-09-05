@@ -8,6 +8,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
+import http from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -41,6 +42,8 @@ import {
   rollbackChange,
   selectManagedAdapter,
   smokeMcp,
+  startTokenWeb,
+  unreachableReason,
 } from "./setup-lib.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -1356,5 +1359,359 @@ test("direct smoke reports an authentication failure as SMOKE_AUTH", async () =>
         error.code === "SMOKE_AUTH" &&
         !error.message.includes(SECRET_ONE),
     );
+  });
+});
+
+const NO_FS = { exists: () => false, readText: () => null };
+const DESKTOP_ENV = { DISPLAY: ":0" };
+
+function startTestTokenWeb(overrides = {}) {
+  return startTokenWeb({
+    validateToken: async () => ({ ok: true }),
+    persistToken: async () => ({ configured: true }),
+    timeoutSeconds: 30,
+    ...overrides,
+  });
+}
+
+// http.request instead of fetch: the Fetch spec forbids overriding Host,
+// which is exactly the header the DNS-rebinding check must see.
+function rawRequest({ port, method = "GET", path: requestPath = "/", headers = {}, body = "" }) {
+  return new Promise((resolve, reject) => {
+    const request = http.request(
+      { host: "127.0.0.1", port, method, path: requestPath, headers },
+      (response) => {
+        let data = "";
+        response.on("data", (chunk) => {
+          data += chunk;
+        });
+        response.on("end", () =>
+          resolve({ status: response.statusCode, body: data }),
+        );
+      },
+    );
+    request.on("error", reject);
+    request.end(body);
+  });
+}
+
+test("unreachableReason detects SSH, containers, and headless Linux", () => {
+  for (const name of ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"]) {
+    const reason = unreachableReason({
+      env: { [name]: "203.0.113.1 50000 203.0.113.2 22" },
+      platform: "darwin",
+      fsProbe: NO_FS,
+    });
+    assert.ok(reason?.includes(name), String(reason));
+  }
+  for (const file of ["/.dockerenv", "/run/.containerenv"]) {
+    const reason = unreachableReason({
+      env: DESKTOP_ENV,
+      platform: "linux",
+      fsProbe: { exists: (candidate) => candidate === file, readText: () => null },
+    });
+    assert.ok(reason?.includes(file), String(reason));
+  }
+  for (const marker of ["docker", "containerd", "kubepods", "lxc", "libpod"]) {
+    const reason = unreachableReason({
+      env: DESKTOP_ENV,
+      platform: "linux",
+      fsProbe: {
+        exists: () => false,
+        readText: (candidate) =>
+          candidate === "/proc/1/cgroup" ? `12:cpu:/${marker}/abc` : null,
+      },
+    });
+    assert.ok(reason?.includes(marker), String(reason));
+  }
+  assert.ok(
+    unreachableReason({ env: {}, platform: "linux", fsProbe: NO_FS })?.includes(
+      "DISPLAY",
+    ),
+  );
+  assert.equal(
+    unreachableReason({ env: DESKTOP_ENV, platform: "linux", fsProbe: NO_FS }),
+    null,
+  );
+  assert.equal(
+    unreachableReason({
+      env: { WAYLAND_DISPLAY: "wayland-0" },
+      platform: "linux",
+      fsProbe: {
+        exists: () => false,
+        readText: (candidate) =>
+          candidate === "/proc/1/cgroup" ? "0::/init.scope" : null,
+      },
+    }),
+    null,
+  );
+  assert.equal(
+    unreachableReason({ env: {}, platform: "darwin", fsProbe: NO_FS }),
+    null,
+  );
+});
+
+test("token page serves the one-time form and rejects a wrong secret", async () => {
+  const web = await startTestTokenWeb();
+  try {
+    assert.match(
+      web.url,
+      /^http:\/\/127\.0\.0\.1:\d+\/\?secret=[A-Za-z0-9_-]{43}$/,
+    );
+    assert.equal(web.expiresInSeconds, 30);
+
+    const form = await fetch(web.url);
+    assert.equal(form.status, 200);
+    assert.equal(
+      form.headers.get("content-security-policy"),
+      "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    );
+    assert.equal(form.headers.get("cache-control"), "no-store");
+    assert.equal(form.headers.get("referrer-policy"), "no-referrer");
+    assert.equal(form.headers.get("x-frame-options"), "DENY");
+    const html = await form.text();
+    for (const marker of [
+      "Подключение магазина",
+      "Токен магазина",
+      "Подключить",
+      "Настройки → API",
+      "Сгенерировать токен",
+      "Токен остаётся на этом компьютере",
+      "Страница одноразовая",
+    ]) {
+      assert.ok(html.includes(marker), marker);
+    }
+
+    const wrong = await fetch(`http://127.0.0.1:${web.port}/?secret=nope`);
+    assert.equal(wrong.status, 404);
+    const missing = await fetch(`http://127.0.0.1:${web.port}/`);
+    assert.equal(missing.status, 404);
+  } finally {
+    web.stop();
+    await assert.rejects(
+      web.done,
+      (error) =>
+        error instanceof SetupError && error.code === "TOKEN_WEB_CLOSED",
+    );
+  }
+});
+
+test("token page stops after twenty requests with a wrong secret", async () => {
+  const web = await startTestTokenWeb();
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const response = await fetch(
+      `http://127.0.0.1:${web.port}/?secret=wrong-${attempt}`,
+    );
+    assert.equal(response.status, 404);
+  }
+  await assert.rejects(
+    web.done,
+    (error) => error instanceof SetupError && error.code === "TOKEN_WEB_ABUSE",
+  );
+  await assert.rejects(fetch(web.url));
+});
+
+test("token page rejects a foreign Host header before reading the token", async () => {
+  const calls = [];
+  const web = await startTestTokenWeb({
+    validateToken: async (token) => {
+      calls.push(["validate", token]);
+      return { ok: true };
+    },
+    persistToken: async (token) => {
+      calls.push(["persist", token]);
+      return { configured: true };
+    },
+  });
+  try {
+    const secretQuery = new URL(web.url).search;
+    const rebinding = await rawRequest({
+      port: web.port,
+      method: "POST",
+      path: `/${secretQuery}`,
+      headers: {
+        Host: "attacker.example",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ token: SECRET_ONE }).toString(),
+    });
+    assert.equal(rebinding.status, 421);
+    assert.deepEqual(calls, []);
+
+    const stillAlive = await fetch(web.url);
+    assert.equal(stillAlive.status, 200);
+  } finally {
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page rejects a body over the 8192-byte limit", async () => {
+  const calls = [];
+  const web = await startTestTokenWeb({
+    validateToken: async (token) => {
+      calls.push(["validate", token]);
+      return { ok: true };
+    },
+    persistToken: async (token) => {
+      calls.push(["persist", token]);
+      return { configured: true };
+    },
+  });
+  try {
+    const oversized = await fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: "x".repeat(9_000) }),
+    });
+    assert.equal(oversized.status, 413);
+    assert.deepEqual(calls, []);
+  } finally {
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("token page validates before persisting and closes after the first save", async () => {
+  const calls = [];
+  const web = await startTestTokenWeb({
+    validateToken: async (token) => {
+      calls.push(["validate", token]);
+      return { ok: true, store: { name: "Магазин" } };
+    },
+    persistToken: async (token) => {
+      calls.push(["persist", token]);
+      return { configured: true, changed: true };
+    },
+  });
+  const saved = await fetch(web.url, {
+    method: "POST",
+    body: new URLSearchParams({ token: SECRET_ONE }),
+  });
+  assert.equal(saved.status, 200);
+  assert.ok((await saved.text()).includes("Готово"));
+  assert.deepEqual(await web.done, {
+    validated: { ok: true, store: { name: "Магазин" } },
+    persisted: { configured: true, changed: true },
+  });
+  assert.deepEqual(calls, [
+    ["validate", SECRET_ONE],
+    ["persist", SECRET_ONE],
+  ]);
+  await assert.rejects(fetch(web.url));
+});
+
+test("token page re-shows the form on SMOKE_AUTH and accepts the retry", async () => {
+  const attempts = [];
+  const web = await startTestTokenWeb({
+    validateToken: async (token) => {
+      attempts.push(token);
+      if (attempts.length === 1) {
+        throw new SetupError("Yandex KIT rejected the token (HTTP 401).", "SMOKE_AUTH");
+      }
+      return { ok: true };
+    },
+  });
+  const rejected = await fetch(web.url, {
+    method: "POST",
+    body: new URLSearchParams({ token: SECRET_TWO }),
+  });
+  assert.equal(rejected.status, 200);
+  const retryHtml = await rejected.text();
+  assert.ok(retryHtml.includes("не принял этот токен"));
+  assert.ok(retryHtml.includes("<form"));
+
+  const accepted = await fetch(web.url, {
+    method: "POST",
+    body: new URLSearchParams({ token: SECRET_ONE }),
+  });
+  assert.equal(accepted.status, 200);
+  assert.ok((await accepted.text()).includes("Готово"));
+  const outcome = await web.done;
+  assert.deepEqual(attempts, [SECRET_TWO, SECRET_ONE]);
+  assert.deepEqual(outcome.persisted, { configured: true });
+});
+
+test("token page stops with the underlying code on a technical failure", async () => {
+  const web = await startTestTokenWeb({
+    validateToken: async () => {
+      throw new SetupError("blocked", "NETWORK_UNAVAILABLE");
+    },
+  });
+  const response = await fetch(web.url, {
+    method: "POST",
+    body: new URLSearchParams({ token: SECRET_ONE }),
+  });
+  assert.equal(response.status, 200);
+  assert.ok((await response.text()).includes("Подключение прервано"));
+  await assert.rejects(
+    web.done,
+    (error) =>
+      error instanceof SetupError &&
+      error.code === "NETWORK_UNAVAILABLE" &&
+      !error.message.includes(SECRET_ONE),
+  );
+});
+
+test("token page expires with TOKEN_WEB_TIMEOUT", async () => {
+  const startedAt = Date.now();
+  const web = await startTestTokenWeb({ timeoutSeconds: 0.2 });
+  await assert.rejects(
+    web.done,
+    (error) =>
+      error instanceof SetupError && error.code === "TOKEN_WEB_TIMEOUT",
+  );
+  assert.ok(Date.now() - startedAt < 5_000);
+  await assert.rejects(fetch(web.url));
+});
+
+test("token page refuses an out-of-range deadline", async () => {
+  for (const timeoutSeconds of [0, -1, 3601, "soon"]) {
+    await assert.rejects(
+      startTestTokenWeb({ timeoutSeconds }),
+      (error) => error instanceof SetupError && error.code === "USAGE",
+    );
+  }
+});
+
+test("CLI token-route reports the route chosen by the environment", async () => {
+  const forced = await runCli(["token-route", "--json"], "", {
+    env: { ...process.env, SSH_CONNECTION: "203.0.113.1 50000 203.0.113.2 22" },
+  });
+  assert.equal(forced.code, 0, forced.stderr);
+  const hosted = JSON.parse(forced.stdout);
+  assert.equal(hosted.route, "hosted");
+  assert.match(hosted.reason, /SSH_CONNECTION/);
+
+  const current = await runCli(["token-route", "--json"]);
+  assert.equal(current.code, 0, current.stderr);
+  assert.ok(["web", "hosted"].includes(JSON.parse(current.stdout).route));
+});
+
+test("CLI token-web refuses a hosted session before opening the token page", async () => {
+  await withTempDir(async (tempDir) => {
+    const configPath = path.join(tempDir, "mcp.json");
+    const result = await runCli(
+      [
+        "token-web",
+        "--client",
+        "cursor",
+        "--config",
+        configPath,
+        "--project-dir",
+        tempDir,
+        "--json",
+      ],
+      "",
+      {
+        env: {
+          ...process.env,
+          SSH_CONNECTION: "203.0.113.1 50000 203.0.113.2 22",
+        },
+      },
+    );
+    assert.equal(result.code, 1);
+    assert.match(result.stderr, /"code":"TOKEN_WEB_UNAVAILABLE"/);
+    assert.match(result.stderr, /SSH_CONNECTION/);
+    await assert.rejects(readFile(configPath, "utf8"), { code: "ENOENT" });
   });
 });

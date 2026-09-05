@@ -18,9 +18,11 @@ const SECRET = "y0_AgAAAA-module-test";
 test("setup-lib preserves the public module contract", () => {
   const expected = [
     "BACKUP_SUFFIX",
+    "DEFAULT_TOKEN_WEB_TIMEOUT_SECONDS",
     "FALLBACK_SERVER_NAME",
     "IMPORT_PROFILE_VERSION",
     "IMPORT_TOOL_NAMES",
+    "MAX_TOKEN_WEB_TIMEOUT_SECONDS",
     "SERVER_ARGS",
     "SERVER_COMMAND",
     "SERVER_NAME",
@@ -58,6 +60,8 @@ test("setup-lib preserves the public module contract", () => {
     "selectManagedAdapter",
     "smokeAdapter",
     "smokeMcp",
+    "startTokenWeb",
+    "unreachableReason",
   ];
 
   assert.deepEqual(Object.keys(publicSetup).sort(), expected.sort());
