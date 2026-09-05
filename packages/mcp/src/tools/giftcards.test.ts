@@ -44,6 +44,34 @@ test("registers exactly list_gift_cards and get_gift_card, both read-only", asyn
   }
 });
 
+test("get_gift_card redact:true masks buyer/holder contacts but keeps code, amounts, status", async () => {
+  const card = {
+    id: "g1",
+    code: "GIFTCARD-****-1234",
+    initial_amount: "1000.00",
+    spent_amount: "300.00",
+    status: "ACTIVATED",
+    buyer_name: "Иван Иванов",
+    buyer_email: "buyer@example.com",
+    buyer_phone: "+79998887766",
+    holder_email: "holder@example.com",
+  };
+  const { mcp } = await setup(card);
+  const res = await mcp.callTool({ name: "get_gift_card", arguments: { id: "g1", redact: true } });
+  const data = JSON.parse((res as { content: { text: string }[] }).content[0]!.text);
+  assert.deepEqual(data, {
+    id: "g1",
+    code: "GIFTCARD-****-1234",
+    initial_amount: "1000.00",
+    spent_amount: "300.00",
+    status: "ACTIVATED",
+    buyer_name: "[redacted]",
+    buyer_email: "[redacted]",
+    buyer_phone: "[redacted]",
+    holder_email: "[redacted]",
+  });
+});
+
 test("list_gift_cards passes page/filters through and clamps per_page to 100", async () => {
   const { calls, mcp } = await setup({ gift_cards: [], total_count: 0 });
   const res = await mcp.callTool({

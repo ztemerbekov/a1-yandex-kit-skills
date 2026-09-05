@@ -2,7 +2,15 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { KitValidationError, validateRequestBody, type KitClient } from "yandex-kit-core";
 
-import { clampPerPage, fail, ok, READ_ONLY, validationFailure } from "../util.js";
+import {
+  clampPerPage,
+  fail,
+  ok,
+  READ_ONLY,
+  REDACT_PARAM_DESCRIPTION,
+  redactPii,
+  validationFailure,
+} from "../util.js";
 
 export function registerOrderTools(server: McpServer, client: KitClient): void {
   server.registerTool(
@@ -22,16 +30,17 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all }) => {
+    async ({ page, per_page, all, redact }) => {
       try {
-        if (all) return ok(await client.listAll("GetOrders"));
-        return ok(
-          await client.call("GetOrders", {
-            query: { page, per_page: clampPerPage(per_page) },
-          }),
-        );
+        const data = all
+          ? await client.listAll("GetOrders")
+          : await client.call("GetOrders", {
+              query: { page, per_page: clampPerPage(per_page) },
+            });
+        return ok(redact ? redactPii(data) : data);
       } catch (e) {
         return fail(e);
       }
@@ -47,11 +56,13 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Order ID (UUID)."),
+        redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
       },
     },
-    async ({ id }) => {
+    async ({ id, redact }) => {
       try {
-        return ok(await client.call("GetOrderById", { pathParams: { id } }));
+        const data = await client.call("GetOrderById", { pathParams: { id } });
+        return ok(redact ? redactPii(data) : data);
       } catch (e) {
         return fail(e);
       }

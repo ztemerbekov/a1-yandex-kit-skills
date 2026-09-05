@@ -125,6 +125,82 @@ export function fileFormData(bytes: Buffer, name: string): FormData {
   return form;
 }
 
+/** Replacement value for personal data masked by `redactPii`. */
+export const REDACTED = "[redacted]";
+
+/**
+ * Names of personal-data fields, collected from the response schemas of the
+ * bundled OpenAPI spec (specs/kit-swagger.openapi.json):
+ *
+ * - `OrderClientInfo`: first_name, last_name, patronymic, phone, email
+ * - `Customer`: first_name, last_name, phone, email, note (customer note)
+ * - `OrderDeliveryInfo`: delivery_notes (delivery comment)
+ * - `OrderAddressInfo` (delivery address parts): courier_locality,
+ *   courier_address, pickup_point_locality, pickup_point_address,
+ *   self_pick_up_locality, self_pick_up_address, floor, appartment
+ *   (spec's own spelling), entrance, intercom
+ * - `GiftCard`: buyer_name, buyer_email, buyer_phone, holder_email
+ *
+ * Identifiers, amounts, statuses and dates are deliberately NOT listed:
+ * they are what an aggregating task actually needs.
+ */
+export const PII_FIELDS: ReadonlySet<string> = new Set([
+  // person
+  "first_name",
+  "last_name",
+  "patronymic",
+  "phone",
+  "email",
+  // free-form notes about the person / the delivery
+  "note",
+  "delivery_notes",
+  // delivery address and its parts
+  "courier_locality",
+  "courier_address",
+  "pickup_point_locality",
+  "pickup_point_address",
+  "self_pick_up_locality",
+  "self_pick_up_address",
+  "floor",
+  "appartment",
+  "entrance",
+  "intercom",
+  // gift card buyer / holder
+  "buyer_name",
+  "buyer_email",
+  "buyer_phone",
+  "holder_email",
+]);
+
+/**
+ * Deep copy of a RESPONSE with the value of every PII field (see `PII_FIELDS`)
+ * replaced by `"[redacted]"` — the analog of the official client's `--redact`
+ * (docs/YANDEX-KIT-SKILLS-OFFICIAL-RESEARCH.md §1.3). Output-only by design:
+ * request bodies must never pass through here, a redacted write would be a
+ * silent corruption. `null`/absent PII values stay as they are — there is
+ * nothing to hide and a placeholder would fake data that never existed.
+ */
+export function redactPii<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => redactPii(item)) as unknown as T;
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (PII_FIELDS.has(key) && entry !== null && entry !== undefined) {
+      out[key] = REDACTED;
+    } else {
+      out[key] = redactPii(entry);
+    }
+  }
+  return out as T;
+}
+
+/** Shared `.describe()` text for the opt-in `redact` parameter. */
+export const REDACT_PARAM_DESCRIPTION =
+  "Use redact:true when the task does not need personal data (e.g. counting or aggregating " +
+  'orders) — personal fields (name, phone, email, delivery address and its parts, notes) are ' +
+  'replaced with "[redacted]". Applies to the response only; request bodies are never ' +
+  "redacted. Default false.";
+
 export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): number {
   if (perPage === undefined) return Math.min(DEFAULT_PER_PAGE, max);
   return Math.max(1, Math.min(max, Math.trunc(perPage)));

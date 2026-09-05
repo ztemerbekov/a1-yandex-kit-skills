@@ -80,6 +80,42 @@ test("list_customers all=true fetches via listAll with per_page=100", async () =
   assert.deepEqual(data, { items: [{ id: "c1" }], pages: 1, truncated: false });
 });
 
+test("list_customers redact:true masks personal fields but keeps ids, sums and dates", async () => {
+  const customer = {
+    customer_id: "c1",
+    first_name: "Иван",
+    last_name: "Иванов",
+    phone: "+79991234567",
+    email: "ivan@example.com",
+    note: "постоянный клиент",
+    order_count: 10,
+    order_sum: "10000.00",
+    registered_at: "2020-01-01T00:00:00Z",
+  };
+  const { mcp } = await setup({ customers: [customer], total_count: 1 });
+  const res = await mcp.callTool({ name: "list_customers", arguments: { redact: true } });
+  const data = JSON.parse(resultText(res));
+  assert.deepEqual(data.customers[0], {
+    customer_id: "c1",
+    first_name: "[redacted]",
+    last_name: "[redacted]",
+    phone: "[redacted]",
+    email: "[redacted]",
+    note: "[redacted]",
+    order_count: 10,
+    order_sum: "10000.00",
+    registered_at: "2020-01-01T00:00:00Z",
+  });
+  assert.equal(data.total_count, 1);
+});
+
+test("get_customer without redact returns personal fields untouched", async () => {
+  const customer = { customer_id: "c1", phone: "+79991234567", email: "ivan@example.com" };
+  const { mcp } = await setup(customer);
+  const res = await mcp.callTool({ name: "get_customer", arguments: { id: "c1" } });
+  assert.deepEqual(JSON.parse(resultText(res)), customer);
+});
+
 test("get_customer maps id to the customer_id path param", async () => {
   const { calls, mcp } = await setup({ id: "c1" });
   await mcp.callTool({ name: "get_customer", arguments: { id: "cust-42" } });
