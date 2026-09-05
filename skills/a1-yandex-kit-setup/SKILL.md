@@ -92,16 +92,88 @@ list/show command: treat an existing managed `yandex-kit` or
 `a1-yandex-kit-global` entry as `configured: true` without attempting to read its
 token.
 
+For a first-connection request when a token is already configured, ask:
+`Токен Яндекс KIT уже сохранён в настройках. Хотите переподключить магазин с новым токеном?`
+
+- For `нет`, finish with:
+  `Принято! Оставляем действующий токен Яндекс KIT без изменений. Всё работает в прежнем режиме.`
+- For `да`, continue below as a reconnection.
+
+### Onboard before the token
+
+Send one short onboarding message before the first token request of the
+conversation, on every route. In the owner's business language
+(`merchant-communication.md`), name three or four jobs they can hand over
+once the store is connected, and frame the token as the single remaining
+step. For example:
+
+`После подключения мне можно будет поручать дела магазина: обновлять цены и остатки, следить за заказами, запускать акции и промокоды, наводить порядок в каталоге. Остался один шаг — токен магазина.`
+
+### Let the environment choose the route
+
+```bash
+node "<skill-directory>/scripts/setup.mjs" token-route --json
+```
+
+- `route: "web"` — a browser on this computer can open a local page. Use the
+  local one-time page below; it is the priority route on desktop clients
+  because the token never enters the chat.
+- `route: "hosted"` — the session is remote (`reason` names the SSH,
+  container or headless marker), so no browser can reach a local page. Use
+  the hosted route below and present it as the normal, supported route for
+  this environment; skip the page entirely so the user never receives a link
+  that cannot open.
+
+### Local one-time page (`route: "web"`)
+
+Start the page as a long-running background process, passing the same
+`--format`, `--config`, `--project-dir` and `--server-name` flags the ladder
+established for `configure`:
+
+```bash
+node "<skill-directory>/scripts/setup.mjs" token-web --client <client> --json
+```
+
+The first stdout line is `{"url": …, "expires_in_seconds": …}`. Relay that
+URL to the owner immediately, with the lifetime taken from
+`expires_in_seconds` (five minutes by default):
+
+`Откройте на этом компьютере одноразовую страницу и вставьте туда токен — так он не появится в чате. Где взять токен: кабинет Яндекс KIT, Настройки → API → «Сгенерировать токен». Ссылка действует 5 минут и работает один раз: <url>`
+
+The command keeps serving the page while the owner enters the token. It runs
+the same read-only `get_store` validation as `smoke-token` before writing
+anything — it needs the same external network access — re-shows the form on a
+rejected token without a retry limit, and on success performs the exact
+`configure` write from step 4. Its final JSON carries the `configure` fields
+plus `smoke`: when it reports `configured: true`, steps 3 and 4 are complete
+— keep its rollback values (`changed`, `backupPath`, `backupHash`,
+`configHash`) and continue at step 5.
+
+Fall back to the chat route below when `token-web` ends with
+`TOKEN_WEB_UNAVAILABLE`, `TOKEN_WEB_TIMEOUT` or `TOKEN_WEB_ABUSE`, or when
+the user asks to paste the token in chat instead.
+
+### Hosted route (`route: "hosted"`)
+
+Offer the client's session environment or secrets settings first — a token
+stored there never enters the conversation:
+
+`Ассистент работает в удалённой сессии, поэтому локальная страница ввода токена здесь не откроется — это нормальный, предусмотренный маршрут. Надёжнее всего задать токен переменной YANDEX_KIT_TOKEN в настройках окружения или секретов этой сессии: тогда он не попадёт в переписку. Если таких настроек нет под рукой — пришлите токен сюда, в чат.`
+
+When the user stores the token in those settings, follow the client's
+documentation for exposing the variable to the managed server, then prove
+the connection in step 5. When the user cannot reach those settings, take
+the token through the chat route below, and once the requested work is
+finished remind them once:
+
+`Токен побывал в истории этого чата. Когда закончите задачу, его можно отозвать в кабинете Яндекс KIT: Настройки → API — и при необходимости выпустить новый.`
+
+### Chat route (works on every client)
+
 - When `configured` is false, ask:
   `Для настройки потребуется токен Яндекс KIT. Чтобы его получить, зайдите в кабинет Яндекс KIT: Настройки → API и скопируйте ключ. Вставьте его сюда — я привяжу его к приложению и не буду повторять в ответе. Токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
-- When `configured` is true, continue from the selected branch:
-  - For reconnection, including reinstallation or token replacement, ask:
-    `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
-  - For a first-connection request when a token is already configured, ask:
-    `Токен Яндекс KIT уже сохранён в настройках. Хотите переподключить магазин с новым токеном?`
-    - For `нет`, finish with:
-      `Принято! Оставляем действующий токен Яндекс KIT без изменений. Всё работает в прежнем режиме.`
-    - For `да`, use the reconnection prompt above.
+- For reconnection, including reinstallation or token replacement, ask:
+  `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
 
 Accept the token in chat. Do not echo, summarize, quote, log or interpolate it
 into a shell command. Pass a new token only through stdin to `setup.mjs`: write
@@ -133,13 +205,16 @@ user explicitly cancels. Do not impose a retry limit. Because configuration has 
 cancellation leaves the current client settings unchanged. Treat other smoke
 failures as their own diagnostics instead of asking for a different token.
 
-This step is complete when one candidate token has passed `get_store`. The
-explicit `нет` branch for an existing first connection finishes the skill
-without reaching this point.
+This step is complete when the local page has reported `configured: true` or
+one candidate token has passed `get_store`. The explicit `нет` branch for an
+existing first connection finishes the skill without reaching this point.
 
 ## 4. Configure the user-level client
 
-For a new or replacement token, run the helper in an interactive process and
+A token saved through the local page is already configured: `token-web`
+performed this step's write, so continue to step 5 with its reported values.
+
+For a token accepted in chat, run the helper in an interactive process and
 write the token followed by a newline to its stdin; the newline completes the
 input, so the helper does not wait for the pipe to close:
 
@@ -218,9 +293,10 @@ The smoke test must complete the MCP initialize handshake, list tools, find
 `get_store`, and call only `get_store`. It must not call any write tool.
 
 If the tested profile fails because its path, schema or client command changed,
-restore only this run's change when `configure` reported `changed: true`, then
-execute the dynamic compatibility branch. For a pre-existing config, use every
-rollback value returned by that configure run:
+restore only this run's change when `configure` or `token-web` reported
+`changed: true`, then execute the dynamic compatibility branch. For a
+pre-existing config, use every rollback value returned by that run — both
+helpers report the same fields:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" rollback --config <configPath> --backup <backupPath> --backup-hash <backupHash> --expected-hash <configHash> --json
