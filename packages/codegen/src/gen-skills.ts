@@ -246,7 +246,9 @@ const SKILLS: SkillDef[] = [
       "Core guide to the Yandex KIT e-commerce API (kit.yandex.ru store builder): authentication, " +
       "base URL, rate limits, error contract, pagination and offline spec search/validation scripts. " +
       "Use when a task involves the Yandex KIT API and no domain skill (catalog, orders, promotions, " +
-      "store, webhooks) clearly fits, or when you need auth, limits or error-handling basics.",
+      "store, webhooks) clearly fits, or when you need auth, limits or error-handling basics. " +
+      "Russian triggers include: «что умеет API Яндекс КИТ», «найди операцию в API», " +
+      "«какой лимит запросов», «почему ошибка LIMIT_EXCEEDED», «как авторизоваться в Ките».",
     overview: ROUTER_OVERVIEW,
     tags: null,
     toolFiles: ["meta"],
@@ -264,7 +266,9 @@ const SKILLS: SkillDef[] = [
       "stocks), bulk price/stock sync, variant documents (attachments), categories, " +
       "characteristics (including groups and colors), product videos, collections, " +
       "context collections and badges. " +
-      "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store.",
+      "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store. " +
+      "Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», " +
+      "«поменяй категорию», «добавь видео к товару», «синхронизируй каталог».",
     overview: `Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
 Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
@@ -321,7 +325,9 @@ ${DOMAIN_TRAILER}`,
     description:
       "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, " +
       "gift cards and additional services (addons). Use when listing, confirming or cancelling " +
-      "KIT orders, or when looking up customers, their orders or gift cards.",
+      "KIT orders, or when looking up customers, their orders or gift cards. " +
+      "Russian triggers include: «покажи заказы», «подтверди заказ», «отмени заказ», " +
+      "«что с заказом», «найди клиента», «выгрузи заказы за неделю».",
     overview: `Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
 Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, close out their delivery
@@ -351,7 +357,9 @@ ${DOMAIN_TRAILER}`,
       "Manage promotions in a Yandex KIT store over its REST API: discounts, promo codes, " +
       "promocode groups (shared codes and single-use coupon batches) and gifts. Use when " +
       "creating or updating discounts, promocodes, promocode groups or gifts, or when " +
-      "binding them to products, categories or collections.",
+      "binding them to products, categories or collections. " +
+      "Russian triggers include: «создай скидку», «сделай промокод», «выпусти партию промокодов», " +
+      "«добавь подарок к товару», «останови акцию».",
     overview: `Covers the promotions domain of the Yandex KIT e-commerce API — tags: Скидки,
 Промокоды, Группы промокодов, Подарки. Promotions are created first and then bound to
 objects: discounts, promocodes and promocode groups to variants, categories or
@@ -390,7 +398,9 @@ ${DOMAIN_TRAILER}`,
       "Manage Yandex KIT store-level resources over its REST API: store profile, warehouses, users, " +
       "geo regions, file uploads, redirects, blog/news posts and system alerts. Use when reading " +
       "store metadata, managing warehouses or redirects, uploading files, publishing news or " +
-      "triaging store alerts in a Yandex KIT store.",
+      "triaging store alerts in a Yandex KIT store. " +
+      "Russian triggers include: «покажи склады», «создай склад», «загрузи файл», " +
+      "«опубликуй новость», «какие алерты у магазина», «настрой редирект».",
     overview: `Covers the store-level domain of the Yandex KIT e-commerce API — tags: Магазин,
 Склады, Пользователи, Гео, Файлы, Редиректы, Новости, Алерты. This is where you read the store
 profile and the API user, manage warehouses (variant stocks reference them; \`UpdateWarehouse\`
@@ -421,7 +431,9 @@ ${DOMAIN_TRAILER}`,
       "Manage Yandex KIT webhooks over its REST API: subscribe HTTPS endpoints to order status, " +
       "payment and delivery events and handle the one-time signing secret. Use when creating, " +
       "updating, validating or deleting KIT webhooks, verifying incoming calls, diagnosing " +
-      "missing order-status callbacks or migrating receipt-status automations.",
+      "missing order-status callbacks or migrating receipt-status automations. " +
+      "Russian triggers include: «настрой вебхук», «подпишись на статусы заказов», " +
+      "«почему не приходят уведомления о заказах», «проверь вебхук».",
     overview: WEBHOOKS_OVERVIEW,
     tags: ["Вебхуки"],
     toolFiles: ["webhooks"],
