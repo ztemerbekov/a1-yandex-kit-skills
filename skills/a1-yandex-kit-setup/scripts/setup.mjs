@@ -18,6 +18,8 @@ import {
   selectManagedAdapter,
   smokeAdapter,
   smokeMcp,
+  startTokenWeb,
+  unreachableReason,
 } from "./setup-lib.mjs";
 
 function parseArgs(argv) {
@@ -29,7 +31,7 @@ function parseArgs(argv) {
       throw new SetupError(`Unexpected argument "${item}".`, "USAGE");
     }
     const key = item.slice(2);
-    if (["json", "token-stdin", "created"].includes(key)) {
+    if (["json", "token-stdin", "created", "force"].includes(key)) {
       options[key] = true;
       continue;
     }
@@ -107,6 +109,8 @@ function usage() {
     "  setup.mjs client-check --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke-token --token-stdin [--json]",
+    "  setup.mjs token-route [--json]",
+    "  setup.mjs token-web --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--timeout-seconds <n>] [--force] [--json]",
     "  setup.mjs approval-status --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
     "  setup.mjs approval-configure --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
     "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
@@ -186,6 +190,15 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
+  if (command === "token-route") {
+    const reason = unreachableReason();
+    printResult(
+      reason ? { route: "hosted", reason } : { route: "web" },
+      options.json,
+    );
+    return;
+  }
+
   if (command === "approval-status" || command === "approval-configure") {
     if (!options.client) {
       throw new SetupError("--client is required.", "USAGE");
@@ -222,6 +235,34 @@ export async function main(argv = process.argv.slice(2)) {
     const token = await readTokenStdin();
     const result = await configureAdapter(adapter, { token });
     printResult(result, options.json);
+    return;
+  }
+  if (command === "token-web") {
+    // The environment check must come before any socket is opened: a hosted
+    // session would otherwise get a URL its user's browser can never reach.
+    const reason = unreachableReason();
+    if (reason && !options.force) {
+      throw new SetupError(
+        `The local token page is unavailable here: ${reason}`,
+        "TOKEN_WEB_UNAVAILABLE",
+      );
+    }
+    await checkPrerequisites();
+    const web = await startTokenWeb({
+      timeoutSeconds: options["timeout-seconds"],
+      // Same invariant as the chat route: the live read-only get_store must
+      // pass before configureAdapter writes anything to the client config.
+      validateToken: (token) => smokeMcp({ token }),
+      persistToken: (token) => configureAdapter(adapter, { token }),
+    });
+    // Print the URL immediately: the agent relays it to the user while this
+    // process keeps serving the page until the token is saved.
+    printResult(
+      { url: web.url, expires_in_seconds: web.expiresInSeconds },
+      options.json,
+    );
+    const { validated, persisted } = await web.done;
+    printResult({ ...persisted, smoke: validated }, options.json);
     return;
   }
   if (command === "client-check") {

@@ -49,3 +49,9 @@ export {
   configureNative,
 } from "./lib/process.mjs";
 export { probeNetwork, smokeAdapter, smokeMcp } from "./lib/smoke.mjs";
+export { unreachableReason } from "./lib/session-env.mjs";
+export {
+  DEFAULT_TOKEN_WEB_TIMEOUT_SECONDS,
+  MAX_TOKEN_WEB_TIMEOUT_SECONDS,
+  startTokenWeb,
+} from "./lib/token-web.mjs";
