@@ -85,11 +85,12 @@ skills/<name>/
    `../../AGENTS.md`» — два из четырёх. У нас весь этот слой — один корневой
    `CLAUDE.md`.
 
-2. **Фронтматтер несёт `user-invocable: true` и
-   `allowed-tools: Bash(scripts/kit.py:*)`.** Второе — реальное ограничение
-   поверхности: скилл не может дотянуться ни до чего, кроме своего клиента. У
-   нас во фронтматтере только `name`, `description`, `compatibility`,
-   `metadata`.
+2. **Фронтматтер несёт `user-invocable: true` и `allowed-tools` с именем
+   собственного клиента:** `Bash(scripts/kit.py:*)` у кабинета и витрины,
+   `Bash(scripts/checkup.py:*)` у чек-апа, `Bash(scripts/section.py:*)` у
+   секций. Второе — реальное ограничение поверхности: скилл не может
+   дотянуться ни до чего, кроме своего клиента. У нас во фронтматтере только
+   `name`, `description`, `compatibility`, `metadata`.
 
 3. **Прогрессивное раскрытие.** `SKILL.md` держит правила и карту, детали лежат
    в `references/` и грузятся страницей под задачу («load only the page the task
