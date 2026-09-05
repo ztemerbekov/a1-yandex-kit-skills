@@ -93,6 +93,8 @@ test("list_promocodes all=true fetches via listAll within the server per_page ca
     received: 1,
     total_count: 1,
     pages_read: 1,
+    pages: 1,
+    truncated: false,
   });
 });
 

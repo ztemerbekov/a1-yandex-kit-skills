@@ -350,8 +350,9 @@ interface ListAllResult {
  * `{coverage, received, total_count, pages_read, items}` from `kit.py list`;
  * docs/YANDEX-KIT-SKILLS-OFFICIAL-RESEARCH.md §1.3, §2.2 item 7).
  *
- * - `all` mode (client.listAll): coverage follows `truncated`; `pages` becomes
- *   `pages_read`; `total_count` is whatever the API reported, if anything.
+ * - `all` mode (client.listAll): coverage follows `truncated`; `pages_read`
+ *   records the pages consumed and the legacy `pages`/`truncated` aliases are
+ *   retained; `total_count` is whatever the API reported, if anything.
  * - single-page mode: `pages_read` is 1 and coverage is "partial" when
  *   `total_count > received`, or when a full page of `perPage` items arrived
  *   without a `total_count` (a continuation may exist); otherwise "complete".
@@ -372,6 +373,10 @@ export function withCoverage(
       received: items.length,
       ...(total_count !== undefined ? { total_count } : {}),
       pages_read: pages,
+      // Keep the names emitted by KitClient.listAll for consumers that used the
+      // pre-coverage response while exposing the explicit coverage verdict.
+      pages,
+      truncated,
     };
   }
   const res =

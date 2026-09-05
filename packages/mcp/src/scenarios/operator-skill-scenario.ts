@@ -7,6 +7,7 @@ import {
   type MutationOutcome,
   type MutationOutcomeKind,
 } from "./skill-mutation-protocol.js";
+import { withCoverage } from "../util.js";
 
 export interface OperatorOrder {
   id: string;
@@ -247,7 +248,16 @@ export class FakeOperatorMcp {
             variant.sku.toLowerCase() === search ||
             variant.name.toLowerCase().includes(search)),
       );
-      if (arguments_.all) return { items: variants, pages: 1, truncated: this.#truncated.variants ?? false };
+      if (arguments_.all) {
+        return withCoverage({
+          all: {
+            items: variants,
+            pages: 1,
+            truncated: this.#truncated.variants ?? false,
+            total_count: variants.length,
+          },
+        });
+      }
       return { variants, total_count: variants.length };
     }
     if (name === "get_variant") {
@@ -257,7 +267,16 @@ export class FakeOperatorMcp {
       return structuredClone(found);
     }
     if (name === "list_products") {
-      if (arguments_.all) return { items: this.#products, pages: 1, truncated: this.#truncated.products ?? false };
+      if (arguments_.all) {
+        return withCoverage({
+          all: {
+            items: this.#products,
+            pages: 1,
+            truncated: this.#truncated.products ?? false,
+            total_count: this.#products.length,
+          },
+        });
+      }
       return { products: this.#products };
     }
     if (name === "list_discounts") {
@@ -265,7 +284,16 @@ export class FakeOperatorMcp {
         ? new Set(arguments_.status.map(String))
         : new Set([String(arguments_.status ?? "ACTIVE")]);
       const discounts = this.#discounts.filter((discount) => requestedStatuses.has(discount.status));
-      if (arguments_.all) return { items: discounts, pages: 1, truncated: this.#truncated.discounts ?? false };
+      if (arguments_.all) {
+        return withCoverage({
+          all: {
+            items: discounts,
+            pages: 1,
+            truncated: this.#truncated.discounts ?? false,
+            total_count: discounts.length,
+          },
+        });
+      }
       return { discounts, total_count: discounts.length };
     }
     if (name === "get_discount") {
@@ -277,7 +305,16 @@ export class FakeOperatorMcp {
     if (name === "list_promocodes") {
       const status = typeof arguments_.status === "string" ? arguments_.status : undefined;
       const promocodes = this.#promocodes.filter((promocode) => !status || promocode.status === status);
-      if (arguments_.all) return { items: promocodes, pages: 1, truncated: this.#truncated.promocodes ?? false };
+      if (arguments_.all) {
+        return withCoverage({
+          all: {
+            items: promocodes,
+            pages: 1,
+            truncated: this.#truncated.promocodes ?? false,
+            total_count: promocodes.length,
+          },
+        });
+      }
       return { promocodes, total_count: promocodes.length };
     }
     if (name === "get_promocode") {
@@ -639,6 +676,21 @@ interface OperationalSignal {
   requiresReview?: boolean;
 }
 
+interface CoverageListing<T> {
+  items: T[];
+  coverage?: "complete" | "partial";
+  received?: number;
+  total_count?: number;
+  pages_read?: number;
+  // Compatibility fields retained by withCoverage for external consumers.
+  pages?: number;
+  truncated?: boolean;
+}
+
+function hasCompleteCoverage(result: CoverageListing<unknown>): boolean {
+  return result.coverage === "complete";
+}
+
 function signalRank(kind: SignalKind): number {
   return [...["existing_order", "lost_sale", "money", "reputation"], "storefront"].indexOf(kind);
 }
@@ -713,34 +765,28 @@ async function inspectStore(mcp: FakeOperatorMcp, now: Date): Promise<Operationa
   ] = await Promise.all([
     safeRead(
       "Покрытие каталога",
-      mcp.call("list_variants", { status: ["PUBLISHED"], all: true }) as Promise<{
-        items: OperatorVariant[];
-        truncated?: boolean;
-      }>,
+      mcp.call("list_variants", { status: ["PUBLISHED"], all: true }) as Promise<
+        CoverageListing<OperatorVariant>
+      >,
       "storefront",
     ),
     safeRead(
       "Покрытие каталога",
-      mcp.call("list_products", { all: true }) as Promise<{
-        items: OperatorProduct[];
-        truncated?: boolean;
-      }>,
+      mcp.call("list_products", { all: true }) as Promise<CoverageListing<OperatorProduct>>,
       "storefront",
     ),
     safeRead(
       "Покрытие промо",
-      mcp.call("list_discounts", { status: ["ACTIVE"], all: true }) as Promise<{
-        items: OperatorDiscount[];
-        truncated?: boolean;
-      }>,
+      mcp.call("list_discounts", { status: ["ACTIVE"], all: true }) as Promise<
+        CoverageListing<OperatorDiscount>
+      >,
       "money",
     ),
     safeRead(
       "Покрытие промо",
-      mcp.call("list_promocodes", { status: "ACTIVE", all: true }) as Promise<{
-        items: OperatorPromocode[];
-        truncated?: boolean;
-      }>,
+      mcp.call("list_promocodes", { status: "ACTIVE", all: true }) as Promise<
+        CoverageListing<OperatorPromocode>
+      >,
       "money",
     ),
     safeRead(
@@ -754,7 +800,10 @@ async function inspectStore(mcp: FakeOperatorMcp, now: Date): Promise<Operationa
   const discountResult = discountRead ?? { items: [] };
   const promocodeResult = promocodeRead ?? { items: [] };
   const webhookResult = webhookRead ?? { webhooks: [] };
-  if (variantResult.truncated || productResult.truncated) {
+  if (
+    (variantRead && !hasCompleteCoverage(variantRead)) ||
+    (productRead && !hasCompleteCoverage(productRead))
+  ) {
     signals.push({
       kind: "storefront",
       object: "Покрытие каталога",
@@ -765,7 +814,10 @@ async function inspectStore(mcp: FakeOperatorMcp, now: Date): Promise<Operationa
       requiresReview: true,
     });
   }
-  if (discountResult.truncated || promocodeResult.truncated) {
+  if (
+    (discountRead && !hasCompleteCoverage(discountRead)) ||
+    (promocodeRead && !hasCompleteCoverage(promocodeRead))
+  ) {
     signals.push({
       kind: "money",
       object: "Покрытие промо",
@@ -1241,12 +1293,12 @@ async function findVariantByReference(
       };
     }
   }
-  let listed: { items: OperatorVariant[]; truncated?: boolean };
+  let listed: CoverageListing<OperatorVariant>;
   try {
-    listed = (await mcp.call("list_variants", { name: reference, all: true })) as {
-      items: OperatorVariant[];
-      truncated?: boolean;
-    };
+    listed = (await mcp.call("list_variants", {
+      name: reference,
+      all: true,
+    })) as CoverageListing<OperatorVariant>;
   } catch (error) {
     return {
       outcome: {
@@ -1260,7 +1312,7 @@ async function findVariantByReference(
     reference,
     label: "SKU",
     pluralLabel: "SKU",
-    complete: !listed.truncated,
+    complete: hasCompleteCoverage(listed),
     idOf: (variant) => variant.id,
     alternateMatches: (variant) => variant.sku.toLowerCase() === reference.toLowerCase(),
   });
@@ -1285,15 +1337,14 @@ async function findPromocodeByReference(
       };
     }
   }
-  let results: Array<{ items: OperatorPromocode[]; truncated?: boolean }>;
+  let results: CoverageListing<OperatorPromocode>[];
   try {
     results = await Promise.all(
       (["ACTIVE", "INACTIVE"] as const).map(
         (status) =>
-          mcp.call("list_promocodes", { status, all: true }) as Promise<{
-            items: OperatorPromocode[];
-            truncated?: boolean;
-          }>,
+          mcp.call("list_promocodes", { status, all: true }) as Promise<
+            CoverageListing<OperatorPromocode>
+          >,
       ),
     );
   } catch (error) {
@@ -1309,7 +1360,7 @@ async function findPromocodeByReference(
     reference,
     label: "Промокод",
     pluralLabel: "промокодов",
-    complete: results.every((result) => !result.truncated),
+    complete: results.every((result) => hasCompleteCoverage(result)),
     idOf: (promocode) => promocode.id,
     alternateMatches: (promocode) => promocode.code.toLowerCase() === reference.toLowerCase(),
   });
@@ -1334,12 +1385,12 @@ async function findDiscountsByReference(
       };
     }
   }
-  let result: { items: OperatorDiscount[]; truncated?: boolean };
+  let result: CoverageListing<OperatorDiscount>;
   try {
     result = (await mcp.call("list_discounts", {
       status: ["ACTIVE", "INACTIVE", "ARCHIVED"],
       all: true,
-    })) as { items: OperatorDiscount[]; truncated?: boolean };
+    })) as CoverageListing<OperatorDiscount>;
   } catch (error) {
     return {
       outcome: {
@@ -1353,7 +1404,7 @@ async function findDiscountsByReference(
     reference,
     label: "Акция",
     pluralLabel: "акций",
-    complete: !result.truncated,
+    complete: hasCompleteCoverage(result),
     idOf: (discount) => discount.id,
     alternateMatches: (discount) =>
       discount.title.toLowerCase() === reference.toLowerCase(),

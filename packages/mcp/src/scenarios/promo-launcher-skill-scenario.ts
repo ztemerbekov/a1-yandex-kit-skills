@@ -74,7 +74,19 @@ interface P1McpFixture {
   readErrors?: Record<string, Error>;
   writeErrors?: Record<string, Error>;
   writeNoops?: string[];
+  truncated?: Partial<Record<"variants" | "products" | "discounts" | "promocodes", boolean>>;
   pageSize?: number | Partial<Record<P1PageEntity, number>>;
+}
+
+interface CoverageListing<T> {
+  items: T[];
+  coverage?: "complete" | "partial";
+  received?: number;
+  total_count?: number;
+  pages_read?: number;
+  // Compatibility fields retained by withCoverage for external consumers.
+  pages?: number;
+  truncated?: boolean;
 }
 
 const READ_ONLY_P1_TOOLS = new Set([
@@ -145,6 +157,7 @@ export class FakeP1Mcp {
     readErrors = {},
     writeErrors = {},
     writeNoops = [],
+    truncated = {},
     pageSize = 100,
   }: P1McpFixture = {}) {
     this.#store = store;
@@ -189,6 +202,7 @@ export class FakeP1Mcp {
       readErrors,
       writeErrors,
       writeNoops,
+      truncated,
     });
   }
 
@@ -1271,15 +1285,14 @@ async function runPromocodeScenario({
     }
   }
 
-  let results: Array<{ items: OperatorPromocode[]; truncated?: boolean }>;
+  let results: CoverageListing<OperatorPromocode>[];
   try {
     results = [];
     for (const status of ["ACTIVE", "INACTIVE"] as const) {
       results.push(
-        (await mcp.call("list_promocodes", { status, all: true })) as {
-          items: OperatorPromocode[];
-          truncated?: boolean;
-        },
+        (await mcp.call("list_promocodes", { status, all: true })) as CoverageListing<
+          OperatorPromocode
+        >,
       );
     }
   } catch (error) {
@@ -1290,7 +1303,7 @@ async function runPromocodeScenario({
         (error instanceof Error ? error.message : String(error)),
     });
   }
-  if (results.some((result) => result.truncated)) {
+  if (results.some((result) => result.coverage !== "complete")) {
     return finish(mcp, {
       kind: "failed",
       report: "Промокод не создан: список кодов прочитан не полностью",
@@ -1693,12 +1706,12 @@ export async function runPromoLauncherScenario({
     });
   }
 
-  let listed: { items: OperatorDiscount[]; truncated?: boolean };
+  let listed: CoverageListing<OperatorDiscount>;
   try {
     listed = (await mcp.call("list_discounts", {
       status: ["ACTIVE", "INACTIVE", "ARCHIVED"],
       all: true,
-    })) as { items: OperatorDiscount[]; truncated?: boolean };
+    })) as CoverageListing<OperatorDiscount>;
   } catch (error) {
     return finish(mcp, {
       kind: "failed",
@@ -1707,7 +1720,7 @@ export async function runPromoLauncherScenario({
         (error instanceof Error ? error.message : String(error)),
     });
   }
-  if (listed.truncated) {
+  if (listed.coverage !== "complete") {
     return finish(mcp, {
       kind: "failed",
       report: "Скидка не создана: список существующих скидок прочитан не полностью",

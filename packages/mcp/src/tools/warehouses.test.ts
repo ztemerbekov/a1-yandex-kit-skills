@@ -80,6 +80,8 @@ test("list_warehouses all=true fetches via listAll keeping the status filter", a
     received: 1,
     total_count: 1,
     pages_read: 1,
+    pages: 1,
+    truncated: false,
   });
 });
 
