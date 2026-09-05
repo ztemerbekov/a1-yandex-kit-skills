@@ -52,7 +52,7 @@ without knowing the API, then the technical operation underneath.
 
 > Снимаю с продажи три товара из категории «Лето» — они пропадут с витрины,
 > вернуть их можно в любой момент.
-> Техническая часть: `update_variant` → `status: INACTIVE` для SKU 101, 102, 103.
+> Техническая часть: `update_variant` → `status: HIDDEN` для SKU 101, 102, 103.
 
 Never ask the owner to approve a bare operation id or tool call.
 
