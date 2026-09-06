@@ -81,6 +81,7 @@ export function registerGiftCardTools(server: McpServer, client: KitClient): voi
               }),
               operationId: "GetGiftCards",
               perPage,
+              pageNumber: page ?? 1,
             });
         const out = redact ? redactPii(data) : data;
         return csvListResult("GetGiftCards", out, format, fields) ?? ok(out);

@@ -58,6 +58,7 @@ export function registerWarehouseTools(server: McpServer, client: KitClient): vo
               }),
               operationId: "GetWarehouses",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetWarehouses", data, format, fields) ?? ok(data);
       } catch (e) {

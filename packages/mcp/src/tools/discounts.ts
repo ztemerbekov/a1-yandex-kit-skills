@@ -56,6 +56,7 @@ export function registerDiscountTools(server: McpServer, client: KitClient): voi
               }),
               operationId: "GetDiscounts",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetDiscounts", data, format, fields) ?? ok(data);
       } catch (e) {

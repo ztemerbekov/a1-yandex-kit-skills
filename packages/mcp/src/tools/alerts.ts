@@ -56,6 +56,7 @@ export function registerAlertTools(server: McpServer, client: KitClient): void {
               }),
               operationId: "GetAlerts",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetAlerts", data, format, fields) ?? ok(data);
       } catch (e) {

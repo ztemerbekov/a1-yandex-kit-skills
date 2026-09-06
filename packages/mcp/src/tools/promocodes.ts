@@ -58,6 +58,7 @@ export function registerPromocodeTools(server: McpServer, client: KitClient): vo
               }),
               operationId: "GetPromocodes",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetPromocodes", data, format, fields) ?? ok(data);
       } catch (e) {

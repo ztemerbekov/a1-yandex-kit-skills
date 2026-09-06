@@ -50,6 +50,7 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
               page: await client.call("GetCustomers", { query: { page, per_page: perPage } }),
               operationId: "GetCustomers",
               perPage,
+              pageNumber: page ?? 1,
             });
         const out = redact ? redactPii(data) : data;
         return csvListResult("GetCustomers", out, format, fields) ?? ok(out);
@@ -141,6 +142,7 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
             }),
             operationId: "GetOrdersByCustomerId",
             perPage,
+            pageNumber: page ?? 1,
           }),
         );
       } catch (e) {

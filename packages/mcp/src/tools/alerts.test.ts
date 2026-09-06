@@ -79,6 +79,8 @@ test("list_alerts all=true fetches via listAll", async () => {
     received: 1,
     total_count: 1,
     pages_read: 1,
+    pages: 1,
+    truncated: false,
   });
 });
 

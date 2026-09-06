@@ -58,6 +58,7 @@ export function registerCategoryTools(server: McpServer, client: KitClient): voi
               }),
               operationId: "GetCategories",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetCategories", data, format, fields) ?? ok(data);
       } catch (e) {

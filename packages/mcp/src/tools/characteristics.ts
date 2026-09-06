@@ -49,6 +49,7 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
               }),
               operationId: "GetCharacteristics",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetCharacteristics", data, format, fields) ?? ok(data);
       } catch (error) {
@@ -159,6 +160,7 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
               }),
               operationId: "GetCharacteristicGroups",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetCharacteristicGroups", data, format, fields) ?? ok(data);
       } catch (error) {
@@ -277,6 +279,7 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
               }),
               operationId: "GetCharacteristicColors",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetCharacteristicColors", data, format, fields) ?? ok(data);
       } catch (e) {

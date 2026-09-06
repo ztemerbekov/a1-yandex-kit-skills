@@ -7,6 +7,7 @@ export const DEFAULT_TOKEN_WEB_TIMEOUT_SECONDS = 300;
 export const MAX_TOKEN_WEB_TIMEOUT_SECONDS = 3600;
 const MAX_BODY_BYTES = 8192;
 const MAX_REJECTED_REQUESTS = 20;
+const RESPONSE_CLEANUP_TIMEOUT_MS = 1_000;
 
 // The token arrives over plain loopback HTTP, so the page defends in depth:
 // requests must come from a loopback peer, name a loopback Host (a browser
@@ -169,7 +170,10 @@ export async function startTokenWeb({
   let allowedHosts = new Set();
   let rejectedRequests = 0;
   let submitting = false;
+  let phase = "acquiring";
+  let accepting = true;
   let settled = false;
+  let serverClosed = false;
   let resolveDone;
   let rejectDone;
   const done = new Promise((resolve, reject) => {
@@ -182,22 +186,77 @@ export async function startTokenWeb({
   done.catch(() => {});
 
   let deadlineTimer;
-  const finish = (error, result) => {
+  const closeServer = ({ force = false } = {}) => {
+    if (!serverClosed) {
+      serverClosed = true;
+      server.close(() => {});
+    }
+    // Keep active responses alive so the normal success page can flush, while
+    // releasing idle keep-alive sockets as soon as the server stops accepting.
+    server.closeIdleConnections?.();
+    if (force) server.closeAllConnections?.();
+  };
+
+  const finish = (error, result, response) => {
     if (settled) return;
     settled = true;
+    accepting = false;
     clearTimeout(deadlineTimer);
-    server.close(() => {});
-    // "Connection: close" already drains finished responses; this only cuts
-    // idle keep-alive sockets so close() cannot hang past the settle.
-    server.closeAllConnections?.();
+
+    const responseOpen =
+      response && !response.destroyed && !response.writableFinished;
+    if (responseOpen) {
+      let cleanupTimer = setTimeout(
+        () => closeServer({ force: true }),
+        RESPONSE_CLEANUP_TIMEOUT_MS,
+      );
+      cleanupTimer.unref();
+      const cleanup = () => {
+        clearTimeout(cleanupTimer);
+        cleanupTimer = undefined;
+        closeServer({ force: true });
+      };
+      response.once("finish", cleanup);
+      response.once("close", cleanup);
+      closeServer();
+    } else {
+      closeServer({ force: true });
+    }
+
     if (error) rejectDone(error);
     else resolveDone(result);
   };
 
-  const sendHtml = (res, status, html, onFlushed) => {
+  const stopAcquisition = (error) => {
+    accepting = false;
+    if (phase === "persisting") {
+      // A save is a commit: stop new intake, then let the in-flight write own
+      // the eventual result and its cleanup.
+      closeServer();
+      return;
+    }
+    finish(error);
+  };
+
+  const sendHtml = (res, status, html) => {
     res.statusCode = status;
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.end(html, onFlushed);
+    res.end(html);
+  };
+
+  const completeWithPage = (res, status, html, error, result) => {
+    const responseOpen = res && !res.destroyed && !res.writableEnded;
+    finish(error, result, responseOpen ? res : undefined);
+    if (responseOpen) {
+      // The browser can close the socket between the check and res.end().
+      // Its delivery failure must not replace the already settled outcome.
+      try {
+        sendHtml(res, status, html);
+      } catch {
+        // The response is best-effort once the factual result is settled.
+        closeServer({ force: true });
+      }
+    }
   };
 
   // Every rejected request counts toward one shared budget: wrong or missing
@@ -210,7 +269,7 @@ export async function startTokenWeb({
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.end("Not available.", () => {
       if (overBudget) {
-        finish(
+        stopAcquisition(
           new SetupError(
             `The token page stopped after ${maxRejectedRequests} rejected requests.`,
             "TOKEN_WEB_ABUSE",
@@ -235,14 +294,25 @@ export async function startTokenWeb({
       if (settled) return;
       // Validation before persistence is the repository invariant: a token
       // that fails the live get_store check never reaches a client config.
+      phase = "persisting";
+      clearTimeout(deadlineTimer);
+      deadlineTimer = undefined;
       const persisted = await persistToken(token);
       if (settled) return;
-      sendHtml(res, 200, donePage(), () =>
-        finish(null, { validated, persisted }),
+      completeWithPage(
+        res,
+        200,
+        donePage(),
+        null,
+        { validated, persisted },
       );
     } catch (error) {
       if (settled) return;
-      if (error instanceof SetupError && error.code === "SMOKE_AUTH") {
+      if (
+        phase === "acquiring" &&
+        error instanceof SetupError &&
+        error.code === "SMOKE_AUTH"
+      ) {
         // A wrong token is the owner's normal retry loop — show the form
         // again with a fixed message and keep the page alive, unlimited.
         submitting = false;
@@ -252,18 +322,24 @@ export async function startTokenWeb({
       // Anything else (network, timeout, write failure) ends the run with
       // the underlying code. The page shows a fixed text without details so
       // no diagnostic — let alone the token — leaks into the browser.
-      sendHtml(res, 200, failurePage(), () =>
-        finish(
-          error instanceof Error
-            ? error
-            : new SetupError(String(error), "TOKEN_WEB_FAILED"),
-        ),
+      completeWithPage(
+        res,
+        200,
+        failurePage(),
+        error instanceof Error
+          ? error
+          : new SetupError(String(error), "TOKEN_WEB_FAILED"),
+        undefined,
       );
     }
   };
 
   const handler = (req, res) => {
     res.on("error", () => {});
+    if (!accepting) {
+      req.socket.destroy();
+      return;
+    }
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
       res.setHeader(name, value);
     }
@@ -348,7 +424,7 @@ export async function startTokenWeb({
   ]);
 
   deadlineTimer = setTimeout(() => {
-    finish(
+    stopAcquisition(
       new SetupError(
         `The token page expired after ${seconds} seconds without a saved token.`,
         "TOKEN_WEB_TIMEOUT",
@@ -363,6 +439,6 @@ export async function startTokenWeb({
     expiresInSeconds: seconds,
     done,
     stop: () =>
-      finish(new SetupError("The token page was closed.", "TOKEN_WEB_CLOSED")),
+      stopAcquisition(new SetupError("The token page was closed.", "TOKEN_WEB_CLOSED")),
   };
 }

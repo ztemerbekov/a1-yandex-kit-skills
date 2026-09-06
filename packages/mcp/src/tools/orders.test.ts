@@ -84,6 +84,8 @@ test("list_orders all=true fetches via listAll with per_page=100", async () => {
     received: 1,
     total_count: 1,
     pages_read: 1,
+    pages: 1,
+    truncated: false,
   });
 });
 
@@ -99,6 +101,8 @@ test("list_orders all=true reports coverage partial when the listing is truncate
   assert.equal(data.received, 50);
   assert.equal(data.total_count, 700);
   assert.equal(data.pages_read, 1);
+  assert.equal(data.pages, 1);
+  assert.equal(data.truncated, true);
 });
 
 test("list_orders single page reports coverage partial when total_count exceeds received", async () => {

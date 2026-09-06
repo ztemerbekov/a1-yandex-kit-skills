@@ -82,6 +82,8 @@ test("list_collections all=true fetches via listAll with per_page=100", async ()
     received: 1,
     total_count: 1,
     pages_read: 1,
+    pages: 1,
+    truncated: false,
   });
 });
 

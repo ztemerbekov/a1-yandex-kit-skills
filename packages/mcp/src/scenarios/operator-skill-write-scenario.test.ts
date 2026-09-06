@@ -11,6 +11,22 @@ import {
   type OperatorWebhook,
 } from "./operator-skill-scenario.js";
 
+/** Simulates a consumer that receives the actual coverage envelope without legacy aliases. */
+class ActualCoverageEnvelopeMcp extends FakeOperatorMcp {
+  readonly observedEnvelopes: Array<Record<string, unknown>> = [];
+
+  override async call(name: string, arguments_: Record<string, unknown>): Promise<unknown> {
+    const result = await super.call(name, arguments_);
+    if (arguments_.all === true && result !== null && typeof result === "object") {
+      const actual = result as Record<string, unknown>;
+      const { pages: _pages, truncated: _truncated, ...envelope } = actual;
+      this.observedEnvelopes.push(envelope);
+      return envelope;
+    }
+    return result;
+  }
+}
+
 const NOW = new Date("2026-07-30T10:00:00Z");
 
 function order(overrides: Partial<OperatorOrder> = {}): OperatorOrder {
@@ -322,6 +338,27 @@ test("a truncated SKU lookup cannot prove uniqueness and performs no write", asy
   });
 
   assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a partial actual coverage envelope cannot write a visible SKU", async () => {
+  const mcp = new ActualCoverageEnvelopeMcp({
+    orders: [],
+    variants: [variant({ sku: "DUP" })],
+    truncated: { variants: true },
+  });
+
+  await runOperatorScenario({
+    request: "Поставь цену 100 для DUP",
+    kitContext: true,
+    now: NOW,
+    mcp,
+  });
+
+  assert.equal(mcp.writeCalls.length, 0);
+  assert.equal(mcp.observedEnvelopes.length, 1);
+  assert.equal(mcp.observedEnvelopes[0]?.coverage, "partial");
+  assert.equal("pages" in mcp.observedEnvelopes[0]!, false);
+  assert.equal("truncated" in mcp.observedEnvelopes[0]!, false);
 });
 
 test("an explicit variant ID wins over a coincidentally matching SKU", async () => {

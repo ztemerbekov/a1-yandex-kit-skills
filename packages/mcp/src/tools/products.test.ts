@@ -63,7 +63,50 @@ test("list_products all=true fetches via listAll with per_page=100", async () =>
     received: 1,
     total_count: 1,
     pages_read: 1,
+    pages: 1,
+    truncated: false,
   });
+});
+
+test("list_products marks a short page 2 without total_count as partial", async () => {
+  const { calls, mcp } = await setup({ products: [{ id: "p1" }] });
+  const res = await mcp.callTool({
+    name: "list_products",
+    arguments: { page: 2, per_page: 2 },
+  });
+
+  assert.equal(new URL(calls[0]!.url).searchParams.get("page"), "2");
+  assert.equal(JSON.parse(resultText(res)).coverage, "partial");
+});
+
+test("list_products marks an empty page 2 without total_count as partial", async () => {
+  const { mcp } = await setup({ products: [] });
+  const res = await mcp.callTool({
+    name: "list_products",
+    arguments: { page: 2, per_page: 2 },
+  });
+
+  assert.equal(JSON.parse(resultText(res)).coverage, "partial");
+});
+
+test("list_products keeps a short page 1 without total_count complete", async () => {
+  const { mcp } = await setup({ products: [{ id: "p1" }] });
+  const res = await mcp.callTool({
+    name: "list_products",
+    arguments: { page: 1, per_page: 2 },
+  });
+
+  assert.equal(JSON.parse(resultText(res)).coverage, "complete");
+});
+
+test("list_products marks a full page without total_count as partial", async () => {
+  const { mcp } = await setup({ products: [{ id: "p1" }, { id: "p2" }] });
+  const res = await mcp.callTool({
+    name: "list_products",
+    arguments: { page: 1, per_page: 2 },
+  });
+
+  assert.equal(JSON.parse(resultText(res)).coverage, "partial");
 });
 
 test("get_product hits /v1/products/{id}", async () => {

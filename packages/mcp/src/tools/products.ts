@@ -50,6 +50,7 @@ export function registerProductTools(server: McpServer, client: KitClient): void
               page: await client.call("GetProducts", { query: { page, per_page: perPage } }),
               operationId: "GetProducts",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetProducts", data, format, fields) ?? ok(data);
       } catch (e) {

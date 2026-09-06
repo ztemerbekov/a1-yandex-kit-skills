@@ -125,7 +125,7 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         const items = Array.isArray(res?.variants) ? res.variants : [];
         const guard = await verifyStatusFilterHonored(client, status, scope, page, items);
         if (guard) return guard;
-        const data = withCoverage({ page: res, operationId: "GetVariants", perPage });
+        const data = withCoverage({ page: res, operationId: "GetVariants", perPage, pageNumber: page ?? 1 });
         return csvListResult("GetVariants", data, format, fields) ?? ok(data);
       } catch (e) {
         return fail(e);

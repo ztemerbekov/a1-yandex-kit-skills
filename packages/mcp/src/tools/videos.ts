@@ -63,6 +63,7 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
               }),
               operationId: "GetVideos",
               perPage,
+              pageNumber: page ?? 1,
             });
         return csvListResult("GetVideos", data, format, fields) ?? ok(data);
       } catch (e) {
