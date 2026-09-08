@@ -39,9 +39,11 @@ Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товар�
 Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (`/v1/variants`) is the sellable unit carrying SKU, prices
 and per-warehouse stocks, and a product (`/v1/products`) groups variants, so most
-«товар» operations act on variants. Read
-[`references/domain.md`](references/domain.md) before planning any write:
-identifiers, content types, media replacement and bulk atomicity live there.
+«товар» operations act on variants. For an ordinary «выгрузи товары/каталог в CSV» request,
+route directly to `list_variants` and deliver one row per variant; do not ask whether the
+owner means a product or a variant. For exports, use `list_products` only for an explicit raw
+structural or product-group dump. Read [`references/domain.md`](references/domain.md) for the export recipe and before
+planning any write: identifiers, content types, media replacement and bulk atomicity live there.
 
 ## Workflow
 
@@ -99,11 +101,11 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
 166 operations):
 
-- `list_products` — List products of the store (paginated).
+- `list_products` — List product records (paginated); for export requests, use this for explicit raw product-group or catalog-structure dumps.
 - `get_product` — Get a single product by its ID, including its category bindings.
 - `create_product` — Create a new product.
 - `update_product` — Update an existing product (plain JSON PATCH, not merge-patch).
-- `list_variants` — List variants (sellable items / SKUs) of the store, with optional filters (paginated).
+- `list_variants` — Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU.
 - `get_variant` — Get a single variant by its ID (name, SKU, pricing, stocks, media, status).
 - `create_variant` — Create a new variant (sellable item) under an existing product.
 - `update_variant` — Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks).

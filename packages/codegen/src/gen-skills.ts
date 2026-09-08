@@ -287,10 +287,53 @@ const SKILLS: SkillDef[] = [
 Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
 and per-warehouse stocks, and a product (\`/v1/products\`) groups variants, so most
-«товар» operations act on variants. Read
-[\`references/domain.md\`](references/domain.md) before planning any write:
-identifiers, content types, media replacement and bulk atomicity live there.`,
-    domainDetails: `A variant carries two **distinct** identifiers:
+«товар» operations act on variants. For an ordinary «выгрузи товары/каталог в CSV» request,
+route directly to \`list_variants\` and deliver one row per variant; do not ask whether the
+owner means a product or a variant. For exports, use \`list_products\` only for an explicit raw
+structural or product-group dump. Read [\`references/domain.md\`](references/domain.md) for the export recipe and before
+planning any write: identifiers, content types, media replacement and bulk atomicity live there.`,
+    domainDetails: `## Catalog export
+
+For an ordinary «выгрузи товары/каталог в CSV» request with no explicit filters, use
+\`list_variants\` as the source of the sellable catalog. Call it with \`all:true\` and no status
+filter to include the normal published and hidden variants; the API's default excludes
+\`ARCHIVED\`. Honor any status, product, or name filter the owner supplies and report that
+scope instead of widening it. The tool's \`all:true\`
+mode is capped at 500 items and reports \`coverage\`: if it is \`partial\`, continue with
+explicit page reads with \`per_page:100\` starting at \`pages_read + 1\` (reuse the pages already
+received) until the tail page is exhausted, or state the partial scope truthfully when
+continuation is unavailable. Do not repeat an unchanged \`all:true\` call and do not infer
+missing rows from a product count. At completion, provide the CSV file link, report the numeric
+row count and, in the owner's language, whether the requested scope (normally non-archived
+PUBLISHED + HIDDEN) is complete or partial.
+
+Render a flat CSV with one row per variant. Put readable name, SKU, status and price columns
+first, and append optional technical IDs last for traceability. Use these owner-facing mappings:
+\`name\` from
+\`variant.name\`, \`sku\` from \`variant.sku\`, \`status\` from \`variant.status\`, and
+\`price_final\` from \`variant.pricing.final_price\`. Add explicit source columns when useful:
+\`price_base\` from \`pricing.price\`, \`price_manual_discount\` from
+\`pricing.manual_discount_price\`, and \`price_promotion\` from \`pricing.promotion_price\`.
+For every warehouse, add \`stock_<warehouse>_quantity\` and
+\`stock_<warehouse>_reserved\` from the matching \`stocks[]\` entry. Prefer readable warehouse
+labels with the ID retained in the header; call \`list_warehouses(all:true)\` once if that map
+is needed and reuse the snapshot. Use the owner's language for column and status labels while
+preserving the source-field mappings above for the transformation. Preserve API price strings and
+their units exactly: do not assume a currency or divide/convert amounts. Quote cells according
+to RFC 4180, and report a numeric data-row count that matches the variants included.
+
+Keep missing or null prices and stock entries blank/unknown. A present numeric zero stays \`0\`;
+never treat an absent stock entry as zero, infer quantity from reserved, or derive available
+stock unless that calculation is explicitly requested.
+The MCP \`format:\"csv\"\` helper uses top-level scalar fields
+by default and serializes nested \`pricing\`/\`stocks\` as JSON cells, so read variants as JSON
+and flatten them for this deliverable. Confirm that the CSV file has a header and meaningful rows
+before reporting completion; if an initial product CSV contains only \`id,group_id\`, continue
+to the variant export automatically.
+
+## Catalog identifiers and writes
+
+A variant carries two **distinct** identifiers:
 \`product_id\` and \`product_card_id\` (карточка товара) — the card-scoped endpoints
 (\`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
 «Добавление/Удаление карточек») take \`product_card_id\`, never a product id; read it

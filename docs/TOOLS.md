@@ -117,7 +117,7 @@ The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `list_products` | yes | List products of the store (paginated). |
+| `list_products` | yes | List product records (paginated); for export requests, use this for explicit raw product-group or catalog-structure dumps. |
 | `get_product` | yes | Get a single product by its ID, including its category bindings. |
 | `create_product` | no | Create a new product. |
 | `update_product` | no | Update an existing product (plain JSON PATCH, not merge-patch). |
@@ -145,7 +145,7 @@ The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `list_variants` | yes | List variants (sellable items / SKUs) of the store, with optional filters (paginated). |
+| `list_variants` | yes | Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU. |
 | `get_variant` | yes | Get a single variant by its ID (name, SKU, pricing, stocks, media, status). |
 | `create_variant` | no | Create a new variant (sellable item) under an existing product. |
 | `update_variant` | no | Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks). |

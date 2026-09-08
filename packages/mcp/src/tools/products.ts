@@ -22,8 +22,12 @@ export function registerProductTools(server: McpServer, client: KitClient): void
     {
       title: "List products",
       description:
-        "List products of the store (paginated). A product groups one or more variants (SKUs) " +
-        "and links them to categories. " +
+        "List product records (paginated); for export requests, use this for explicit raw " +
+        "product-group or catalog-structure dumps. " +
+        "Ordinary catalog exports use list_variants: a product carries grouping and category " +
+        "data, not a sellable name, SKU, price or stock. format:\"csv\" defaults to top-level " +
+        "scalar fields (currently id and group_id) and " +
+        "does not flatten variant data. " +
         COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
@@ -36,7 +40,10 @@ export function registerProductTools(server: McpServer, client: KitClient): void
         all: z
           .boolean()
           .optional()
-          .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+          .describe(
+            "Fetch pages via auto-pagination, up to 500 items; inspect coverage and continue with " +
+            "explicit page reads if coverage is partial; ignores page/per_page.",
+          ),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
         fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },

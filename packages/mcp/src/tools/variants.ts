@@ -73,8 +73,13 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
     {
       title: "List variants",
       description:
-        "List variants (sellable items / SKUs) of the store, with optional filters (paginated). " +
+        "Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU. " +
+        "Use this for ordinary catalog or «выгрузи товары в CSV» requests; use " +
+        "list_products only for an explicit raw product-group export. Variants support optional " +
+        "filters and pagination. " +
         "By default the API returns variants of all statuses except ARCHIVED. " +
+        "format:\"csv\" defaults to top-level scalar fields and serializes nested pricing/stocks " +
+        "as JSON cells; it does not create flat price or per-warehouse stock columns. " +
         "Known KIT API defect: ARCHIVED is silently stripped from the status filter, so " +
         "archived variants cannot be listed (only read by ID via get_variant); the tool " +
         "detects this and fails with STATUS_FILTER_IGNORED, ARCHIVE_READ_UNSUPPORTED or " +
@@ -92,7 +97,10 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         all: z
           .boolean()
           .optional()
-          .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+          .describe(
+            "Fetch pages via auto-pagination, up to 500 items; inspect coverage and continue with " +
+            "explicit page reads if coverage is partial; ignores page/per_page.",
+          ),
         product_id: z.string().optional().describe("Filter by parent product ID (UUID)."),
         status: z
           .array(z.enum(["PUBLISHED", "HIDDEN", "ARCHIVED"]))
