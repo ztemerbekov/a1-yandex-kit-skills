@@ -15,7 +15,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { readTokenStdin } from "./setup.mjs";
+import { readTokenStdin, selectTokenWebMode } from "./setup.mjs";
 import {
   BACKUP_SUFFIX,
   FALLBACK_SERVER_NAME,
@@ -1478,20 +1478,28 @@ test("token page serves the one-time form and rejects a wrong secret", async () 
     assert.equal(form.status, 200);
     assert.equal(
       form.headers.get("content-security-policy"),
-      "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
     );
     assert.equal(form.headers.get("cache-control"), "no-store");
     assert.equal(form.headers.get("referrer-policy"), "no-referrer");
     assert.equal(form.headers.get("x-frame-options"), "DENY");
     const html = await form.text();
+    assert.doesNotMatch(html, /<script\b/i);
+    assert.doesNotMatch(
+      html,
+      /<(?:img|link)\b[^>]+(?:src|href)=["']\s*https?:\/\//i,
+    );
+    assert.doesNotMatch(html, /url\(\s*["']?\s*https?:\/\//i);
     for (const marker of [
-      "Подключение магазина",
-      "Токен магазина",
+      "Подключите магазин",
+      ">Токен</label>",
       "Подключить",
-      "Настройки → API",
-      "Сгенерировать токен",
-      "Токен остаётся на этом компьютере",
-      "Страница одноразовая",
+      "Где взять токен",
+      "В кабинете Яндекс KIT откройте Настройки → API.",
+      "Нажмите «Сгенерировать токен» и скопируйте его.",
+      "Токен сохранится в настройках ассистента на этом компьютере, а не в переписке.",
+      "Открыть кабинет ↗",
+      "Не передавайте ссылку на эту страницу.",
     ]) {
       assert.ok(html.includes(marker), marker);
     }
@@ -1508,6 +1516,112 @@ test("token page serves the one-time form and rejects a wrong secret", async () 
         error instanceof SetupError && error.code === "TOKEN_WEB_CLOSED",
     );
   }
+});
+
+test("token page renders connect and replacement modes through its HTTP interface", async () => {
+  const connectWeb = await startTestTokenWeb();
+  try {
+    const html = await (await fetch(connectWeb.url)).text();
+    assert.ok(html.includes("Подключите магазин"));
+    assert.ok(html.includes('class="field-label" for="token">Токен</label>'));
+    assert.ok(html.includes(">Подключить</button>"));
+    assert.ok(!html.includes("placeholder="));
+    assert.ok(html.includes("Где взять токен"));
+    assert.ok(html.includes("В кабинете Яндекс KIT откройте Настройки → API."));
+    assert.ok(html.includes("Нажмите «Сгенерировать токен» и скопируйте его."));
+    assert.ok(html.includes('href="https://b2b.kit.yandex.ru/"'));
+    assert.ok(html.includes('target="_blank"'));
+    assert.ok(html.includes('rel="noreferrer noopener"'));
+    assert.ok(html.includes("Не передавайте ссылку на эту страницу."));
+  } finally {
+    connectWeb.stop();
+    await connectWeb.done.catch(() => {});
+  }
+
+  const replaceWeb = await startTestTokenWeb({ mode: "replace" });
+  try {
+    const html = await (await fetch(replaceWeb.url)).text();
+    assert.ok(html.includes("Обновите токен"));
+    assert.ok(html.includes(">Обновить</button>"));
+    assert.ok(html.includes("Новый токен заменит сохранённый."));
+    assert.ok(
+      html.indexOf("Новый токен заменит сохранённый.") <
+        html.indexOf(">Обновить</button>"),
+    );
+  } finally {
+    replaceWeb.stop();
+    await replaceWeb.done.catch(() => {});
+  }
+});
+
+test("replacement mode persists after empty, invalid, and busy submissions", async () => {
+  const validationStarted = deferred();
+  const validation = deferred();
+  let attempts = 0;
+  const web = await startTestTokenWeb({
+    mode: "replace",
+    validateToken: async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new SetupError("rejected", "SMOKE_AUTH");
+      }
+      validationStarted.resolve();
+      return validation.promise;
+    },
+  });
+  try {
+    const empty = await fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: "" }),
+    });
+    const emptyHtml = await empty.text();
+    assert.ok(emptyHtml.includes("Обновите токен"));
+    assert.ok(emptyHtml.includes(">Обновить</button>"));
+
+    const invalid = await fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_TWO }),
+    });
+    const invalidHtml = await invalid.text();
+    assert.ok(invalidHtml.includes("Обновите токен"));
+    assert.ok(invalidHtml.includes("не принял этот токен"));
+
+    const pending = fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_ONE }),
+    });
+    await validationStarted.promise;
+    const busy = await fetch(web.url, {
+      method: "POST",
+      body: new URLSearchParams({ token: SECRET_TWO }),
+    });
+    const busyHtml = await busy.text();
+    assert.ok(busyHtml.includes("Обновите токен"));
+    assert.ok(busyHtml.includes("Новый токен заменит сохранённый."));
+
+    validation.resolve({ ok: true });
+    const accepted = await pending;
+    assert.equal(accepted.status, 200);
+    assert.ok((await accepted.text()).includes("Токен сохранён"));
+  } finally {
+    validation.resolve({ ok: true });
+    web.stop();
+    await web.done.catch(() => {});
+  }
+});
+
+test("setup selects replacement token-page mode from an existing adapter token", async () => {
+  await withTempDir(async (tempDir) => {
+    const adapter = resolveAdapter({
+      client: "cursor",
+      configPath: path.join(tempDir, "mcp.json"),
+      projectDir: tempDir,
+    });
+    assert.equal(await selectTokenWebMode(adapter), "connect");
+
+    await configureAdapter(adapter, { token: SECRET_ONE });
+    assert.equal(await selectTokenWebMode(adapter), "replace");
+  });
 });
 
 test("token page stops after twenty requests with a wrong secret", async () => {
@@ -1602,7 +1716,7 @@ test("token page validates before persisting and closes after the first save", a
     body: new URLSearchParams({ token: SECRET_ONE }),
   });
   assert.equal(saved.status, 200);
-  assert.ok((await saved.text()).includes("Готово"));
+  assert.ok((await saved.text()).includes("Токен сохранён"));
   assert.deepEqual(await web.done, {
     validated: { ok: true, store: { name: "Магазин" } },
     persisted: { configured: true, changed: true },
@@ -1657,7 +1771,7 @@ test("token page preserves the full persistence result after the acquisition dea
     const response = await responsePromise;
     assert.equal(response instanceof Error, false, String(response));
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /Готово/);
+    assert.match(await response.text(), /Токен сохранён/);
   } finally {
     persist.resolve(persisted);
     web.stop();
@@ -1699,7 +1813,7 @@ test("token page returns a persistence error after the acquisition deadline", as
     const response = await responsePromise;
     assert.equal(response instanceof Error, false, String(response));
     assert.equal(response.status, 200);
-    assert.match(await response.text(), /Подключение прервано/);
+    assert.match(await response.text(), /Не удалось сохранить токен/);
   } finally {
     persist.reject(error);
     web.stop();
@@ -1781,7 +1895,7 @@ test("token page lets an explicit stop finish an in-flight persistence", async (
     });
     const response = await responsePromise;
     assert.ok(response);
-    assert.match(await response.text(), /Готово/);
+    assert.match(await response.text(), /Токен сохранён/);
   } finally {
     persist.resolve({ configured: true, configHash: "config-hash" });
     web.stop();
@@ -1814,7 +1928,7 @@ test("token page lets the rejected-request budget finish an in-flight persistenc
     });
     const response = await responsePromise;
     assert.ok(response);
-    assert.match(await response.text(), /Готово/);
+    assert.match(await response.text(), /Токен сохранён/);
   } finally {
     persist.resolve({ configured: true, configHash: "config-hash" });
     web.stop();
@@ -1884,7 +1998,7 @@ test("token page re-shows the form on SMOKE_AUTH and accepts the retry", async (
     body: new URLSearchParams({ token: SECRET_ONE }),
   });
   assert.equal(accepted.status, 200);
-  assert.ok((await accepted.text()).includes("Готово"));
+  assert.ok((await accepted.text()).includes("Токен сохранён"));
   const outcome = await web.done;
   assert.deepEqual(attempts, [SECRET_TWO, SECRET_ONE]);
   assert.deepEqual(outcome.persisted, { configured: true });
@@ -1901,7 +2015,7 @@ test("token page stops with the underlying code on a technical failure", async (
     body: new URLSearchParams({ token: SECRET_ONE }),
   });
   assert.equal(response.status, 200);
-  assert.ok((await response.text()).includes("Подключение прервано"));
+  assert.ok((await response.text()).includes("Не удалось сохранить токен"));
   await assert.rejects(
     web.done,
     (error) =>

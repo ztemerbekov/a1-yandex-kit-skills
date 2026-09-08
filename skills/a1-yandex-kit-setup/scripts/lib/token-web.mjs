@@ -1,5 +1,8 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { readFileSync } from "node:fs";
 import http from "node:http";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { SetupError } from "./shared.mjs";
 
@@ -8,6 +11,22 @@ export const MAX_TOKEN_WEB_TIMEOUT_SECONDS = 3600;
 const MAX_BODY_BYTES = 8192;
 const MAX_REJECTED_REQUESTS = 20;
 const RESPONSE_CLEANUP_TIMEOUT_MS = 1_000;
+const ASSET_DIR = join(dirname(fileURLToPath(import.meta.url)), "assets");
+
+function readAssetDataUri(filename, contentType) {
+  const content = readFileSync(join(ASSET_DIR, filename)).toString("base64");
+  return `data:${contentType};base64,${content}`;
+}
+
+const BACKGROUND_DATA_URI = readAssetDataUri(
+  "kit-background.webp",
+  "image/webp",
+);
+const LOGO_DATA_URI = readAssetDataUri("kit-logo.svg", "image/svg+xml");
+const DISPLAY_FONT_DATA_URI = readAssetDataUri(
+  "ys-display-cond-black.woff2",
+  "font/woff2",
+);
 
 // The token arrives over plain loopback HTTP, so the page defends in depth:
 // requests must come from a loopback peer, name a loopback Host (a browser
@@ -17,7 +36,8 @@ const RESPONSE_CLEANUP_TIMEOUT_MS = 1_000;
 const LOOPBACK_PEERS = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
 const SECURITY_HEADERS = {
   "Content-Security-Policy":
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; " +
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; " +
+    "font-src data:; form-action 'self'; " +
     "base-uri 'none'; frame-ancestors 'none'",
   "Referrer-Policy": "no-referrer",
   "Cache-Control": "no-store",
@@ -36,17 +56,327 @@ function secretMatches(expected, candidate) {
 }
 
 const PAGE_STYLE = `
-  :root { color-scheme: light dark; }
-  body { font-family: system-ui, sans-serif; margin: 0; display: flex;
-    justify-content: center; padding: 48px 16px; }
-  main { max-width: 440px; width: 100%; }
-  h1 { font-size: 1.5rem; }
-  label { font-weight: 600; }
-  input { width: 100%; box-sizing: border-box; font-size: 1rem;
-    padding: 10px 12px; margin: 8px 0 16px; }
-  button { font-size: 1rem; padding: 10px 24px; cursor: pointer; }
-  .error { color: #b3261e; font-weight: 600; }
-  footer { margin-top: 32px; font-size: 0.85rem; opacity: 0.75; }
+  @font-face {
+    font-family: "YS Display Cond";
+    src: url("${DISPLAY_FONT_DATA_URI}") format("woff2");
+    font-display: swap;
+    font-style: normal;
+    font-weight: 900;
+  }
+
+  :root {
+    color-scheme: light;
+    --ink: #180b30;
+    --muted-ink: #6c6577;
+    --coral: #fd6124;
+    --line: #e6e1e9;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html {
+    min-height: 100%;
+    background: #f26c4c;
+  }
+
+  body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--ink);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background-color: #f26c4c;
+    background-image: url("${BACKGROUND_DATA_URI}");
+    background-position: center top;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
+
+  .page-shell {
+    width: 100%;
+    max-width: 700px;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: 50px 0 48px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 28px;
+    color: #fff;
+  }
+
+  .brand__logo {
+    display: block;
+    width: 152px;
+    height: 28px;
+    overflow: hidden;
+    flex: 0 0 152px;
+  }
+
+  .brand__logo img {
+    display: block;
+    width: 282px;
+    max-width: none;
+    height: 28px;
+  }
+
+  .brand__skills {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 13px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .page-content {
+    margin-top: 44px;
+  }
+
+  .hero {
+    color: #fff;
+    text-align: center;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: "YS Display Cond", "Arial Narrow", Arial, sans-serif;
+    font-size: clamp(40px, 6.2vw, 54px);
+    font-weight: 900;
+    letter-spacing: -0.015em;
+    line-height: 1.05;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 560px;
+    margin: 24px auto 0;
+    padding: 32px;
+    border-radius: 24px;
+    background: #fff;
+    box-shadow: 0 22px 56px rgba(106, 37, 43, 0.18);
+  }
+
+  .card--status { text-align: center; }
+
+  .field-label {
+    display: block;
+    margin: 0;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 18px;
+  }
+
+  .card__instructions {
+    max-width: 540px;
+    margin: 0;
+    color: var(--muted-ink);
+    font-size: 15px;
+    line-height: 22px;
+  }
+
+  .card form { margin-top: 8px; }
+  .card__privacy { margin: 12px 0 0; color: var(--muted-ink); font-size: 13px; line-height: 19px; }
+  .card__consequence { margin: 10px 0 0; color: var(--ink); font-size: 13px; font-weight: 700; line-height: 19px; }
+  .card__consequence + button { margin-top: 10px; }
+
+  input {
+    display: block;
+    width: 100%;
+    min-height: 56px;
+    margin: 0;
+    padding: 15px 17px;
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    outline: none;
+    color: var(--ink);
+    background: #fff;
+    font: inherit;
+    font-size: 16px;
+    line-height: 22px;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  input:hover { border-color: #bab3c3; }
+
+  input:focus {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 4px rgba(24, 11, 48, 0.12);
+  }
+
+  input[aria-invalid="true"] {
+    border-color: #c83c32;
+  }
+
+  .error {
+    margin: 12px 0 0;
+    padding: 13px 15px;
+    border: 1px solid #f0b7af;
+    border-radius: 16px;
+    color: #a92d24;
+    background: #fff3f0;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 20px;
+  }
+
+  button {
+    display: block;
+    width: 100%;
+    min-height: 56px;
+    margin-top: 12px;
+    padding: 15px 22px;
+    border: 0;
+    border-radius: 16px;
+    cursor: pointer;
+    color: #fff;
+    background: var(--ink);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 22px;
+    transition: background-color 160ms ease, transform 160ms ease;
+  }
+
+  button:hover { background: var(--coral); }
+
+  button:active { transform: translateY(1px); }
+
+  :focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 4px;
+  }
+
+  input:focus-visible {
+    outline: 3px solid var(--coral);
+    outline-offset: 2px;
+  }
+
+  .help a:focus-visible { outline-color: var(--ink); }
+
+  .help {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+
+  .help h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 24px;
+  }
+
+  .help ol {
+    margin: 10px 0 0;
+    padding-left: 21px;
+    color: var(--muted-ink);
+    font-size: 14px;
+    line-height: 21px;
+  }
+
+  .help li + li { margin-top: 4px; }
+
+  .help a {
+    display: inline-block;
+    margin-top: 12px;
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 20px;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+
+  .page-notice {
+    max-width: 560px;
+    margin: 12px auto 0;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 12px;
+    line-height: 18px;
+    text-align: center;
+  }
+
+  .card__footer {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    color: var(--muted-ink);
+    font-size: 13px;
+    line-height: 19px;
+  }
+
+  .status-mark {
+    display: grid;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 20px;
+    place-items: center;
+    border-radius: 50%;
+    color: #fff;
+    background: var(--ink);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .status-mark--failure { color: var(--ink); background: #ffe1d5; }
+
+  .card--status p {
+    max-width: 470px;
+    margin: 12px auto 0;
+    color: var(--muted-ink);
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .card--status h1 {
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 28px;
+    letter-spacing: -0.025em;
+    line-height: 34px;
+    text-transform: none;
+    white-space: normal;
+  }
+
+  @media (max-width: 740px) {
+    .page-shell { padding-right: 20px; padding-left: 20px; }
+  }
+
+  @media (max-width: 520px) {
+    .page-shell { padding-top: 32px; padding-bottom: 32px; }
+    .page-content { margin-top: 40px; }
+    h1 { font-size: 38px; white-space: normal; }
+    .card { margin-top: 20px; padding: 28px 22px; }
+  }
+
+  @media (max-width: 370px) {
+    .page-shell { padding-right: 16px; padding-left: 16px; }
+    .brand { gap: 7px; }
+    .brand__skills { padding-right: 10px; padding-left: 10px; font-size: 13px; }
+    h1 { font-size: 32px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+  }
 `;
 
 function page(title, body) {
@@ -60,9 +390,15 @@ function page(title, body) {
     `<style>${PAGE_STYLE}</style>`,
     "</head>",
     "<body>",
-    "<main>",
+    '<div class="page-shell">',
+    '<header class="brand" role="img" aria-label="Яндекс KIT Скилы">',
+    `<span class="brand__logo" aria-hidden="true"><img src="${LOGO_DATA_URI}" alt=""></span>`,
+    '<span class="brand__skills">Скилы</span>',
+    "</header>",
+    '<main class="page-content">',
     body,
     "</main>",
+    "</div>",
     "</body>",
     "</html>",
     "",
@@ -72,28 +408,48 @@ function page(title, body) {
 // The secret is base64url (A-Za-z0-9, "-", "_"), so it is safe to place in an
 // HTML attribute without escaping. No user-controlled text ever reaches the
 // markup: error messages are fixed strings chosen by code below.
-function formPage(secret, errorMessage) {
+const CABINET_URL = "https://b2b.kit.yandex.ru/";
+
+function formPage(secret, errorMessage, mode = "connect") {
+  const replacing = mode === "replace";
+  const heading = replacing ? "Обновите токен" : "Подключите магазин";
+  const submitLabel = replacing ? "Обновить" : "Подключить";
+  const errorMarkup = errorMessage
+    ? `<p id="token-error" class="error" role="alert">${errorMessage}</p>`
+    : "";
+  const describedBy = errorMessage ? ' aria-describedby="token-error"' : "";
   return page(
-    "Подключение магазина",
+    heading,
     [
-      "<h1>Подключение магазина</h1>",
-      "<p>Вставьте токен магазина Яндекс KIT — после этого ассистент " +
-        "сможет работать с вашим магазином.</p>",
-      errorMessage ? `<p class="error">${errorMessage}</p>` : "",
+      '<section class="hero" aria-labelledby="page-heading">',
+      `<h1 id="page-heading">${heading}</h1>`,
+      "</section>",
+      '<section class="card">',
+      '<label id="token-label" class="field-label" for="token">Токен</label>',
+      errorMarkup,
       `<form method="post" action="/?secret=${secret}">`,
-      '<label for="token">Токен магазина</label>',
       '<input id="token" name="token" type="password" ' +
-        'placeholder="Вставьте токен из кабинета Яндекс KIT" ' +
-        'autocomplete="off" autofocus required>',
-      '<button type="submit">Подключить</button>',
+        'autocomplete="off"' +
+        describedBy +
+        " " +
+        `aria-invalid="${errorMessage ? "true" : "false"}" required>`,
+      replacing
+        ? '<p class="card__consequence">Новый токен заменит сохранённый.</p>'
+        : "",
+      `<button type="submit">${submitLabel}</button>`,
       "</form>",
-      "<footer>",
-      "<p>Где взять токен: кабинет Яндекс KIT, Настройки → API → " +
-        "«Сгенерировать токен».</p>",
-      "<p>Токен остаётся на этом компьютере и не попадает в переписку " +
-        "с ассистентом.</p>",
-      "<p>Страница одноразовая — никому не передавайте ссылку на неё.</p>",
-      "</footer>",
+      '<p class="card__privacy">Токен сохранится в настройках ассистента на этом компьютере, ' +
+        'а не в переписке.</p>',
+      '<div class="help" aria-labelledby="help-heading">',
+      '<h2 id="help-heading">Где взять токен</h2>',
+      "<ol>",
+      "<li>В кабинете Яндекс KIT откройте Настройки → API.</li>",
+      "<li>Нажмите «Сгенерировать токен» и скопируйте его.</li>",
+      "</ol>",
+      `<a href="${CABINET_URL}" target="_blank" rel="noreferrer noopener">Открыть кабинет ↗</a>`,
+      "</div>",
+      "</section>",
+      '<p class="page-notice">Не передавайте ссылку на эту страницу.</p>',
     ]
       .filter(Boolean)
       .join("\n"),
@@ -109,22 +465,26 @@ const BUSY_MESSAGE =
 
 function donePage() {
   return page(
-    "Готово",
+    "Токен сохранён",
     [
-      "<h1>Готово</h1>",
-      "<p>Токен проверен и сохранён — магазин подключён.</p>",
-      "<p>Вернитесь в диалог с ассистентом. Эту страницу можно закрыть.</p>",
+      '<section class="card card--status" aria-labelledby="status-heading">',
+      '<div class="status-mark" aria-hidden="true">✓</div>',
+      '<h1 id="status-heading">Токен сохранён</h1>',
+      "<p>Вернитесь в чат — ассистент завершит проверку подключения.</p>",
+      "</section>",
     ].join("\n"),
   );
 }
 
 function failurePage() {
   return page(
-    "Подключение прервано",
+    "Не удалось сохранить токен",
     [
-      "<h1>Подключение прервано</h1>",
-      "<p>Не получилось проверить токен из-за технической ошибки.</p>",
-      "<p>Вернитесь в диалог с ассистентом — он подскажет следующий шаг.</p>",
+      '<section class="card card--status" aria-labelledby="status-heading">',
+      '<div class="status-mark status-mark--failure" aria-hidden="true">!</div>',
+      '<h1 id="status-heading">Не удалось сохранить токен</h1>',
+      "<p>Вернитесь в чат и попробуйте снова.</p>",
+      "</section>",
     ].join("\n"),
   );
 }
@@ -142,6 +502,7 @@ export async function startTokenWeb({
   validateToken,
   persistToken,
   timeoutSeconds = DEFAULT_TOKEN_WEB_TIMEOUT_SECONDS,
+  mode = "connect",
   maxRejectedRequests = MAX_REJECTED_REQUESTS,
   maxBodyBytes = MAX_BODY_BYTES,
 } = {}) {
@@ -151,6 +512,12 @@ export async function startTokenWeb({
   ) {
     throw new SetupError(
       "The token page requires validateToken and persistToken functions.",
+      "USAGE",
+    );
+  }
+  if (mode !== "connect" && mode !== "replace") {
+    throw new SetupError(
+      "The token page mode must be connect or replace.",
       "USAGE",
     );
   }
@@ -281,11 +648,11 @@ export async function startTokenWeb({
 
   const handleSubmission = async (token, res) => {
     if (submitting) {
-      sendHtml(res, 200, formPage(secret, BUSY_MESSAGE));
+      sendHtml(res, 200, formPage(secret, BUSY_MESSAGE, mode));
       return;
     }
     if (!token) {
-      sendHtml(res, 200, formPage(secret, EMPTY_TOKEN_MESSAGE));
+      sendHtml(res, 200, formPage(secret, EMPTY_TOKEN_MESSAGE, mode));
       return;
     }
     submitting = true;
@@ -316,7 +683,7 @@ export async function startTokenWeb({
         // A wrong token is the owner's normal retry loop — show the form
         // again with a fixed message and keep the page alive, unlimited.
         submitting = false;
-        sendHtml(res, 200, formPage(secret, INVALID_TOKEN_MESSAGE));
+        sendHtml(res, 200, formPage(secret, INVALID_TOKEN_MESSAGE, mode));
         return;
       }
       // Anything else (network, timeout, write failure) ends the run with
@@ -370,7 +737,7 @@ export async function startTokenWeb({
       return;
     }
     if (req.method === "GET") {
-      sendHtml(res, 200, formPage(secret, null));
+      sendHtml(res, 200, formPage(secret, null, mode));
       return;
     }
     if (req.method !== "POST") {

@@ -87,6 +87,14 @@ function publicStatus(state) {
   return safe;
 }
 
+// The token page only needs to know whether this managed entry already has a
+// token. Keep the credential itself inside inspectAdapter and return no
+// credential-bearing state to the caller or the page.
+export async function selectTokenWebMode(adapter) {
+  const state = await inspectAdapter(adapter);
+  return state.tokenPresent ? "replace" : "connect";
+}
+
 function printResult(result, asJson) {
   if (asJson) {
     process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -250,6 +258,7 @@ export async function main(argv = process.argv.slice(2)) {
     await checkPrerequisites();
     const web = await startTokenWeb({
       timeoutSeconds: options["timeout-seconds"],
+      mode: await selectTokenWebMode(adapter),
       // Same invariant as the chat route: the live read-only get_store must
       // pass before configureAdapter writes anything to the client config.
       validateToken: (token) => smokeMcp({ token }),
