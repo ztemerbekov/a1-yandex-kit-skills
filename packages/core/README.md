@@ -1,13 +1,13 @@
 # A1 Yandex KIT Core
 
-Типизированный клиент **API Яндекс KIT** — конструктора интернет-магазинов ([kit.yandex.ru](https://kit.yandex.ru)), построенный по официальной OpenAPI-спеке (151 операция). Основа MCP-сервера [`mcp-yandex-kit`](https://www.npmjs.com/package/mcp-yandex-kit), но пригоден и как самостоятельный клиент.
+Типизированный клиент **API Яндекс KIT** — конструктора интернет-магазинов ([kit.yandex.ru](https://kit.yandex.ru)), построенный по официальной OpenAPI-спеке (166 операций). Основа MCP-сервера [`mcp-yandex-kit`](https://www.npmjs.com/package/mcp-yandex-kit), но пригоден и как самостоятельный клиент.
 
 Что внутри:
 
 - **`KitClient`** — Bearer-авторизация, таймаут на попытку, лимитер 3 rps (token bucket), ретраи с бэкоффом на сетевых ошибках, 5xx, 429 и `LIMIT_EXCEEDED` (который KIT возвращает с **HTTP 400**) — только для GET-чтений: write-запросы выполняются ровно одной сетевой попыткой, чтобы не задублировать изменение, автопагинация `listAll`, корректные content-type (`merge-patch+json`, `multipart/form-data`) там, где их требует API.
 - **`KitApiError`** — типизированные ошибки API: `status`, `code`, `message`, `trace_id`.
-- **ajv-валидация** — `validateRequestBody` / `resolveOperationSchema` проверяют тела запросов по схемам спеки **до** отправки в сеть.
-- **Сгенерированный реестр операций** — метод, путь, параметры и content-type каждой из 151 операции.
+- **ajv-валидация** — `validateRequestBody` / `resolveOperationSchema` проверяют тела запросов по схемам спеки **до** отправки в сеть, если для операции задана request schema.
+- **Сгенерированный реестр операций** — метод, путь, параметры и content-type каждой из 166 операций.
 
 ## Использование
 
@@ -23,7 +23,7 @@ const store = await client.call("GetStore");
 const { items } = await client.listAll("GetProducts", {}, { maxItems: 500 });
 ```
 
-Требования: Node.js 20+.
+Требования: Node.js 20.11+.
 
 ## Документация
 
