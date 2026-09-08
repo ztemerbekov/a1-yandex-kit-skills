@@ -1,6 +1,6 @@
-# Скажите, что должно получиться в&nbsp;Яндекс&nbsp;KIT, — ассистент сделает и проверит
+# Скажите, что должно получиться в Яндекс KIT, — ассистент сделает и проверит
 
-[![A1 Yandex KIT MCP](https://glama.ai/mcp/servers/ztemerbekov/a1-yandex-kit-skills/badges/card.svg)](https://glama.ai/mcp/servers/ztemerbekov/a1-yandex-kit-skills)
+[![A1 Yandex KIT MCP](https://glama.ai/mcp/servers/ztemerbekov/a1-yandex-kit-skills/badges/score.svg)](https://glama.ai/mcp/servers/ztemerbekov/a1-yandex-kit-skills)
 
 Когда магазин держится на вас, даже небольшие задачи съедают время и внимание: не забыть условия промокода, разобрать документы, найти нужные товары, всё правильно настроить и перепроверить.
 
