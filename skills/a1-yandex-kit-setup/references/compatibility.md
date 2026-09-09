@@ -13,6 +13,35 @@ capabilities and paths; keep tokens and config contents out of the response.
 Completion criterion: the client/version and every locally advertised MCP
 configuration or diagnostic command are known.
 
+## Runtime browser capability
+
+The local one-time token page is selected for a verified file adapter on a
+desktop loopback. Before opening it, inspect the browser capability actually
+exposed by the current host and keep the page in a persistent, host-owned
+surface on the same desktop as the shell. For Codex, use the exposed
+`mcp__codex_app__open_in_codex` browser target when available; do not use
+`cua_repl`, `createBrowserTab`, `browser-use`, or computer-use tab creation,
+because those tabs are activity-scoped and can close when the assistant turn
+ends. For Claude Code or Claude Desktop, use the native Browser or preview pane
+for the current session. A built-in browser may be available only for some
+accounts or sessions; its presence does not prove that the shell is local
+because a browser can run beside a cloud or VM session. Do not invent vendor
+browser APIs, artifact iframes, or screenshot-based token entry. Never inspect a
+filled token form.
+
+If no suitable in-app capability is exposed, invoke the setup helper's
+`open-token-page --url <url> --json` command. It validates the URL as the
+loopback one-time page and tries the operating system default browser with
+`shell: false`. A failed opener leaves the long-running page untouched; relay
+the returned URL as a clickable fallback. If host policy forbids starting an
+OS opener, relay the page URL directly. Hosted sessions skip the page and use
+environment or secrets settings first. Chat token entry is an explicit owner
+choice only.
+
+For Claude sessions, treat these as capability hints rather than guarantees:
+[Claude Cowork built-in browser](https://support.claude.com/en/articles/16607400-use-the-built-in-browser-in-claude-cowork)
+and [Claude Desktop preview](https://code.claude.com/docs/en/desktop#preview-your-app).
+
 ## 2. Read current official documentation
 
 Search only the client's official vendor documentation. Confirm:

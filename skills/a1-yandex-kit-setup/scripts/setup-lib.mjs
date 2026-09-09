@@ -51,6 +51,10 @@ export {
 export { probeNetwork, smokeAdapter, smokeMcp } from "./lib/smoke.mjs";
 export { unreachableReason } from "./lib/session-env.mjs";
 export {
+  openTokenPage,
+  validateTokenPageUrl,
+} from "./lib/browser.mjs";
+export {
   DEFAULT_TOKEN_WEB_TIMEOUT_SECONDS,
   MAX_TOKEN_WEB_TIMEOUT_SECONDS,
   startTokenWeb,

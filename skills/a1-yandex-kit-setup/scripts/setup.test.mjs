@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { spawn } from "node:child_process";
 import {
   mkdir,
@@ -6,6 +7,7 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import http from "node:http";
@@ -37,12 +39,14 @@ import {
   mergeJson,
   mergeToml,
   mergeYaml,
+  openTokenPage,
   probeNetwork,
   resolveAdapter,
   rollbackChange,
   selectManagedAdapter,
   smokeMcp,
   startTokenWeb,
+  validateTokenPageUrl,
   unreachableReason,
 } from "./setup-lib.mjs";
 
@@ -2058,6 +2062,192 @@ test("CLI token-route reports the route chosen by the environment", async () => 
   const current = await runCli(["token-route", "--json"]);
   assert.equal(current.code, 0, current.stderr);
   assert.ok(["web", "hosted"].includes(JSON.parse(current.stdout).route));
+});
+
+test("token page instructions require a persistent host-owned browser surface", async () => {
+  const skillPath = path.join(scriptDir, "..", "SKILL.md");
+  const skill = await readFile(skillPath, "utf8");
+  assert.match(skill, /mcp__codex_app__open_in_codex/);
+  assert.match(skill, /persistent, host-owned browser surface/);
+  assert.match(skill, /createBrowserTab/);
+  assert.match(skill, /activity-scoped/);
+});
+
+test("CLI open-token-page validates a loopback token page and reports unsupported browser", async () => {
+  const validUrl =
+    "http://127.0.0.1:43123/?secret=y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const result = await runCli([
+    "open-token-page",
+    "--url",
+    validUrl,
+    "--json",
+  ], "", { env: { ...process.env, PATH: "" } });
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    url: validUrl,
+    opened: false,
+    code: "BROWSER_UNAVAILABLE",
+  });
+
+  const invalid = await runCli([
+    "open-token-page",
+    "--url",
+    "https://example.com/?secret=y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "--json",
+  ]);
+  assert.equal(invalid.code, 1);
+  assert.match(invalid.stderr, /"code":"INVALID_TOKEN_WEB_URL"/);
+});
+
+test("openTokenPage uses a shell-free OS opener and preserves the page URL", async () => {
+  const url =
+    "http://127.0.0.1:43123/?secret=y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const calls = [];
+  const child = new EventEmitter();
+  const resultPromise = openTokenPage({
+    url,
+    platform: "darwin",
+    env: { PATH: "/test" },
+    spawnImpl: (...args) => {
+      calls.push(args);
+      queueMicrotask(() => child.emit("close", 0));
+      return child;
+    },
+  });
+  const result = await resultPromise;
+  assert.deepEqual(result, { url, opened: true });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], "open");
+  assert.deepEqual(calls[0][1], [url]);
+  assert.deepEqual(calls[0][2].env, { PATH: "/test" });
+  assert.equal(calls[0][2].shell, false);
+  assert.equal(calls[0][2].stdio, "ignore");
+});
+
+test("openTokenPage selects the platform default browser command", async () => {
+  const url =
+    "http://127.0.0.1:43123/?secret=y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const expected = {
+    darwin: ["open", [url]],
+    linux: ["xdg-open", [url]],
+    win32: ["rundll32.exe", ["url.dll,FileProtocolHandler", url]],
+  };
+  for (const [platform, [command, args]] of Object.entries(expected)) {
+    const child = new EventEmitter();
+    const calls = [];
+    const resultPromise = openTokenPage({
+      url,
+      platform,
+      env: {},
+      spawnImpl: (...spawnArgs) => {
+        calls.push(spawnArgs);
+        queueMicrotask(() => child.emit("close", 0));
+        return child;
+      },
+    });
+    assert.deepEqual(await resultPromise, { url, opened: true });
+    assert.deepEqual(calls[0].slice(0, 2), [command, args]);
+    assert.equal(calls[0][2].shell, false);
+  }
+});
+
+test("openTokenPage reports opener failure and timeout without throwing", async () => {
+  const url =
+    "http://127.0.0.1:43123/?secret=y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const failedChild = new EventEmitter();
+  const failed = openTokenPage({
+    url,
+    platform: "linux",
+    spawnImpl: () => {
+      queueMicrotask(() => failedChild.emit("close", 1));
+      return failedChild;
+    },
+  });
+  assert.deepEqual(await failed, {
+    url,
+    opened: false,
+    code: "BROWSER_OPEN_FAILED",
+  });
+
+  const hangingChild = new EventEmitter();
+  assert.deepEqual(
+    await openTokenPage({
+      url,
+      platform: "linux",
+      waitMs: 5,
+      spawnImpl: () => hangingChild,
+    }),
+    { url, opened: false, code: "BROWSER_OPEN_FAILED" },
+  );
+});
+
+test("openTokenPage rejects non-token-page URLs without invoking a browser", async () => {
+  const validSecret = "y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+  const invalidUrls = [
+    `http://127.0.0.1:43123/?secret=${validSecret}&extra=1`,
+    `http://localhost:43123/?secret=${validSecret}`,
+    `http://127.0.0.1:43123/path?secret=${validSecret}`,
+    `http://127.0.0.1:43123/?secret=short`,
+  ];
+  for (const url of invalidUrls) {
+    assert.throws(
+      () => validateTokenPageUrl(url),
+      (error) => error instanceof SetupError && error.code === "INVALID_TOKEN_WEB_URL",
+    );
+  }
+});
+
+test("setup.mjs runs through file and parent symlinks", async () => {
+  await withTempDir(async (tempDir) => {
+    const fileLink = path.join(tempDir, "setup-file-link.mjs");
+    const parentDir = path.join(tempDir, "linked-scripts");
+    await symlink(setupScript, fileLink);
+    await symlink(scriptDir, parentDir, "dir");
+
+    for (const entry of [fileLink, path.join(parentDir, "setup.mjs")]) {
+      const result = await new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [entry, "help"], {
+          env: process.env,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => {
+          stdout += chunk;
+        });
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk;
+        });
+        child.on("error", reject);
+        child.on("close", (code) => resolve({ code, stdout, stderr }));
+      });
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /Usage:/);
+    }
+  });
+});
+
+test("importing setup.mjs remains side-effect free", async () => {
+  const result = await new Promise((resolve, reject) => {
+    const child = spawn(
+      process.execPath,
+      ["--input-type=module", "-e", `import(${JSON.stringify(setupScript)})`],
+      { env: process.env, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk;
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, "");
 });
 
 test("CLI token-web refuses a hosted session before opening the token page", async () => {

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
@@ -18,6 +19,7 @@ import {
   selectManagedAdapter,
   smokeAdapter,
   smokeMcp,
+  openTokenPage,
   startTokenWeb,
   unreachableReason,
 } from "./setup-lib.mjs";
@@ -118,6 +120,7 @@ function usage() {
     "  setup.mjs smoke --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--json]",
     "  setup.mjs smoke-token --token-stdin [--json]",
     "  setup.mjs token-route [--json]",
+    "  setup.mjs open-token-page --url <loopback-token-page-url> [--json]",
     "  setup.mjs token-web --client <id> [--format <capability> --config <path> --project-dir <path> --server-name <name>] [--timeout-seconds <n>] [--force] [--json]",
     "  setup.mjs approval-status --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
     "  setup.mjs approval-configure --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
@@ -207,6 +210,14 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
+  if (command === "open-token-page") {
+    if (!options.url) {
+      throw new SetupError("--url is required.", "USAGE");
+    }
+    printResult(await openTokenPage({ url: options.url }), options.json);
+    return;
+  }
+
   if (command === "approval-status" || command === "approval-configure") {
     if (!options.client) {
       throw new SetupError("--client is required.", "USAGE");
@@ -285,9 +296,17 @@ export async function main(argv = process.argv.slice(2)) {
   throw new SetupError(`Unknown command "${command}".\n${usage()}`, "USAGE");
 }
 
+function realPath(filePath) {
+  try {
+    return realpathSync.native(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
+}
+
 const isDirectRun =
   process.argv[1] &&
-  fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+  realPath(fileURLToPath(import.meta.url)) === realPath(process.argv[1]);
 
 if (isDirectRun) {
   main().catch((error) => {
