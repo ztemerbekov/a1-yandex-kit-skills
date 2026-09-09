@@ -2064,6 +2064,15 @@ test("CLI token-route reports the route chosen by the environment", async () => 
   assert.ok(["web", "hosted"].includes(JSON.parse(current.stdout).route));
 });
 
+test("token page instructions require a persistent host-owned browser surface", async () => {
+  const skillPath = path.join(scriptDir, "..", "SKILL.md");
+  const skill = await readFile(skillPath, "utf8");
+  assert.match(skill, /mcp__codex_app__open_in_codex/);
+  assert.match(skill, /persistent, host-owned browser surface/);
+  assert.match(skill, /createBrowserTab/);
+  assert.match(skill, /activity-scoped/);
+});
+
 test("CLI open-token-page validates a loopback token page and reports unsupported browser", async () => {
   const validUrl =
     "http://127.0.0.1:43123/?secret=y0_AgAAAA-bbbbbbbbbbbbbbbbbbbbbbbbbbbb";

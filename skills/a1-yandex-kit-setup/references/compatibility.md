@@ -17,12 +17,17 @@ configuration or diagnostic command are known.
 
 The local one-time token page is selected for a verified file adapter on a
 desktop loopback. Before opening it, inspect the browser capability actually
-exposed by the current host and use an in-app browser only when it can open a
-visible page on the same desktop as the shell. A built-in browser may be
-available only for some accounts or sessions; its presence does not prove that
-the shell is local because a browser can run beside a cloud or VM session. Do
-not invent vendor browser APIs, artifact iframes, or screenshot-based token
-entry. Never inspect a filled token form.
+exposed by the current host and keep the page in a persistent, host-owned
+surface on the same desktop as the shell. For Codex, use the exposed
+`mcp__codex_app__open_in_codex` browser target when available; do not use
+`cua_repl`, `createBrowserTab`, `browser-use`, or computer-use tab creation,
+because those tabs are activity-scoped and can close when the assistant turn
+ends. For Claude Code or Claude Desktop, use the native Browser or preview pane
+for the current session. A built-in browser may be available only for some
+accounts or sessions; its presence does not prove that the shell is local
+because a browser can run beside a cloud or VM session. Do not invent vendor
+browser APIs, artifact iframes, or screenshot-based token entry. Never inspect a
+filled token form.
 
 If no suitable in-app capability is exposed, invoke the setup helper's
 `open-token-page --url <url> --json` command. It validates the URL as the

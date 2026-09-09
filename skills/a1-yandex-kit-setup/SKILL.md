@@ -177,15 +177,26 @@ server name, including `a1-yandex-kit-global` after an exact-name collision.
 
 The first stdout line is `{"url": …, "expires_in_seconds": …}`. Take the
 lifetime from `expires_in_seconds` (five minutes by default) and immediately
-inspect the capabilities actually exposed by the current host. If an in-app
-browser can open a visible page on this desktop, use it with this URL. If that
-browser tool is unavailable or reports that it cannot open the page, fall
-through to the operating-system opener below. Do not
-invent a client-specific browser API, artifact iframe, or screenshot workflow,
-and never inspect a filled token form. A built-in browser being available does
-not prove that this shell's loopback belongs to the same desktop (the browser
-may run in a cloud session or VM). When no suitable in-app capability is
-exposed, use the operating system's default browser opener:
+inspect the capabilities actually exposed by the current host. Keep this page
+in a persistent, host-owned browser surface for the owner:
+
+- In Codex, when `mcp__codex_app__open_in_codex` is available, call it with
+  `target: { type: "browser", url: <url> }` (and the right-side placement when
+  supported). This is the persistent Codex browser panel. Do not use
+  `cua_repl`, `createBrowserTab`, `browser-use`, or computer-use tab creation
+  for this page: those activity-scoped tabs can close when the assistant turn
+  ends.
+- In Claude Code or Claude Desktop, use the client's native Browser or preview
+  pane for the current session. Do not replace it with a temporary browser-use
+  or screen-control tab. If the native pane is unavailable, cannot reach the
+  local page, or is not persistent for the owner, use the operating-system
+  opener and then the clickable URL fallback below.
+
+Do not invent a client-specific browser API, artifact iframe, or screenshot
+workflow, and never inspect a filled token form. A built-in browser being
+available does not prove that this shell's loopback belongs to the same desktop
+(the browser may run in a cloud session or VM). When no suitable persistent
+in-app capability is exposed, use the operating system's default browser opener:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" open-token-page --url <url> --json
