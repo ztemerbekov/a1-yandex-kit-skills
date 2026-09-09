@@ -53,6 +53,7 @@ test("setup-lib preserves the public module contract", () => {
     "mergeToml",
     "mergeYaml",
     "normalizeClient",
+    "openTokenPage",
     "probeNetwork",
     "projectShadowsServer",
     "resolveAdapter",
@@ -61,6 +62,7 @@ test("setup-lib preserves the public module contract", () => {
     "smokeAdapter",
     "smokeMcp",
     "startTokenWeb",
+    "validateTokenPageUrl",
     "unreachableReason",
   ];
 

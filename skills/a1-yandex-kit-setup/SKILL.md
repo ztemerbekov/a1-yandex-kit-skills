@@ -101,6 +101,13 @@ use its documented list/show command: treat an existing managed `yandex-kit` or
 `a1-yandex-kit-global` entry as `configured: true` without attempting to read
 its token.
 
+Every concrete connect or reconnect runs `token-route` and the same acquisition
+flow. An existing token selects the protected page's `replace` mode on the
+local file-adapter route; it never selects chat or makes the protected page
+optional. A reconnect on that route always obtains a fresh one-time page URL
+before any replacement write. Native CLI and hosted routes use their documented
+secure input or secrets mechanism, with chat only after an explicit choice.
+
 For a first-connection request when a token is already configured, ask:
 `Токен Яндекс KIT уже сохранён в настройках. Хотите переподключить магазин с новым токеном?`
 
@@ -125,8 +132,10 @@ node "<skill-directory>/scripts/setup.mjs" token-route --json
 ```
 
 - `route: "web"` — the desktop loopback is available. Use the local one-time
-  page below only when the selected adapter is a verified file adapter; the
-  environment result alone does not select `token-web`.
+  page below for every connect or reconnect when the selected adapter is a
+  verified file adapter. The environment result alone does not prove that an
+  in-app browser can reach the helper: confirm the browser and shell run on
+  the same desktop.
 - `route: "hosted"` — the session is remote (`reason` names the SSH,
   container or headless marker), so no browser can reach a local page. Use
   the hosted route below and present it as the normal, supported route for
@@ -137,10 +146,11 @@ node "<skill-directory>/scripts/setup.mjs" token-route --json
 
 When the compatibility ladder selected a native CLI, use this adapter on every
 environment route, including a known client that fell back because its config
-was unparseable. On a desktop loopback, proceed directly through the chat route
-and request the token there; on a hosted route, use the environment-first
-branch and take the token through chat only when those settings are
-unavailable. For a token received in chat, validate it with
+was unparseable. A native CLI currently has no supported page adapter: use the
+client's documented secure input or native credential settings when available.
+On a hosted route, use the environment-first branch. Do not request a token in
+chat unless the owner explicitly chooses that route. For a token received in
+chat, validate it with
 `smoke-token --token-stdin` and configure through `native-configure` in step 4;
 then verify it with the native list/show or test command established in
 `references/compatibility.md` in step 5. When the hosted environment supplies
@@ -165,11 +175,34 @@ node "<skill-directory>/scripts/setup.mjs" token-web --client <client> --json
 For a dynamic file adapter, include those flags explicitly. Keep the selected
 server name, including `a1-yandex-kit-global` after an exact-name collision.
 
-The first stdout line is `{"url": …, "expires_in_seconds": …}`. Relay that
-URL to the owner immediately, with the lifetime taken from
-`expires_in_seconds` (five minutes by default):
+The first stdout line is `{"url": …, "expires_in_seconds": …}`. Take the
+lifetime from `expires_in_seconds` (five minutes by default) and immediately
+inspect the capabilities actually exposed by the current host. If an in-app
+browser can open a visible page on this desktop, use it with this URL. If that
+browser tool is unavailable or reports that it cannot open the page, fall
+through to the operating-system opener below. Do not
+invent a client-specific browser API, artifact iframe, or screenshot workflow,
+and never inspect a filled token form. A built-in browser being available does
+not prove that this shell's loopback belongs to the same desktop (the browser
+may run in a cloud session or VM). When no suitable in-app capability is
+exposed, use the operating system's default browser opener:
 
-`Откройте на этом компьютере одноразовую страницу и вставьте туда токен — так он не появится в чате. Где взять токен: кабинет Яндекс KIT, Настройки → API → «Сгенерировать токен». Ссылка действует 5 минут и работает один раз: <url>`
+```bash
+node "<skill-directory>/scripts/setup.mjs" open-token-page --url <url> --json
+```
+
+If the host policy does not permit starting an OS opener, skip that command
+and relay the URL directly as the clickable fallback.
+
+The command accepts only the loopback one-time URL emitted by `token-web`, uses
+the OS opener without a shell, and returns with `opened: false` if the opener
+is missing or fails. An opener failure never stops the running `token-web`
+process. If it reports `opened: false`, keep the page alive and relay its
+returned URL as a clickable fallback. When opening succeeds, tell the owner
+that the one-time page is open and give the actual lifetime from
+`expires_in_seconds`. The one-time
+page's URL secret is not the store token; never log, echo, or request the store
+token itself.
 
 The command keeps serving the page while the owner enters the token. It runs
 the same read-only `get_store` validation as `smoke-token` before writing
@@ -187,31 +220,39 @@ lifetime expires or the browser closes. If the lifetime expires before
 persistence begins, `token-web` returns `TOKEN_WEB_TIMEOUT` and performs no
 write.
 
-Fall back to the chat route below when `token-web` ends with
-`TOKEN_WEB_UNAVAILABLE`, `TOKEN_WEB_TIMEOUT` or `TOKEN_WEB_ABUSE`, or when
-the user asks to paste the token in chat instead.
+If `token-web` ends with `TOKEN_WEB_TIMEOUT` before persistence, discard its
+expired URL and start a fresh `token-web` run. Repeat the browser-opening order
+with the new URL; never reopen an expired URL. Keep the current configuration
+unchanged while doing so. If it ends with `TOKEN_WEB_UNAVAILABLE` or
+`TOKEN_WEB_ABUSE`, explain the diagnostic and keep the current configuration
+unchanged. Use a documented secure-input or secrets route when available. Do
+not request or suggest pasting a token in chat by default; chat is available
+only after the owner explicitly chooses it. A reconnect follows the same fresh
+one-time-page route.
 
 ### Hosted route (`route: "hosted"`)
 
 Offer the client's session environment or secrets settings first — a token
 stored there never enters the conversation:
 
-`Ассистент работает в удалённой сессии, поэтому локальная страница ввода токена здесь не откроется — это нормальный, предусмотренный маршрут. Надёжнее всего задать токен переменной YANDEX_KIT_TOKEN в настройках окружения или секретов этой сессии: тогда он не попадёт в переписку. Если таких настроек нет под рукой — пришлите токен сюда, в чат.`
+`Ассистент работает в удалённой сессии, поэтому локальная страница ввода токена здесь не откроется — это нормальный, предусмотренный маршрут. Надёжнее всего задать токен переменной YANDEX_KIT_TOKEN в настройках окружения или секретов этой сессии: тогда он не попадёт в переписку.`
 
 When the user stores the token in those settings, follow the client's
 documentation for exposing the variable to the managed server, then prove
-the connection in step 5. When the user cannot reach those settings, take
-the token through the chat route below and continue with the selected adapter
-branch: `native-configure` for a native CLI or `configure` for a file adapter.
+the connection in step 5. When the user cannot reach those settings, ask
+whether they explicitly want to use the chat route. Wait for that choice
+before requesting a token, then continue with the selected adapter branch:
+`native-configure` for a native CLI or `configure` for a file adapter.
 Once the requested work is finished, remind them once:
 
 `Токен побывал в истории этого чата. Когда закончите задачу, его можно отозвать в кабинете Яндекс KIT: Настройки → API — и при необходимости выпустить новый.`
 
-### Chat route (works on every client)
+### Explicit chat route (only after the owner chooses it)
 
-- When `configured` is false, ask:
+- After the owner explicitly chooses chat and `configured` is false, ask:
   `Для настройки потребуется токен Яндекс KIT. Чтобы его получить, зайдите в кабинет Яндекс KIT: Настройки → API и скопируйте ключ. Вставьте его сюда — я привяжу его к приложению и не буду повторять в ответе. Токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
-- For reconnection, including reinstallation or token replacement, ask:
+- After the owner explicitly chooses chat for a reconnection, including
+  reinstallation or token replacement, ask:
   `Пришлите новый токен из **Настройки → API** — я обновлю подключение и не буду повторять его в ответе. Новый токен останется в истории этого чата и будет сохранён в пользовательском конфиге приложения.`
 
 Accept the token in chat. Do not echo, summarize, quote, log or interpolate it
