@@ -1,6 +1,6 @@
 ---
 name: a1-yandex-kit-orders
-description: "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, gift cards and additional services (addons). Use when listing, confirming or cancelling KIT orders, or when looking up customers, their orders or gift cards. Russian triggers include: «покажи заказы», «подтверди заказ», «отмени заказ», «что с заказом», «найди клиента», «выгрузи заказы за неделю»."
+description: "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, gift cards, additional services (addons) and delivery documents (waybills, parcel labels). Use when listing, confirming or cancelling KIT orders, printing delivery labels, or when looking up customers, their orders or gift cards. Russian triggers include: «покажи заказы», «подтверди заказ», «отмени заказ», «что с заказом», «найди клиента», «выгрузи заказы за неделю», «распечатай ярлык»."
 compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
@@ -36,10 +36,12 @@ decision, value or authorization required for the next step.
 Apply this boundary in reasoning; client-side text filtering is not the control.
 
 Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
-Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
+Клиенты, Подарочные карты, Услуги, Доставка. Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, and read customers,
-gift cards and addons. Read [`references/domain.md`](references/domain.md) before
-acting: delivery completion, marking codes and the marketing-consent pair live there.
+gift cards and addons, and print delivery documents. Read
+[`references/domain.md`](references/domain.md) before
+acting: delivery completion, labels and waybills, marking codes, which address field to
+read and the marketing-consent pair live there.
 
 ## Workflow
 
@@ -88,14 +90,14 @@ Load only the page the task needs:
   identifiers, content types, lifecycle rules and edge cases. Read it before
   planning any write.
 - [`references/endpoints.md`](references/endpoints.md) — the full operation
-  tables of this domain (25 operations: method, path, operationId,
+  tables of this domain (27 operations: method, path, operationId,
   Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-166 operations):
+168 operations):
 
 - `list_orders` — List orders of the store (paginated), newest first.
 - `get_order` — Get a single order by its ID, including line items, delivery chunks, payment and status.
@@ -106,6 +108,8 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `get_order_addons` — List additional services (addons) attached to an order by the order ID.
 - `get_order_payment_link` — Get the signed payment-page link for an order, to be sent to the buyer — they can pay without logging in.
 - `generate_order_waybills` — Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and return links to PDF documents.
+- `get_order_delivery_labels` — Get the delivery labels (ярлыки) of an order's delivery chunks — the PDF with the address, tracking number and barcode that goes onto the parcel.
+- `get_delivery_label_formats` — List the label sizes the given delivery services can print — the values accepted by get_order_delivery_labels' label_format.
 - `list_customers` — List customers of the store (paginated).
 - `get_customer` — Get a single customer by their ID.
 - `update_customer` — Update a customer (plain JSON PATCH).

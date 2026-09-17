@@ -8,7 +8,9 @@ export function registerStoreTools(server: McpServer, client: KitClient): void {
     {
       title: "Get store",
       description:
-        "Get information about the current store (id, slug, b2c_url). Operation: GetStore.",
+        "Get information about the current store (id, slug, b2c_url). `b2c_url` is the " +
+        "storefront origin a variant's `relative_link_url` is resolved against — " +
+        "list_variant_links already does that join. Operation: GetStore.",
       annotations: READ_ONLY,
       inputSchema: {},
     },

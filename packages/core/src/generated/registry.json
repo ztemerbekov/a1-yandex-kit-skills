@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KITᵝ API",
   "specVersion": "1.0.0",
-  "opsCount": 166,
+  "opsCount": 168,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -1545,6 +1545,44 @@
       "requestContentType": null,
       "requestSchemaRef": null,
       "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetOrderDeliveryLabels": {
+      "id": "GetOrderDeliveryLabels",
+      "method": "get",
+      "path": "/v1/orders/{id}/delivery-labels",
+      "tag": "Заказы",
+      "summaryRu": "Получение ярлыков доставки заказа",
+      "descriptionRu": "Возвращает ярлыки доставки по частям заказа. Ярлык — это PDF‑файл с адресом, трек‑номером и штрихкодом. Его наклеивают на отправление.\n\nПри первом обращении ярлык запрашивают у службы доставки, потом его можно использовать повторно. Повторный запрос по той же части заказа и в том же формате вернет ранее сформированный документ.\n\nНекоторые части заказа не попадают в `delivery_labels`:\n\n* самовывоз;\n* собственная доставка магазина;\n* заказ еще не передан в службу доставки.\nОни перечисляются в `skipped` c указыванием причины.\n\nЕсли служба доставки отказала по одной части заказа, остальные не затрагиваются. Проблемную часть переносят в `skipped` с причиной `GENERATION_FAILED`, ярлыки для других частей возвращают как обычно.\nКод `500` означает, что запрос не удалось обработать целиком.\n\n{% note info %}\n\nСсылки на ярлыки подписаны и действуют ограниченное время. Момент истечения срока указан в поле `expires_at`.\nНе храните ссылку — получите новую сделав повторный запрос.\n\n{% endnote %}",
+      "pathParams": [
+        "id"
+      ],
+      "queryParams": [
+        {
+          "name": "label_format",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "210x297",
+            "148x210",
+            "105x148",
+            "100x150",
+            "74x105",
+            "75x120",
+            "120x75",
+            "58x60",
+            "58x40"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Размер ярлыка задают в миллиметрах. Если размер не передан, служба доставки использует свой формат по умолчанию.\n\nРазмеры зависят от службы доставки. Список размеров получают запросом `GET /v1/delivery/label-formats`. Если служба работает в режиме mode: `EXPLICIT_FORMATS` и запрошенного размера нет в списке, часть заказа попадает в `skipped` с причиной `FORMAT_NOT_SUPPORTED`.\n\nСлужбы в режиме `mode: PROVIDER_DEFAULT` не учитывают размер. Они печатают ярлык в своем стандартном размере.\nДля таких частей в ответе поле `label_format` будет пустым."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/OrderDeliveryLabelCollection",
       "paginated": false,
       "itemsProp": null
     },
@@ -3677,6 +3715,41 @@
       "responseSchemaRef": "#/components/schemas/RegionCollection",
       "paginated": false,
       "itemsProp": "regions"
+    },
+    "GetDeliveryLabelFormats": {
+      "id": "GetDeliveryLabelFormats",
+      "method": "get",
+      "path": "/v1/delivery/label-formats",
+      "tag": "Доставка",
+      "summaryRu": "Получение поддерживаемых размеров ярлыков доставки",
+      "descriptionRu": "Возвращает размеры ярлыков доставки, которые умеют печатать указанные службы доставки.\n\nЗначение поля `type` используют в `label_format` при запросе ярлыков через `GET /v1/orders/{id}/delivery-labels`.\n\nДубликаты служб во входном списке игнорируются. Порядок служб в ответе фиксирован платформой — он не алфавитный.\nЧтобы найти нужную службу, используйте поле `delivery_service`.",
+      "pathParams": [],
+      "queryParams": [
+        {
+          "name": "delivery_service",
+          "required": true,
+          "type": "array",
+          "enum": [
+            "YANDEX_DELIVERY",
+            "CDEK",
+            "META_SHIP_DALLI",
+            "META_SHIP_RUSSIAN_POST",
+            "META_SHIP_PECOM",
+            "OZON",
+            "MERCHANT_SHIP",
+            "YANDEX_MARKET_FBO"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Службы доставки, для которых нужны размеры ярлыков."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/DeliveryLabelFormatCollection",
+      "paginated": false,
+      "itemsProp": "services"
     },
     "GetAddons": {
       "id": "GetAddons",

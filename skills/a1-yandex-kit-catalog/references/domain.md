@@ -78,4 +78,11 @@ colors (`/v1/characteristics/colors`), where `UpdateCharacteristicColor` recolor
 **existing** value addressed by the value itself — there is no id — accepting a hex code or
 the special `multicoloured` / `transparent`.
 
+A variant also carries `relative_link_url` — its storefront path, already built
+from the store's path settings and already selecting the variant
+(`/products/iphone-15-pro-100000?variant=100001`). Do **not** assemble product URLs
+from slugs and ids: resolve that path against `b2c_url` from `GetStore` (the
+`list_variant_links` MCP tool does exactly this join) and the link stays correct
+when the store's URL rules change.
+
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, reviews, feed import, acquiring setup) and where in the cabinet to send the owner instead.

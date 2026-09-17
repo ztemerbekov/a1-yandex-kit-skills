@@ -12,7 +12,19 @@ the attached additional services (addons), customer records and gift cards. A cu
 and mirror it into your CRM. Waybills (акты приёма-передачи) for delivery chunks come
 from `GenerateOrderWaybills` — one signed, expiring PDF per warehouse + delivery
 service group, regenerated on every call, with unprintable chunks listed in
-`skipped` with a reason. `GetOrderPaymentLink` returns the order's permanent
+`skipped` with a reason. Per-parcel delivery labels (ярлыки — address, tracking
+number, barcode) come from `GetOrderDeliveryLabels`: one PDF per delivery chunk,
+cached after the first request for that chunk and size, signed and expiring
+(`expires_at`), with chunks that have no label in `skipped` — `GENERATION_FAILED`
+there is temporary and worth retrying. The sizes a service accepts in
+`label_format` come from `GetDeliveryLabelFormats`; a service in mode
+`PROVIDER_DEFAULT` ignores the parameter and prints its own size. Read the
+delivery address from `delivery_info.address.locality`/`.address` — they follow
+the chosen `method`, while the `courier_*`, `pickup_point_*` and `self_pick_up_*`
+groups keep the buyer's earlier checkout choices and go stale; the delivery
+service of a chunk is `delivery_info.delivery_service_type` (the `courier_*`/
+`pickup_point_*` variants of it are deprecated).
+`GetOrderPaymentLink` returns the order's permanent
 signed payment-page URL: same value every time, works in any status, never
 expires and cannot be revoked — hand it out deliberately. All datetimes are UTC, and list endpoints paginate with
 `page`/`per_page` (max 100).

@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT — Orders — endpoints
 
-## Endpoints (25 operations)
+## Endpoints (27 operations)
 
 ### Заказы
 
@@ -16,6 +16,7 @@
 | POST | `/v1/orders/{id}/confirm` | `ConfirmOrder` | Подтверждение заказа |
 | POST | `/v1/orders/{id}/cancel` | `CancelOrder` | Отмена заказа |
 | POST | `/v1/orders/{id}/delivery/complete` | `CompleteOrderDelivery` | Завершение доставки заказа |
+| GET | `/v1/orders/{id}/delivery-labels` | `GetOrderDeliveryLabels` | Получение ярлыков доставки заказа |
 | POST | `/v1/orders/{id}/marking-codes` | `SetOrderMarkingCodes` | Запись кодов маркировки «Честный знак» |
 | GET | `/v1/orders/{id}/payment-link` | `GetOrderPaymentLink` | Получение ссылки на оплату заказа |
 
@@ -48,3 +49,9 @@
 | GET | `/v1/addons/{id}/collections` | `GetAddonCollectionIDs` | Получение идентификаторов коллекций услуги. |
 | POST | `/v1/addons/{id}/objects/add` | `AddAddonObjects` | Добавление объектов в услугу |
 | POST | `/v1/addons/{id}/objects/remove` | `RemoveAddonObjects` | Удаление объектов из услуги |
+
+### Доставка
+
+| Method | Path | OperationId | Summary (RU) |
+| --- | --- | --- | --- |
+| GET | `/v1/delivery/label-formats` | `GetDeliveryLabelFormats` | Получение поддерживаемых размеров ярлыков доставки |
