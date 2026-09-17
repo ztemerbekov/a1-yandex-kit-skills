@@ -46,6 +46,8 @@ export interface OperatorVariant {
   stocks: KitVariant["stocks"];
   media: KitVariant["media"];
   characteristics?: KitVariant["characteristics"];
+  /** Storefront path of the variant, resolved against the store's b2c_url. */
+  relative_link_url?: KitVariant["relative_link_url"];
 }
 
 export interface OperatorProduct {
