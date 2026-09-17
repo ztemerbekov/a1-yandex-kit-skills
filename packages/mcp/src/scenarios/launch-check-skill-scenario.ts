@@ -428,9 +428,18 @@ export async function runLaunchCheckScenario({
           blockers.push(webEvidence.details);
         } else {
           const rootUrl = new URL(rootResponse.finalUrl ?? store.b2c_url);
+          // Product pages come from the API itself: every published variant carries
+          // `relative_link_url`, the storefront path the platform builds from the
+          // store's own URL rules. Resolved against the reached root it is factual
+          // evidence, unlike a URL assembled from slugs and ids. Pages discovered by
+          // the adapter on the root stay as the second source, for stores whose
+          // catalog read was incomplete or whose variants predate the field.
+          const variantPageUrls = variants.items
+            .map((variant) => variant.relative_link_url)
+            .filter((path): path is string => typeof path === "string" && path !== "");
           const publicPageUrls = [
             ...new Set(
-              (rootResponse.publicPageUrls ?? [])
+              [...variantPageUrls, ...(rootResponse.publicPageUrls ?? [])]
                 .map((candidate) => {
                   try {
                     return new URL(candidate, rootUrl).toString();

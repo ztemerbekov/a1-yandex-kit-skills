@@ -54,6 +54,9 @@
 | Отсутствующий web-инструмент оставляет витрину непроверенной и ограничивает статус | `an absent web capability leaves the storefront unverified and caps readiness` | автоматизировано |
 | Доступная витрина без checkout остаётся `CONDITIONALLY_READY` | `an available storefront without checkout evidence remains conditionally ready` | автоматизировано |
 | Доступный корень без обнаруженной публичной страницы не считается полным web-покрытием | `a reachable root without a discoverable public page is incomplete web coverage` | автоматизировано |
+| Страницы товаров берутся из `relative_link_url` опубликованных вариантов, а не собираются из slug и id | `a product page from relative_link_url makes a bare root verifiable` | автоматизировано |
+| Ссылка варианта, ведущая на другой origin, не считается доказательством витрины и не запрашивается | `a storefront link resolving off-origin is not accepted as storefront evidence` | автоматизировано |
+| Недоступная страница товара из API — доказанный блокер | `a product page from the API answering 404 is a proven blocker` | автоматизировано |
 | Ограничение API по настройкам оплаты/доставки остаётся видимым | Assertions в available/no-checkout и order evidence reports | автоматизировано |
 | Скилл не создаёт, не подтверждает и не оплачивает тестовый заказ | Write-journal assertions во всех web/checkout scenarios | автоматизировано |
 | ID тестового заказа читается и даёт проверяемые order/payment/delivery statuses | `a paid test order is read by ID and can provide sufficient checkout evidence` | автоматизировано |

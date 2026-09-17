@@ -3,7 +3,7 @@ name: a1-yandex-kit-launch-check
 description: "Use for a Yandex KIT store launch-readiness review: «Можно запускать?», «Проверь готовность», «Что мешает открытию?», «Можно вести покупателей?». Model-invoked; the default workflow is fully read-only and distinguishes proven blockers, risks and unverified checkout links."
 metadata:
   author: Zinnur Temerbekov
-  version: "1.4.0"
+  version: "1.5.0"
 ---
 
 # A1 Yandex KIT Launch Check
@@ -83,8 +83,9 @@ Return exactly one machine status with its Russian label:
 3. For every published variant, prove a positive price, available stock
    (`quantity - reserved > 0`) on an active warehouse, an image, a readable parent
    product and at least one active category. Name exact IDs for reserve greater than
-   quantity and missing/archived warehouse references. Send deeper structural defects
-   to `a1-yandex-kit-catalog-doctor`.
+   quantity and missing/archived warehouse references. Retain each variant's
+   `relative_link_url` — the storefront check below uses it as its page source. Send
+   deeper structural defects to `a1-yandex-kit-catalog-doctor`.
 4. Inspect active promotions. Report expired active entities, exhausted promocode
    limits and selected modes with no factual bindings. No promotions at all is valid
    and never blocks launch.
@@ -120,6 +121,15 @@ entry point with no discoverable public page remains «проверено не �
 the result at `CONDITIONALLY_READY`. If no web tool exists, say «витрина не проверена».
 Do not claim that the URL's API presence proves availability, and do not invent
 undiscoverable product-page URLs.
+
+Product pages come from the API before any page parsing: every published variant
+carries `relative_link_url`, the storefront path the platform builds from the store's
+own URL rules and variant selection. Resolve it against the reached root — that is
+factual evidence, unlike a URL assembled from a slug and an id. Pages the adapter
+discovers on the root remain the second source, for a store whose catalog coverage is
+incomplete. Both sources stay under the same rules: same origin as the reached root,
+never the root itself, at most three pages checked. A `relative_link_url` that resolves
+off-origin is not storefront evidence and is not requested.
 
 Checkout evidence has two supported sources:
 

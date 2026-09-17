@@ -259,3 +259,87 @@ test("explicit manual checkout proof is owner-provided evidence, not an API clai
   );
   assert.equal(mcp.writeCalls.length, 0);
 });
+
+const VARIANT_PAGE_PATH = "/products/ready-1-100000?variant=100001";
+const VARIANT_PAGE_URL = `${STOREFRONT_URL}${VARIANT_PAGE_PATH}`;
+
+/** A store whose published variant carries the storefront path the API now returns. */
+function mcpWithVariantLink(relativeLinkUrl: string): FakeP1Mcp {
+  return new FakeP1Mcp({
+    store: store(),
+    products: [product()],
+    variants: [{ ...variant(), relative_link_url: relativeLinkUrl }],
+    categories: [category()],
+    warehouses: [warehouse()],
+    orders: [],
+  });
+}
+
+test("a product page from relative_link_url makes a bare root verifiable", async () => {
+  const mcp = mcpWithVariantLink(VARIANT_PAGE_PATH);
+  // The root exposes no links at all: the only page source is the API field.
+  const web = new FakeLaunchWebAdapter({
+    responses: {
+      [STOREFRONT_URL]: { status: 200, finalUrl: `${STOREFRONT_URL}/` },
+      [VARIANT_PAGE_URL]: { status: 200, finalUrl: VARIANT_PAGE_URL },
+    },
+  });
+  const result = await runLaunchCheckScenario({
+    request: "Проверь магазин снаружи",
+    now: NOW,
+    externalOrderProcessing: false,
+    web,
+    mcp,
+  });
+
+  assert.equal(result.web.state, "AVAILABLE");
+  assert.deepEqual(web.calls, [STOREFRONT_URL, VARIANT_PAGE_URL]);
+  assert.equal(result.status, "CONDITIONALLY_READY"); // no checkout evidence yet
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a storefront link resolving off-origin is not accepted as storefront evidence", async () => {
+  const mcp = mcpWithVariantLink("https://elsewhere.example/products/ready-1");
+  const web = new FakeLaunchWebAdapter({
+    response: { status: 200, finalUrl: STOREFRONT_URL },
+  });
+  const result = await runLaunchCheckScenario({
+    request: "Проверь магазин снаружи",
+    now: NOW,
+    externalOrderProcessing: false,
+    web,
+    mcp,
+  });
+
+  // Same-origin remains the rule, so the off-origin page is never requested.
+  assert.equal(result.web.state, "NOT_CHECKED");
+  assert.deepEqual(web.calls, [STOREFRONT_URL]);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a product page from the API answering 404 is a proven blocker", async () => {
+  const mcp = mcpWithVariantLink(VARIANT_PAGE_PATH);
+  const web = new FakeLaunchWebAdapter({
+    responses: {
+      [STOREFRONT_URL]: { status: 200, finalUrl: `${STOREFRONT_URL}/` },
+      [VARIANT_PAGE_URL]: { status: 404, finalUrl: VARIANT_PAGE_URL },
+    },
+  });
+  const result = await runLaunchCheckScenario({
+    request: "Можно запускать?",
+    now: NOW,
+    externalOrderProcessing: false,
+    web,
+    checkoutEvidence: {
+      kind: "manual",
+      ownerConfirmed: true,
+      details: "Checkout пройден вручную",
+    },
+    mcp,
+  });
+
+  assert.equal(result.status, "NOT_READY");
+  assert.equal(result.web.state, "UNAVAILABLE");
+  assert.ok(result.blockers.some((entry) => entry.includes(VARIANT_PAGE_URL)));
+  assert.equal(mcp.writeCalls.length, 0);
+});

@@ -22,7 +22,9 @@ First read the repo contract: ../../CLAUDE.md.
   Следующие действия, and the explicit statement that KIT API does not expose
   payment/delivery settings.
 - Web-check semantics: adapter boundary, 2xx/3xx entry point plus at least one
-  discovered same-origin page (up to three checked) for `AVAILABLE`.
+  discovered same-origin page (up to three checked) for `AVAILABLE`. Page
+  candidates come from published variants' `relative_link_url` first and from
+  adapter-discovered root links second; both obey the same-origin rule.
 - Fix reruns retain already collected web and checkout evidence; fixes route
   through operator/catalog-doctor and promo-launcher semantics.
 - `references/exact-write-protocol.md` is generated from
