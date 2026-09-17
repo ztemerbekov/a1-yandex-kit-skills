@@ -210,7 +210,14 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
                 .then((result) => withCoverage({ all: result }))
             : client
                 .call("GetVariants", { query: { page, per_page: perPage, ...filters } })
-                .then((res) => withCoverage({ page: res, operationId: "GetVariants", perPage })),
+                .then((res) =>
+                  withCoverage({
+                    page: res,
+                    operationId: "GetVariants",
+                    perPage,
+                    pageNumber: page ?? 1,
+                  }),
+                ),
         ]);
         const base = store?.b2c_url;
         if (typeof base !== "string" || base === "") {
