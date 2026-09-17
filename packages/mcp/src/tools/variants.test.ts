@@ -12,7 +12,10 @@ interface RecordedCall {
   init: RequestInit | undefined;
 }
 
-/** `payload` may be a function of the 0-based call index to vary responses per call. */
+/**
+ * `payload` may be a function of the 0-based call index and the request URL,
+ * to vary responses per call (by order, or by endpoint when a tool fans out).
+ */
 async function setup(payload: unknown = { ok: true }) {
   const calls: RecordedCall[] = [];
   const client = new KitClient({
@@ -20,7 +23,8 @@ async function setup(payload: unknown = { ok: true }) {
     rps: 1000,
     fetchImpl: (async (url: unknown, init?: RequestInit) => {
       calls.push({ url: String(url), init });
-      const body = typeof payload === "function" ? payload(calls.length - 1) : payload;
+      const body =
+        typeof payload === "function" ? payload(calls.length - 1, String(url)) : payload;
       return new Response(JSON.stringify(body), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -358,4 +362,68 @@ test("bulk_update_prices rejects a batch above the 5000-item cap before the netw
   }
   assert.equal(errored, true);
   assert.equal(calls.length, 0);
+});
+
+/** Store read + variant listing, keyed by path so ordering cannot skew the test. */
+function linkPayloads(variants: unknown[], b2cUrl: unknown = "https://kit1234.kit.yandex.ru") {
+  return (index: number, url?: string) =>
+    String(url).includes("/v1/store")
+      ? { id: "s1", slug: "kit1234", b2c_url: b2cUrl }
+      : { variants, total_count: variants.length };
+}
+
+test("list_variant_links joins relative_link_url onto the store's b2c_url", async () => {
+  const variants = [
+    { id: "v1", name: "T-shirt", relative_link_url: "/products/t-shirt-100000?variant=100001" },
+    { id: "v2", name: "Cap", relative_link_url: "/products/cap-100002?variant=100003" },
+  ];
+  const { calls, mcp } = await setup(linkPayloads(variants));
+  const res = await mcp.callTool({
+    name: "list_variant_links",
+    arguments: { product_id: "prod-1", per_page: 50 },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  const data = JSON.parse(resultText(res));
+  assert.equal(data.b2c_url, "https://kit1234.kit.yandex.ru");
+  assert.deepEqual(data.links, [
+    {
+      variant_id: "v1",
+      name: "T-shirt",
+      url: "https://kit1234.kit.yandex.ru/products/t-shirt-100000?variant=100001",
+    },
+    {
+      variant_id: "v2",
+      name: "Cap",
+      url: "https://kit1234.kit.yandex.ru/products/cap-100002?variant=100003",
+    },
+  ]);
+  // The coverage envelope survives, the raw variant records do not.
+  assert.equal(data.coverage, "complete");
+  assert.equal(data.received, 2);
+  assert.equal(data.pages_read, 1);
+  assert.equal(data.variants, undefined);
+  assert.equal(calls.length, 2);
+  const paths = calls.map((call) => new URL(call.url).pathname).sort();
+  assert.deepEqual(paths, ["/v1/store", "/v1/variants"]);
+  const listing = calls.find((call) => new URL(call.url).pathname === "/v1/variants")!;
+  const query = new URL(listing.url).searchParams;
+  assert.equal(query.get("product_id"), "prod-1");
+  assert.equal(query.get("per_page"), "50");
+});
+
+test("list_variant_links reports a variant without a link as url:null", async () => {
+  const variants = [{ id: "v1", name: "No link" }];
+  const { mcp } = await setup(linkPayloads(variants));
+  const res = await mcp.callTool({ name: "list_variant_links", arguments: {} });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.deepEqual(JSON.parse(resultText(res)).links, [
+    { variant_id: "v1", name: "No link", url: null },
+  ]);
+});
+
+test("list_variant_links fails instead of guessing when the store has no b2c_url", async () => {
+  const { mcp } = await setup(linkPayloads([{ id: "v1", relative_link_url: "/products/x" }], null));
+  const res = await mcp.callTool({ name: "list_variant_links", arguments: {} });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(JSON.parse(resultText(res)).code, "STORE_URL_UNAVAILABLE");
 });

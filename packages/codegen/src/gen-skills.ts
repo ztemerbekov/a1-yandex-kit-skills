@@ -33,7 +33,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
 const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
-const SKILL_VERSION = "1.6.2";
+const SKILL_VERSION = "1.7.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 88) {
-  throw new Error(`Expected 88 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 91) {
+  throw new Error(`Expected 91 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -280,9 +280,11 @@ const SKILLS: SkillDef[] = [
       "stocks), bulk price/stock sync, variant documents (attachments), categories, " +
       "characteristics (including groups and colors), product videos, collections, " +
       "context collections and badges. " +
-      "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store. " +
+      "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store, " +
+      "or when exporting storefront links of products to a CMS, PIM or feed. " +
       "Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», " +
-      "«поменяй категорию», «добавь видео к товару», «синхронизируй каталог».",
+      "«поменяй категорию», «добавь видео к товару», «синхронизируй каталог», " +
+      "«дай ссылку на товар», «выгрузи ссылки на товары».",
     overview: `Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
 Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
@@ -368,6 +370,13 @@ colors (\`/v1/characteristics/colors\`), where \`UpdateCharacteristicColor\` rec
 **existing** value addressed by the value itself — there is no id — accepting a hex code or
 the special \`multicoloured\` / \`transparent\`.
 
+A variant also carries \`relative_link_url\` — its storefront path, already built
+from the store's path settings and already selecting the variant
+(\`/products/iphone-15-pro-100000?variant=100001\`). Do **not** assemble product URLs
+from slugs and ids: resolve that path against \`b2c_url\` from \`GetStore\` (the
+\`list_variant_links\` MCP tool does exactly this join) and the link stays correct
+when the store's URL rules change.
+
 ${DOMAIN_TRAILER}`,
     tags: ["Товары", "Категории товаров", "Характеристики товаров", "Видео", "Коллекции", "Контекстные коллекции", "Бейджи"],
     toolFiles: ["products", "variants", "categories", "characteristics", "videos", "collections"],
@@ -384,15 +393,19 @@ ${DOMAIN_TRAILER}`,
     name: "a1-yandex-kit-orders",
     description:
       "Manage orders in a Yandex KIT store over its REST API: orders and their statuses, customers, " +
-      "gift cards and additional services (addons). Use when listing, confirming or cancelling " +
-      "KIT orders, or when looking up customers, their orders or gift cards. " +
+      "gift cards, additional services (addons) and delivery documents (waybills, parcel " +
+      "labels). Use when listing, confirming or cancelling " +
+      "KIT orders, printing delivery labels, or when looking up customers, their orders or " +
+      "gift cards. " +
       "Russian triggers include: «покажи заказы», «подтверди заказ», «отмени заказ», " +
-      "«что с заказом», «найди клиента», «выгрузи заказы за неделю».",
+      "«что с заказом», «найди клиента», «выгрузи заказы за неделю», «распечатай ярлык».",
     overview: `Covers the order-management domain of the Yandex KIT e-commerce API — tags: Заказы,
-Клиенты, Подарочные карты, Услуги. Orders are created by buyers on the storefront;
+Клиенты, Подарочные карты, Услуги, Доставка. Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, and read customers,
-gift cards and addons. Read [\`references/domain.md\`](references/domain.md) before
-acting: delivery completion, marking codes and the marketing-consent pair live there.`,
+gift cards and addons, and print delivery documents. Read
+[\`references/domain.md\`](references/domain.md) before
+acting: delivery completion, labels and waybills, marking codes, which address field to
+read and the marketing-consent pair live there.`,
     domainDetails: `Orders are created by buyers on the storefront;
 through the API you list and inspect them, confirm or cancel them, close out their delivery
 (\`POST /v1/orders/{id}/delivery/complete\` — for pickup and the store's own delivery when
@@ -403,13 +416,25 @@ the attached additional services (addons), customer records and gift cards. A cu
 and mirror it into your CRM. Waybills (акты приёма-передачи) for delivery chunks come
 from \`GenerateOrderWaybills\` — one signed, expiring PDF per warehouse + delivery
 service group, regenerated on every call, with unprintable chunks listed in
-\`skipped\` with a reason. \`GetOrderPaymentLink\` returns the order's permanent
+\`skipped\` with a reason. Per-parcel delivery labels (ярлыки — address, tracking
+number, barcode) come from \`GetOrderDeliveryLabels\`: one PDF per delivery chunk,
+cached after the first request for that chunk and size, signed and expiring
+(\`expires_at\`), with chunks that have no label in \`skipped\` — \`GENERATION_FAILED\`
+there is temporary and worth retrying. The sizes a service accepts in
+\`label_format\` come from \`GetDeliveryLabelFormats\`; a service in mode
+\`PROVIDER_DEFAULT\` ignores the parameter and prints its own size. Read the
+delivery address from \`delivery_info.address.locality\`/\`.address\` — they follow
+the chosen \`method\`, while the \`courier_*\`, \`pickup_point_*\` and \`self_pick_up_*\`
+groups keep the buyer's earlier checkout choices and go stale; the delivery
+service of a chunk is \`delivery_info.delivery_service_type\` (the \`courier_*\`/
+\`pickup_point_*\` variants of it are deprecated).
+\`GetOrderPaymentLink\` returns the order's permanent
 signed payment-page URL: same value every time, works in any status, never
 expires and cannot be revoked — hand it out deliberately. All datetimes are UTC, and list endpoints paginate with
 \`page\`/\`per_page\` (max 100).
 
 ${DOMAIN_TRAILER}`,
-    tags: ["Заказы", "Клиенты", "Подарочные карты", "Услуги"],
+    tags: ["Заказы", "Клиенты", "Подарочные карты", "Услуги", "Доставка"],
     toolFiles: ["orders", "customers", "giftcards"],
     toolsNote:
       "Услуги (addons) beyond `get_order_addons` have no dedicated tools — manage them " +

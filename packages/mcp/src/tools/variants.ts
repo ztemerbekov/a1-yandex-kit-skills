@@ -85,6 +85,8 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         "detects this and fails with STATUS_FILTER_IGNORED, ARCHIVE_READ_UNSUPPORTED or " +
         "MIXED_ARCHIVED_FILTER_UNSUPPORTED (for filters mixing ARCHIVED with other " +
         "statuses) instead of returning the wrong catalog slice. " +
+        "For storefront page URLs use list_variant_links — it joins each item's " +
+        "`relative_link_url` with the store's b2c_url for you. " +
         COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
@@ -145,7 +147,11 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
     "get_variant",
     {
       title: "Get variant",
-      description: "Get a single variant by its ID (name, SKU, pricing, stocks, media, status).",
+      description:
+        "Get a single variant by its ID (name, SKU, pricing, stocks, media, status). " +
+        "`relative_link_url` is the variant's storefront path; prefix it with the store's " +
+        "b2c_url (get_store) for a full link, or use list_variant_links to get that joined " +
+        "for you.",
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Variant ID (UUID)."),
@@ -154,6 +160,92 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
     async ({ id }) => {
       try {
         return ok(await client.call("GetVariantById", { pathParams: { id } }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_variant_links",
+    {
+      title: "List variant storefront links",
+      description:
+        "Storefront page URLs of variants, ready to hand to a CMS, PIM or feed. Each variant " +
+        "carries a `relative_link_url` from the API — it already reflects the store's path " +
+        "settings and selects the variant (`?variant=`) — and this tool joins it with the " +
+        "store's b2c_url, so no URL rules have to be maintained on the integration side. " +
+        "One call instead of list_variants + get_store. Same filters as list_variants; " +
+        "archived variants are excluded by the API. " +
+        COVERAGE_DESCRIPTION,
+      annotations: READ_ONLY,
+      inputSchema: {
+        page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
+        per_page: z
+          .number()
+          .int()
+          .optional()
+          .describe("Items per page, 1-100 (default 25). Values outside the range are clamped."),
+        all: z
+          .boolean()
+          .optional()
+          .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        product_id: z.string().optional().describe("Filter by parent product ID (UUID)."),
+        name: z
+          .string()
+          .optional()
+          .describe("Case-insensitive partial search by name, SKU, barcode or KIT ID."),
+      },
+    },
+    async ({ page, per_page, all, product_id, name }) => {
+      const filters = { product_id, name };
+      try {
+        const perPage = clampPerPage(per_page);
+        // The store read goes out first so its response is the first recorded call.
+        const [store, listing] = await Promise.all([
+          client.call<{ b2c_url?: unknown }>("GetStore"),
+          all
+            ? client
+                .listAll("GetVariants", { query: filters })
+                .then((result) => withCoverage({ all: result }))
+            : client
+                .call("GetVariants", { query: { page, per_page: perPage, ...filters } })
+                .then((res) =>
+                  withCoverage({
+                    page: res,
+                    operationId: "GetVariants",
+                    perPage,
+                    pageNumber: page ?? 1,
+                  }),
+                ),
+        ]);
+        const base = store?.b2c_url;
+        if (typeof base !== "string" || base === "") {
+          // Without the storefront origin the joined links would be wrong, not missing.
+          return fail(
+            new KitValidationError(
+              "The store has no b2c_url, so storefront links cannot be built. " +
+                "Read relative_link_url via list_variants and prefix it with the storefront " +
+                "origin yourself.",
+              [],
+              "STORE_URL_UNAVAILABLE",
+            ),
+          );
+        }
+        const { items, variants, ...envelope } = listing as Record<string, unknown>;
+        const source = Array.isArray(items) ? items : Array.isArray(variants) ? variants : [];
+        const links = source.map((item) => {
+          const variant = (item ?? {}) as Record<string, unknown>;
+          const relative = variant.relative_link_url;
+          return {
+            variant_id: variant.id ?? null,
+            name: variant.name ?? null,
+            // A relative path is resolved against the storefront origin; null marks
+            // an item the API returned without a link rather than a guessed URL.
+            url: typeof relative === "string" ? new URL(relative, base).toString() : null,
+          };
+        });
+        return ok({ b2c_url: base, ...envelope, links });
       } catch (e) {
         return fail(e);
       }

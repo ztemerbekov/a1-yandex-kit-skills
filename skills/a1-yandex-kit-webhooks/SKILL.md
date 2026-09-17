@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.6.2"
+  version: "1.7.0"
 ---
 
 # A1 Yandex KIT — Webhooks
@@ -96,7 +96,7 @@ Load only the page the task needs:
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-166 operations):
+168 operations):
 
 - `list_webhooks` — List all webhooks of the store (not paginated).
 - `get_webhook` — Get a single webhook by its ID (URL, subscribed events, status).

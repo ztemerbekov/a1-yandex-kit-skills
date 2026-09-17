@@ -2,7 +2,7 @@
 
 npm-workspaces monorepo: typed client, MCP server (stdio) and Claude agent skills for the
 Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
-(`specs/kit-swagger.openapi.json` — 166 operations, 24 tag groups, the single source of truth).
+(`specs/kit-swagger.openapi.json` — 168 operations, 25 tag groups, the single source of truth).
 
 ## Commands
 
@@ -40,9 +40,9 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   duplicate the change), auto-pagination via `listAll`, per-operation content type:
   merge-patch and multipart where the spec says so), `KitApiError`, ajv-based
   `validateRequestBody`/`resolveOperationSchema`, and `src/generated/{registry.json,types.ts}`.
-- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 88 tools; `src/tools/*.ts` is
+- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 91 tools; `src/tools/*.ts` is
   one file per domain; `meta.ts` hosts the trio (`search_operations`,
-  `get_operation_schema`, `kit_request`) that covers all 166 operations (92 have curated tools).
+  `get_operation_schema`, `kit_request`) that covers all 168 operations (94 have curated tools).
   `telemetry.ts` — anonymous usage pings to usage.gistrec.cloud (ids/names/versions only,
   never data or arguments; fire-and-forget, must never block or throw; opt-out
   `YANDEX_KIT_TELEMETRY=0`). `startup_failed` is the exception: `sendBlocking` awaits it,

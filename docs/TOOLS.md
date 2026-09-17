@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 166 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **91 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 168 API operations, including those without a dedicated tool.
 
 ## Alerts (`alerts.ts`)
 
@@ -95,9 +95,9 @@ The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 166 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 168 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 166 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 168 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -112,6 +112,8 @@ The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commer
 | `get_order_addons` | yes | List additional services (addons) attached to an order by the order ID. |
 | `get_order_payment_link` | yes | Get the signed payment-page link for an order, to be sent to the buyer — they can pay without logging in. |
 | `generate_order_waybills` | no | Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and return links to PDF documents. |
+| `get_order_delivery_labels` | yes | Get the delivery labels (ярлыки) of an order's delivery chunks — the PDF with the address, tracking number and barcode that goes onto the parcel. |
+| `get_delivery_label_formats` | yes | List the label sizes the given delivery services can print — the values accepted by get_order_delivery_labels' label_format. |
 
 ## Products (`products.ts`)
 
@@ -147,6 +149,7 @@ The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commer
 | --- | --- | --- |
 | `list_variants` | yes | Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU. |
 | `get_variant` | yes | Get a single variant by its ID (name, SKU, pricing, stocks, media, status). |
+| `list_variant_links` | yes | Storefront page URLs of variants, ready to hand to a CMS, PIM or feed. |
 | `create_variant` | no | Create a new variant (sellable item) under an existing product. |
 | `update_variant` | no | Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks). |
 | `bulk_update_prices` | no | Update prices of up to 5000 variants in one synchronous, atomic request — the fast path for syncing a whole catalog instead of calling update_variant per item. |
@@ -184,7 +187,7 @@ The `mcp-yandex-kit` MCP server exposes **88 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**92 of 166 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**94 of 168 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 

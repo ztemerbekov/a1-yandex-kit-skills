@@ -1,11 +1,11 @@
 ---
 name: a1-yandex-kit-catalog
-description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), bulk price/stock sync, variant documents (attachments), categories, characteristics (including groups and colors), product videos, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store. Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», «поменяй категорию», «добавь видео к товару», «синхронизируй каталог»."
+description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), bulk price/stock sync, variant documents (attachments), categories, characteristics (including groups and colors), product videos, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store, or when exporting storefront links of products to a CMS, PIM or feed. Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», «поменяй категорию», «добавь видео к товару», «синхронизируй каталог», «дай ссылку на товар», «выгрузи ссылки на товары»."
 compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.6.2"
+  version: "1.7.0"
 ---
 
 # A1 Yandex KIT — Catalog
@@ -99,7 +99,7 @@ Load only the page the task needs:
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-166 operations):
+168 operations):
 
 - `list_products` — List product records (paginated); for export requests, use this for explicit raw product-group or catalog-structure dumps.
 - `get_product` — Get a single product by its ID, including its category bindings.
@@ -107,6 +107,7 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `update_product` — Update an existing product (plain JSON PATCH, not merge-patch).
 - `list_variants` — Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU.
 - `get_variant` — Get a single variant by its ID (name, SKU, pricing, stocks, media, status).
+- `list_variant_links` — Storefront page URLs of variants, ready to hand to a CMS, PIM or feed.
 - `create_variant` — Create a new variant (sellable item) under an existing product.
 - `update_variant` — Update an existing variant via JSON Merge Patch: send only the fields to change (e.g. pricing or stocks).
 - `bulk_update_prices` — Update prices of up to 5000 variants in one synchronous, atomic request — the fast path for syncing a whole catalog instead of calling update_variant per item.

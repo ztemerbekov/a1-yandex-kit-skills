@@ -64,7 +64,11 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     {
       title: "Get order",
       description:
-        "Get a single order by its ID, including line items, delivery chunks, payment and status.",
+        "Get a single order by its ID, including line items, delivery chunks, payment and status. " +
+        "Read the delivery address from delivery_chunks[].delivery_info.address.locality/.address: " +
+        "they always match the chosen delivery method, while the courier_*, pickup_point_* and " +
+        "self_pick_up_* groups keep whatever the buyer picked earlier in checkout and are stale " +
+        "unless the group matches `method`.",
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Order ID (UUID)."),
@@ -325,6 +329,104 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
       if (!check.valid) return validationFailure(check.errors);
       try {
         return ok(await client.call("GenerateOrderWaybills", { body }));
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_order_delivery_labels",
+    {
+      title: "Get order delivery labels",
+      description:
+        "Get the delivery labels (ярлыки) of an order's delivery chunks — the PDF with the " +
+        "address, tracking number and barcode that goes onto the parcel. The first request per " +
+        "chunk and format asks the delivery service for the document, later ones return the " +
+        "same one. The PDF links are signed and expire at `expires_at` — do not store them, " +
+        "re-request instead. Chunks with no label (self-pickup, delivery not created yet, " +
+        "service that does not print labels, requested format unsupported, or a failure on the " +
+        "service's side — reason GENERATION_FAILED, which is temporary and worth retrying) come " +
+        "back in `skipped` with a reason, while the remaining chunks still return their labels. " +
+        "For the handover act covering a whole warehouse + service group use " +
+        "generate_order_waybills instead.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        id: z.string().describe("Order ID (UUID)."),
+        label_format: z
+          .enum([
+            "210x297",
+            "148x210",
+            "105x148",
+            "100x150",
+            "74x105",
+            "75x120",
+            "58x60",
+            "58x40",
+            "120x75",
+          ])
+          .optional()
+          .describe(
+            "Label size in millimetres. Omit to let each delivery service use its own default. " +
+              "Which sizes a service prints comes from get_delivery_label_formats: a service in " +
+              "EXPLICIT_FORMATS mode skips the chunk with FORMAT_NOT_SUPPORTED when the size is " +
+              "not on its list, one in PROVIDER_DEFAULT mode ignores this parameter entirely " +
+              "(its labels come back with an empty label_format).",
+          ),
+      },
+    },
+    async ({ id, label_format }) => {
+      try {
+        return ok(
+          await client.call("GetOrderDeliveryLabels", {
+            pathParams: { id },
+            query: { label_format },
+          }),
+        );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_delivery_label_formats",
+    {
+      title: "Get delivery label formats",
+      description:
+        "List the label sizes the given delivery services can print — the values accepted by " +
+        "get_order_delivery_labels' label_format. Per service, `mode` says how it treats sizes: " +
+        "EXPLICIT_FORMATS (pick one of `formats`), PROVIDER_DEFAULT (size ignored, the service " +
+        "prints its own) or NOT_SUPPORTED (no labels at all, `formats` empty). `preselected` is " +
+        "only the size preselected in the KIT UI — it does NOT apply when label_format is " +
+        "omitted. Services come back in the platform's own display order, so look one up by " +
+        "`delivery_service`, not by position.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        delivery_service: z
+          .array(
+            z.enum([
+              "YANDEX_DELIVERY",
+              "CDEK",
+              "META_SHIP_DALLI",
+              "META_SHIP_RUSSIAN_POST",
+              "META_SHIP_PECOM",
+              "OZON",
+              "MERCHANT_SHIP",
+              "YANDEX_MARKET_FBO",
+            ]),
+          )
+          .min(1)
+          .describe(
+            "Delivery services to report sizes for; duplicates are ignored by the API. " +
+              "A chunk's service is in get_order under " +
+              "delivery_chunks[].delivery_info.delivery_service_type.",
+          ),
+      },
+    },
+    async ({ delivery_service }) => {
+      try {
+        return ok(await client.call("GetDeliveryLabelFormats", { query: { delivery_service } }));
       } catch (e) {
         return fail(e);
       }

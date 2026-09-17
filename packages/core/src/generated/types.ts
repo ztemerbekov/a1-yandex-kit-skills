@@ -1279,6 +1279,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orders/{id}/delivery-labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение ярлыков доставки заказа
+         * @description Возвращает ярлыки доставки по частям заказа. Ярлык — это PDF‑файл с адресом, трек‑номером и штрихкодом. Его наклеивают на отправление.
+         *
+         *     При первом обращении ярлык запрашивают у службы доставки, потом его можно использовать повторно. Повторный запрос по той же части заказа и в том же формате вернет ранее сформированный документ.
+         *
+         *     Некоторые части заказа не попадают в `delivery_labels`:
+         *
+         *     * самовывоз;
+         *     * собственная доставка магазина;
+         *     * заказ еще не передан в службу доставки.
+         *     Они перечисляются в `skipped` c указыванием причины.
+         *
+         *     Если служба доставки отказала по одной части заказа, остальные не затрагиваются. Проблемную часть переносят в `skipped` с причиной `GENERATION_FAILED`, ярлыки для других частей возвращают как обычно.
+         *     Код `500` означает, что запрос не удалось обработать целиком.
+         *
+         *     {% note info %}
+         *
+         *     Ссылки на ярлыки подписаны и действуют ограниченное время. Момент истечения срока указан в поле `expires_at`.
+         *     Не храните ссылку — получите новую сделав повторный запрос.
+         *
+         *     {% endnote %}
+         */
+        get: operations["GetOrderDeliveryLabels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orders/{id}/marking-codes": {
         parameters: {
             query?: never;
@@ -2623,6 +2664,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/delivery/label-formats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Получение поддерживаемых размеров ярлыков доставки
+         * @description Возвращает размеры ярлыков доставки, которые умеют печатать указанные службы доставки.
+         *
+         *     Значение поля `type` используют в `label_format` при запросе ярлыков через `GET /v1/orders/{id}/delivery-labels`.
+         *
+         *     Дубликаты служб во входном списке игнорируются. Порядок служб в ответе фиксирован платформой — он не алфавитный.
+         *     Чтобы найти нужную службу, используйте поле `delivery_service`.
+         */
+        get: operations["GetDeliveryLabelFormats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/addons": {
         parameters: {
             query?: never;
@@ -3909,6 +3975,11 @@ export interface components {
             status: components["schemas"]["VariantStatus"];
             product_id: components["schemas"]["ProductID"];
             product_card_id: components["schemas"]["ProductCardID"];
+            /**
+             * @description Относительная ссылка (товар на витрине).
+             * @example /products/iphone-15-pro-100000?variant=100001
+             */
+            relative_link_url: string;
             /** @description Характеристики товара. */
             characteristics: components["schemas"]["VariantCharacteristic"][];
             /** @description Остатки на складах. */
@@ -4293,6 +4364,111 @@ export interface components {
          * @enum {string}
          */
         SkippedOrderWaybillReason: "SELF_PICKUP" | "DELIVERY_NOT_CREATED" | "NO_WAREHOUSE" | "SERVICE_NOT_SUPPORTED";
+        /** @description Ярлыки доставки по частям заказа. */
+        OrderDeliveryLabelCollection: {
+            /** @description Сформированные ярлыки доставки. */
+            delivery_labels: components["schemas"]["OrderDeliveryLabel"][];
+            /** @description Части заказа, для которых ярлык не сформирован. */
+            skipped: components["schemas"]["SkippedOrderDeliveryLabel"][];
+        };
+        /** @description Ярлык доставки одной части заказа. */
+        OrderDeliveryLabel: {
+            /**
+             * Format: int
+             * @description Идентификатор чанка заказа.
+             * @example 1
+             */
+            delivery_chunk_id: number;
+            delivery_service: components["schemas"]["DeliveryServiceType"];
+            /**
+             * Format: uri
+             * @description Подписанная ссылка на PDF-файл с ярлыком.
+             * @example https://example.com/order-labels/550e8400-e29b-41d4-a716-446655440000.pdf?X-Amz-Signature=1234567890
+             */
+            url: string;
+            /**
+             * Format: date-time
+             * @description Момент, после которого ссылка перестает работать.
+             * @example 2026-08-18T12:00:00Z
+             */
+            expires_at: string;
+            label_format?: components["schemas"]["DeliveryLabelFormatType"];
+        };
+        /** @description Часть заказа, для которой ярлык не сформирован. */
+        SkippedOrderDeliveryLabel: {
+            /**
+             * Format: int
+             * @description Идентификатор чанка заказа.
+             * @example 1
+             */
+            delivery_chunk_id: number;
+            reason: components["schemas"]["SkippedOrderDeliveryLabelReason"];
+        };
+        /**
+         * @description Причина, по которой ярлык не сформирован:
+         *     - `SELF_PICKUP` — самовывоз, отправления нет и ярлык не нужен.
+         *
+         *     - `DELIVERY_NOT_CREATED` — доставка еще не создана в службе доставки, трек-номера нет.
+         *
+         *     - `SERVICE_NOT_SUPPORTED` — служба доставки не печатает ярлыки
+         *       (собственная доставка магазина и часть служб).
+         *
+         *     - `FORMAT_NOT_SUPPORTED` — служба доставки печатает по списку размеров и запрошенного
+         *       `label_format` среди них нет. Службы с `mode: PROVIDER_DEFAULT` этой причины не дают:
+         *       они игнорируют `label_format` и печатают в своем размере.
+         *
+         *     - `GENERATION_FAILED` — служба доставки не отдала ярлык (ошибка или таймаут на ее
+         *       стороне). Причина временная: повторите запрос позже. Остальные части заказа
+         *       при этом возвращаются в `delivery_labels`.
+         * @enum {string}
+         */
+        SkippedOrderDeliveryLabelReason: "SELF_PICKUP" | "DELIVERY_NOT_CREATED" | "SERVICE_NOT_SUPPORTED" | "FORMAT_NOT_SUPPORTED" | "GENERATION_FAILED";
+        /**
+         * @description Размер ярлыка доставки в миллиметрах.
+         * @enum {string}
+         */
+        DeliveryLabelFormatType: "210x297" | "148x210" | "105x148" | "100x150" | "74x105" | "75x120" | "120x75" | "58x60" | "58x40";
+        /**
+         * @description Как служба доставки работает с размерами ярлыков:
+         *     - `EXPLICIT_FORMATS` — размер можно выбрать из `formats`.
+         *     - `PROVIDER_DEFAULT` — служба печатает в собственном размере, `formats` пуст.
+         *     - `NOT_SUPPORTED` — служба не печатает ярлыки, `formats` пуст.
+         * @enum {string}
+         */
+        DeliveryLabelFormatMode: "EXPLICIT_FORMATS" | "PROVIDER_DEFAULT" | "NOT_SUPPORTED";
+        /** @description Размер ярлыка доставки. */
+        DeliveryLabelFormat: {
+            type: components["schemas"]["DeliveryLabelFormatType"];
+            /**
+             * @description Название размера для показа пользователю.
+             * @example A4, 210×297 мм
+             */
+            title: string;
+            /**
+             * @description Размер, предвыбранный в интерфейсе Яндекс KITᵝ, — подсказка для UI.
+             *
+             *     Если `label_format` не указан, предвыбранный размер не повлияет на печать.
+             *     Служба доставки использует свой формат по умолчанию — он может отличаться от предвыбранного.
+             *     Чтобы получить ярлык конкретного размера, передайте параметр `label_format`.
+             * @example true
+             */
+            preselected: boolean;
+        };
+        /** @description Размеры ярлыков одной службы доставки. */
+        DeliveryServiceLabelFormats: {
+            delivery_service: components["schemas"]["DeliveryServiceType"];
+            mode: components["schemas"]["DeliveryLabelFormatMode"];
+            /** @description Доступные размеры ярлыка. Пуст, если `mode` не `EXPLICIT_FORMATS`. */
+            formats: components["schemas"]["DeliveryLabelFormat"][];
+        };
+        /** @description Поддерживаемые размеры ярлыков доставки по службам. */
+        DeliveryLabelFormatCollection: {
+            /**
+             * @description Службы доставки в фиксированном порядке отображения, заданном платформой.
+             *     Порядок не алфавитный и меняется при добавлении новых служб — поиск службы выполняйте по полю `delivery_service`.
+             */
+            services: components["schemas"]["DeliveryServiceLabelFormats"][];
+        };
         /** @description Заказ. */
         Order: {
             id: components["schemas"]["OrderID"];
@@ -4465,7 +4641,25 @@ export interface components {
             tracking_url?: string;
             /** @description Комментарий к доставке. */
             delivery_notes?: string;
+            /**
+             * @description Служба доставки для этой части заказа. Соответствует `method`.
+             *
+             *     Не заполняется для `method` = `SELF_PICK_UP` и `POSTAL_SERVICE` — доставка службой в них не участвует.
+             */
+            delivery_service_type?: components["schemas"]["DeliveryServiceType"];
+            /**
+             * @deprecated
+             * @description Устарело, используйте `delivery_service_type`.
+             *
+             *     Возвращает то же значение, что и `delivery_service_type`, если поле заполнено.
+             */
             courier_delivery_service_type?: components["schemas"]["DeliveryServiceType"];
+            /**
+             * @deprecated
+             * @description Устарело, используйте `delivery_service_type`.
+             *
+             *     Возвращает то же значение, что и `delivery_service_type`, если поле заполнено.
+             */
             pickup_point_delivery_service_type?: components["schemas"]["DeliveryServiceType"];
             warehouse_id?: components["schemas"]["WarehouseID"];
         };
@@ -4567,20 +4761,56 @@ export interface components {
              */
             gift_card_discount: string;
         };
+        /**
+         * @description Адрес доставки заказа.
+         *
+         *     Поля `courier_*`, `pickup_point_*` и `self_pick_up_*` относятся каждое к своему способу доставки
+         *     и заполнены только для соответствующего `method`. Заполненная группа, не совпадающая с `method`, —
+         *     это более ранний выбор покупателя в оформлении: она не очищается при смене способа доставки
+         *     и содержит неактуальные данные. Читайте `locality` и `address`.
+         */
         OrderAddressInfo: {
+            /**
+             * @description Населенный пункт доставки, соответствующий `method`.
+             *
+             *     Если для выбранного способа доставки населенный пункт не задан, отдается тот,
+             *     который покупатель указал в оформлении.
+             * @example Санкт-Петербург
+             */
+            locality?: string;
+            /**
+             * @description Адрес доставки, соответствующий `method`.
+             * @example проспект Пархоменко, 12
+             */
+            address?: string;
+            /** @description Идентификатор пункта выдачи. Актуален только при `method` = `PICKUP_POINT`. */
             pickup_point_id?: string;
+            /** @description Населенный пункт курьерской доставки. Актуален только при `method` = `COURIER`. */
             courier_locality?: string;
+            /** @description Адрес курьерской доставки. Актуален только при `method` = `COURIER`. */
             courier_address?: string;
+            /** @description Населенный пункт пункта выдачи. Актуален только при `method` = `PICKUP_POINT`. */
             pickup_point_locality?: string;
+            /** @description Адрес пункта выдачи. Актуален только при `method` = `PICKUP_POINT`. */
             pickup_point_address?: string;
+            /** @description Склад самовывоза. Актуален только при `method` = `SELF_PICK_UP`. */
             self_pick_up_warehouse_id?: components["schemas"]["WarehouseID"];
+            /** @description Населенный пункт склада самовывоза. Актуален только при `method` = `SELF_PICK_UP`. */
             self_pick_up_locality?: string;
+            /** @description Адрес склада самовывоза. Актуален только при `method` = `SELF_PICK_UP`. */
             self_pick_up_address?: string;
+            /** @description Этаж. Заполняется только для курьерской доставки. */
             floor?: string;
+            /** @description Квартира или офис. Заполняется только для курьерской доставки. */
             apartment?: string;
-            /** @deprecated */
+            /**
+             * @deprecated
+             * @description Устарело, используйте `apartment`.
+             */
             appartment?: string;
+            /** @description Подъезд. Заполняется только для курьерской доставки. */
             entrance?: string;
+            /** @description Домофон. Заполняется только для курьерской доставки. */
             intercom?: string;
         };
         TimeInterval: {
@@ -10813,6 +11043,74 @@ export interface operations {
             };
         };
     };
+    GetOrderDeliveryLabels: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Размер ярлыка задают в миллиметрах. Если размер не передан, служба доставки использует свой формат по умолчанию.
+                 *
+                 *     Размеры зависят от службы доставки. Список размеров получают запросом `GET /v1/delivery/label-formats`. Если служба работает в режиме mode: `EXPLICIT_FORMATS` и запрошенного размера нет в списке, часть заказа попадает в `skipped` с причиной `FORMAT_NOT_SUPPORTED`.
+                 *
+                 *     Службы в режиме `mode: PROVIDER_DEFAULT` не учитывают размер. Они печатают ярлык в своем стандартном размере.
+                 *     Для таких частей в ответе поле `label_format` будет пустым.
+                 */
+                label_format?: components["schemas"]["DeliveryLabelFormatType"];
+            };
+            header?: never;
+            path: {
+                id: components["schemas"]["OrderID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ярлыки доставки заказа. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDeliveryLabelCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     SetOrderMarkingCodes: {
         parameters: {
             query?: never;
@@ -15800,6 +16098,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RegionCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetDeliveryLabelFormats: {
+        parameters: {
+            query: {
+                /** @description Службы доставки, для которых нужны размеры ярлыков. */
+                delivery_service: components["schemas"]["DeliveryServiceType"][];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Поддерживаемые размеры ярлыков доставки. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryLabelFormatCollection"];
                 };
             };
             /** @description Некорректный запрос. */

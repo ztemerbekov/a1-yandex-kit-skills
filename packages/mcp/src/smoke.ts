@@ -14,7 +14,11 @@ interface ProductCollection {
 }
 
 interface VariantCollection {
-  variants?: Array<{ status?: string }>;
+  variants?: Array<{ status?: string; relative_link_url?: unknown }>;
+}
+
+interface LabelFormatCollection {
+  services?: Array<{ delivery_service?: string; mode?: string; formats?: unknown[] }>;
 }
 
 interface AlertCollection {
@@ -102,6 +106,32 @@ async function main(): Promise<void> {
     query: { page: 1, per_page: 1 },
   });
   console.log(`characteristic colors: fetched=${colors?.colors?.length ?? 0} (page=1 per_page=1)`);
+
+  // Endpoints and fields added in the 2026-09-17 KIT release. GetOrderDeliveryLabels
+  // is deliberately left out: its first call per chunk asks the delivery service for a
+  // real label, which is not a read-only act against a live store.
+  const formats = await client.call<LabelFormatCollection>("GetDeliveryLabelFormats", {
+    query: { delivery_service: ["YANDEX_DELIVERY"] },
+  });
+  const yandexDelivery = (formats?.services ?? []).find(
+    (service) => service.delivery_service === "YANDEX_DELIVERY",
+  );
+  console.log(
+    `delivery label formats: mode=${yandexDelivery?.mode ?? "?"} ` +
+      `sizes=${yandexDelivery?.formats?.length ?? 0} (YANDEX_DELIVERY)`,
+  );
+
+  const linkProbe = await client.call<VariantCollection>("GetVariants", {
+    query: { page: 1, per_page: 1 },
+  });
+  const probed = linkProbe?.variants?.[0];
+  console.log(
+    probed === undefined
+      ? "variant storefront link: indeterminate — the store has no variants to probe with"
+      : `variant storefront link: relative_link_url=${
+          typeof probed.relative_link_url === "string" ? "present" : "MISSING"
+        }`,
+  );
 
   console.log("smoke OK");
 }

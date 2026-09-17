@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.6.2"
+  version: "1.7.0"
 ---
 
 # A1 Yandex KIT Skills
@@ -38,7 +38,7 @@ Apply this boundary in reasoning; client-side text filtering is not the control.
 Yandex KIT (kit.yandex.ru, beta) is Yandex's e-commerce store builder — effectively a
 Russian Shopify. Its REST API is a server-to-server layer for syncing catalog, stocks and
 prices and for managing orders between a merchant's backend and the platform. The official
-docs are in Russian; the full OpenAPI spec (166 operations) is bundled with this skill in
+docs are in Russian; the full OpenAPI spec (168 operations) is bundled with this skill in
 `data/kit_v1.json.gz` and searchable offline with the scripts below.
 
 ## API essentials
@@ -153,10 +153,10 @@ finish the task, not to learn about API internals.
 
 ## Related MCP tools
 
-The bundled `mcp-yandex-kit` MCP server exposes **88 tools**. Curated tools
+The bundled `mcp-yandex-kit` MCP server exposes **91 tools**. Curated tools
 cover the everyday catalog/orders/promotions/store/webhooks workflows (they are listed
-in the domain skills); the meta trio below reaches **all 166 operations**:
+in the domain skills); the meta trio below reaches **all 168 operations**:
 
-- `search_operations` — Search the full catalog of all 166 Yandex KIT API operations by keyword.
+- `search_operations` — Search the full catalog of all 168 Yandex KIT API operations by keyword.
 - `get_operation_schema` — Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response.
-- `kit_request` — Escape hatch that executes ANY of the 166 Yandex KIT API operations by operationId, including operations without a dedicated tool.
+- `kit_request` — Escape hatch that executes ANY of the 168 Yandex KIT API operations by operationId, including operations without a dedicated tool.

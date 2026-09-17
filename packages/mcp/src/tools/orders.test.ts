@@ -34,7 +34,7 @@ async function setup(payload: unknown = { ok: true }) {
   return { calls, mcp };
 }
 
-test("registers exactly the nine order tools with correct annotations", async () => {
+test("registers exactly the eleven order tools with correct annotations", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   const names = tools.map((t) => t.name).sort();
@@ -43,13 +43,22 @@ test("registers exactly the nine order tools with correct annotations", async ()
     "complete_order_delivery",
     "confirm_order",
     "generate_order_waybills",
+    "get_delivery_label_formats",
     "get_order",
     "get_order_addons",
+    "get_order_delivery_labels",
     "get_order_payment_link",
     "list_orders",
     "set_order_marking_codes",
   ]);
-  const readOnly = new Set(["list_orders", "get_order", "get_order_addons", "get_order_payment_link"]);
+  const readOnly = new Set([
+    "list_orders",
+    "get_order",
+    "get_order_addons",
+    "get_order_payment_link",
+    "get_order_delivery_labels",
+    "get_delivery_label_formats",
+  ]);
   for (const tool of tools) {
     assert.equal(
       tool.annotations?.readOnlyHint,
@@ -241,7 +250,10 @@ const PII_ORDER = {
       delivery_info: {
         raw_status: "IN_TRANSIT",
         delivery_notes: "код домофона 42",
+        delivery_service_type: "CDEK",
         address: {
+          locality: "Москва",
+          address: "ул. Ленина, 1",
           courier_locality: "Москва",
           courier_address: "ул. Ленина, 1",
           appartment: "5",
@@ -271,7 +283,10 @@ test("get_order redact:true masks nested personal fields but not ids/amounts/sta
   });
   const info = data.delivery_chunks[0].delivery_info;
   assert.equal(info.delivery_notes, "[redacted]");
+  // The nested address object is walked, not stamped over as a whole.
   assert.deepEqual(info.address, {
+    locality: "[redacted]",
+    address: "[redacted]",
     courier_locality: "[redacted]",
     courier_address: "[redacted]",
     appartment: "[redacted]",
@@ -279,6 +294,7 @@ test("get_order redact:true masks nested personal fields but not ids/amounts/sta
     intercom: "[redacted]",
     pickup_point_id: "pp-1", // identifier, not PII
   });
+  assert.equal(info.delivery_service_type, "CDEK"); // logistics, not PII
   // ids, amounts, statuses and dates survive untouched
   assert.equal(data.id, "o1");
   assert.equal(data.order_number, 1234567);
@@ -473,5 +489,83 @@ test("generate_order_waybills rejects a repeated order+chunk pair before any net
   })) as { isError?: boolean; content: { text: string }[] };
   assert.ok(res.isError);
   assert.match(res.content[0]!.text, /only once per request/);
+  assert.equal(calls.length, 0);
+});
+
+test("get_order_delivery_labels hits the path and passes the requested size", async () => {
+  const payload = {
+    delivery_labels: [
+      {
+        delivery_chunk_id: 1,
+        delivery_service: "CDEK",
+        url: "https://example.com/l.pdf?X-Amz-Signature=s",
+        expires_at: "2026-09-18T12:00:00Z",
+        label_format: "100x150",
+      },
+    ],
+    skipped: [{ delivery_chunk_id: 2, reason: "SELF_PICKUP" }],
+  };
+  const { calls, mcp } = await setup(payload);
+  const res = (await mcp.callTool({
+    name: "get_order_delivery_labels",
+    arguments: { id: "o1", label_format: "100x150" },
+  })) as { isError?: boolean; content: { text: string }[] };
+  assert.ok(!res.isError);
+  assert.deepEqual(JSON.parse(res.content[0]!.text), payload);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/orders/o1/delivery-labels");
+  assert.equal(calls[0]!.init?.method, "GET");
+  assert.equal(url.searchParams.get("label_format"), "100x150");
+});
+
+test("get_order_delivery_labels omits label_format when no size is requested", async () => {
+  const { calls, mcp } = await setup({ delivery_labels: [], skipped: [] });
+  await mcp.callTool({ name: "get_order_delivery_labels", arguments: { id: "o1" } });
+  assert.equal(new URL(calls[0]!.url).searchParams.has("label_format"), false);
+});
+
+test("get_order_delivery_labels rejects a size outside the enum before the network call", async () => {
+  const { calls, mcp } = await setup({});
+  let errored = false;
+  try {
+    const res = await mcp.callTool({
+      name: "get_order_delivery_labels",
+      arguments: { id: "o1", label_format: "A4" },
+    });
+    errored = (res as { isError?: boolean }).isError === true;
+  } catch {
+    errored = true; // zod input validation surfaces as a protocol error
+  }
+  assert.equal(errored, true);
+  assert.equal(calls.length, 0);
+});
+
+test("get_delivery_label_formats repeats delivery_service per value", async () => {
+  const payload = { services: [{ delivery_service: "CDEK", mode: "PROVIDER_DEFAULT", formats: [] }] };
+  const { calls, mcp } = await setup(payload);
+  const res = (await mcp.callTool({
+    name: "get_delivery_label_formats",
+    arguments: { delivery_service: ["CDEK", "YANDEX_DELIVERY"] },
+  })) as { isError?: boolean; content: { text: string }[] };
+  assert.ok(!res.isError);
+  assert.deepEqual(JSON.parse(res.content[0]!.text), payload);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/delivery/label-formats");
+  assert.deepEqual(url.searchParams.getAll("delivery_service"), ["CDEK", "YANDEX_DELIVERY"]);
+});
+
+test("get_delivery_label_formats rejects an empty service list before the network call", async () => {
+  const { calls, mcp } = await setup({});
+  let errored = false;
+  try {
+    const res = await mcp.callTool({
+      name: "get_delivery_label_formats",
+      arguments: { delivery_service: [] },
+    });
+    errored = (res as { isError?: boolean }).isError === true;
+  } catch {
+    errored = true; // .min(1) rejects at the protocol layer
+  }
+  assert.equal(errored, true);
   assert.equal(calls.length, 0);
 });

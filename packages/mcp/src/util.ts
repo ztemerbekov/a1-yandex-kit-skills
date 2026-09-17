@@ -140,7 +140,9 @@ export const REDACTED = "[redacted]";
  * - `OrderClientInfo`: first_name, last_name, patronymic, phone, email
  * - `Customer`: first_name, last_name, phone, email, note (customer note)
  * - `OrderDeliveryInfo`: delivery_notes (delivery comment)
- * - `OrderAddressInfo` (delivery address parts): courier_locality,
+ * - `OrderAddressInfo` (delivery address parts): locality, address (the
+ *   method-agnostic pair added by the 2026-09-17 spec update — the one the API
+ *   now tells integrations to read), courier_locality,
  *   courier_address, pickup_point_locality, pickup_point_address,
  *   self_pick_up_locality, self_pick_up_address, floor, appartment
  *   (the spec's original spelling; the 2026-09 spec update added the
@@ -161,6 +163,8 @@ export const PII_FIELDS: ReadonlySet<string> = new Set([
   "note",
   "delivery_notes",
   // delivery address and its parts
+  "locality",
+  "address",
   "courier_locality",
   "courier_address",
   "pickup_point_locality",
@@ -186,13 +190,19 @@ export const PII_FIELDS: ReadonlySet<string> = new Set([
  * request bodies must never pass through here, a redacted write would be a
  * silent corruption. `null`/absent PII values stay as they are — there is
  * nothing to hide and a placeholder would fake data that never existed.
+ *
+ * Only scalar values are masked; an object or array under a PII name is walked
+ * instead. The same name can carry both shapes: `address` is a string in
+ * `OrderAddressInfo` but the whole `OrderAddressInfo` object in
+ * `OrderDeliveryInfo`, and stamping `"[redacted]"` over the object would also
+ * swallow its non-personal parts (pickup_point_id, self_pick_up_warehouse_id).
  */
 export function redactPii<T>(value: T): T {
   if (Array.isArray(value)) return value.map((item) => redactPii(item)) as unknown as T;
   if (value === null || typeof value !== "object") return value;
   const out: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (PII_FIELDS.has(key) && entry !== null && entry !== undefined) {
+    if (PII_FIELDS.has(key) && entry !== null && entry !== undefined && typeof entry !== "object") {
       out[key] = REDACTED;
     } else {
       out[key] = redactPii(entry);
