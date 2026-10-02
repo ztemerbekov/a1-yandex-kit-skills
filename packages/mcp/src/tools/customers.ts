@@ -64,7 +64,11 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     "get_customer",
     {
       title: "Get customer",
-      description: "Get a single customer by their ID.",
+      description:
+        "Get a single customer by their ID. `birth_date` (date only, no year-of-birth " +
+        "guarantee beyond what the buyer entered) is present only when the customer " +
+        "supplied it, and is read-only: UpdateCustomer has no such field. It is personal " +
+        "data — redact:true masks it along with name, phone, email and note.",
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Customer ID (UUID)."),
@@ -87,6 +91,8 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
       title: "Update customer",
       description:
         "Update a customer (plain JSON PATCH). Updatable fields: note, first_name, last_name, email. " +
+        "phone and birth_date are read-only — the API returns them but has no field to write " +
+        "them, so do not try. " +
         'Call get_operation_schema("UpdateCustomer") for the exact request shape.',
       inputSchema: {
         id: z.string().describe("Customer ID (UUID)."),
@@ -108,6 +114,38 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
         return ok(
           await client.call("UpdateCustomer", { pathParams: { customer_id: id }, body: customer }),
         );
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_customer_cart",
+    {
+      title: "Get customer cart",
+      description:
+        "Get the current cart of a customer — the source for abandoned-cart work: `items` " +
+        "with quantity and per-unit/line prices, plus `total_price` (before discounts) and " +
+        "`total_final_price` (after item and bundle discounts). An empty cart, and a " +
+        "customer who never had one, both return `items: []` with zero totals; `updated_at` " +
+        "is absent in the never-had-one case and is the only way to tell the two apart — " +
+        "there is no abandoned-cart flag, so decide staleness from `updated_at` yourself. " +
+        "`product_variant_id` is NOT a unique key for a line: the same variant appears in " +
+        "several items when it is part of a bundle, was added with different addons, or was " +
+        "picked as a gift. `quantity` is what the buyer put in and may exceed stock — the " +
+        "API clamps it only when they reopen the cart or check out. Items whose variant was " +
+        "unpublished are dropped from the response. A cart promocode is NOT reflected in " +
+        "`total_final_price` (unlike `Order.total_final_price`), so cart totals are not a " +
+        "forecast of the order total.",
+      annotations: READ_ONLY,
+      inputSchema: {
+        id: z.string().describe("Customer ID (UUID)."),
+      },
+    },
+    async ({ id }) => {
+      try {
+        return ok(await client.call("GetCustomerCart", { pathParams: { customer_id: id } }));
       } catch (e) {
         return fail(e);
       }

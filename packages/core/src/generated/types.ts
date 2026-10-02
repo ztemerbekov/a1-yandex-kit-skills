@@ -1083,6 +1083,31 @@ export interface paths {
         patch: operations["UpdateCustomer"];
         trace?: never;
     };
+    "/v1/customers/{customer_id}/cart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: components["schemas"]["CustomerID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение корзины клиента
+         * @description Возвращает текущий состав корзины клиента. Товары из наборов и выбранные подарки
+         *     попадают в `items` отдельными позициями наравне с обычными товарами. Позиции с товарами,
+         *     снятыми с публикации, в выдачу не попадают. Если корзина пуста или ее у клиента еще
+         *     не было, свойство `items` пусто, а суммы равны `0`.
+         */
+        get: operations["GetCustomerCart"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/customers/{customer_id}/orders": {
         parameters: {
             query?: {
@@ -1346,9 +1371,9 @@ export interface paths {
          *
          *     - Код передается целиком, вместе с криптохвостом.
          *
-         *     - Для снятия ранее записанного кода передайте `"marking_code": null`.
+         *     - Чтобы снять код, который вы записали ранее, передайте `"marking_code": null`.
          *
-         *     - Метод идемпотентен: если любой код не проходит проверку, запрос отклоняется, при этом коды не записываются.
+         *     - Метод идемпотентен. Если любой код не проходит проверку, система отклоняет запрос и не записывает коды.
          */
         post: operations["SetOrderMarkingCodes"];
         delete?: never;
@@ -2894,9 +2919,9 @@ export interface paths {
         put?: never;
         /**
          * Закрытие алерта
-         * @description Помечает алерт решенным. Повторный вызов для уже закрытого алерта также вернет ошибку `204`.
+         * @description Помечает алерт решенным. Если вы повторно вызовите закрытый алерт, то также вернется ошибка `204`.
          *
-         *     Активные алерты с важностью `CRITICAL` закрыть вручную нельзя — метод вернет ошибку `400`.
+         *     Вы не сможете вручную закрыть активные алерты с важностью `CRITICAL` — метод вернет ошибку `400`.
          */
         post: operations["ResolveAlert"];
         delete?: never;
@@ -3546,7 +3571,7 @@ export interface components {
             videos: components["schemas"]["Video"][];
             /**
              * Format: uint64
-             * @description Общее количество видео, подходящих под фильтр.
+             * @description Общее количество видео, которые подходят под фильтр.
              * @example 100
              */
             total_count: number;
@@ -4935,11 +4960,92 @@ export interface components {
              * @example 2024-05-20T12:30:00Z
              */
             agreement_at?: string;
+            /**
+             * Format: date
+             * @description Дата рождения клиента.
+             * @example 2003-02-04
+             */
+            birth_date?: string;
         };
         CustomerCollection: {
             customers: components["schemas"]["Customer"][];
             /** @description Общее количество клиентов. */
             total_count: number;
+        };
+        /** @description Корзина клиента. */
+        Cart: {
+            /** @description Позиции корзины. */
+            items: components["schemas"]["CartItem"][];
+            /**
+             * Format: decimal
+             * @description Общая стоимость корзины до скидок.
+             * @example 2400.00
+             */
+            total_price: string;
+            /**
+             * Format: decimal
+             * @description Итоговая стоимость корзины после скидок на товары и наборы. Скидка по промокоду
+             *     корзины в нее не входит — в отличие от `Order.total_final_price`.
+             * @example 2200.00
+             */
+            total_final_price: string;
+            /**
+             * Format: date-time
+             * @description Дата и время последнего изменения корзины. Отсутствует, если корзины у клиента еще не было.
+             * @example 2024-05-20T12:30:00Z
+             */
+            updated_at?: string;
+        };
+        /** @description Позиция в корзине клиента. */
+        CartItem: {
+            /**
+             * Format: uuid
+             * @description Идентификатор товара. Не является уникальным ключом позиции. Один товар попадает
+             *     в несколько позиций, если он:
+             *     - является частью набора;
+             *     - добавлен с разными дополнительными услугами;
+             *     - выбран подарком.
+             *     Количества по таким позициям нужно суммировать.
+             * @example 00000000-0000-0000-0000-000000000001
+             */
+            product_variant_id: string;
+            /**
+             * @description Название товара.
+             * @example Футболка, размер M
+             */
+            name: string;
+            /**
+             * Format: int32
+             * @description Количество товара, которое клиент положил в корзину. Может превышать остаток на складе.
+             *     Приводится к доступному значению, когда клиент открывает корзину или оформляет заказ.
+             * @example 2
+             */
+            quantity: number;
+            /**
+             * Format: decimal
+             * @description Цена товара за единицу до скидок.
+             * @example 1200.00
+             */
+            price: string;
+            /**
+             * Format: decimal
+             * @description Цена товара за единицу после скидок на товар и наборы. Скидка по промокоду корзины
+             *     в нее не входит — в отличие от `OrderItem.final_price`.
+             * @example 1100.00
+             */
+            final_price: string;
+            /**
+             * Format: decimal
+             * @description Стоимость позиции до скидок — `price`, умноженная на `quantity`.
+             * @example 2400.00
+             */
+            total_price: string;
+            /**
+             * Format: decimal
+             * @description Итоговая стоимость позиции — `final_price`, умноженная на `quantity`.
+             * @example 2200.00
+             */
+            total_final_price: string;
         };
         UpdateCustomerRequest: {
             /**
@@ -5410,7 +5516,7 @@ export interface components {
             purchased_date?: string;
             /**
              * @description Сообщение получателю.
-             * @example С днём рождения!
+             * @example С днем рождения!
              */
             message?: string;
         };
@@ -5770,9 +5876,13 @@ export interface components {
              *
              *     Поля `value` и `values` взаимоисключающие: для числовой характеристики заполняется `value`,
              *     для строковой — `values`.
+             *
+             *     Идентификаторы полей основного фильтра (`price`, `weight`, `brand` и другие поля из `main_filter`)
+             *     в `characteristic_filters` не принимаются — такие условия передавайте в `main_filter`.
+             *
              *     ### Пример (строковая характеристика):
              *     - field: "tsvet"
-             *       operator: "EQ"
+             *       operator: "IN"
              *       values: ["red", "blue"]
              *     ### Пример (числовая характеристика):
              *     - field: "ves-kg"
@@ -6495,9 +6605,10 @@ export interface components {
          *     - `ORDER_STATUS_CHANGED` — изменился статус заказа.
          *     - `ORDER_PAYMENT_STATUS_CHANGED` — изменился статус оплаты заказа.
          *     - `ORDER_DELIVERY_STATUS_CHANGED` — изменился статус доставки заказа.
+         *     - `CUSTOMER_CHANGED` — изменились данные клиента.
          * @enum {string}
          */
-        WebhookEventTypes: "ORDER_STATUS_CHANGED" | "ORDER_PAYMENT_STATUS_CHANGED" | "ORDER_DELIVERY_STATUS_CHANGED";
+        WebhookEventTypes: "ORDER_STATUS_CHANGED" | "ORDER_PAYMENT_STATUS_CHANGED" | "ORDER_DELIVERY_STATUS_CHANGED" | "CUSTOMER_CHANGED";
         CreateWebhookRequest: {
             /**
              * @description URL вебхука. Поддерживается только HTTPS протокол.
@@ -10584,6 +10695,64 @@ export interface operations {
             };
         };
     };
+    GetCustomerCart: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: components["schemas"]["CustomerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Корзина клиента. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cart"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     GetOrdersByCustomerId: {
         parameters: {
             query?: {
@@ -10654,6 +10823,16 @@ export interface operations {
                 page?: number;
                 /** @description Количество элементов на странице. */
                 per_page?: number;
+                /**
+                 * @description Самая ранняя дата и время обновления заказа включительно.
+                 * @example 2021-01-01T00:00:00Z
+                 */
+                updated_from?: string;
+                /**
+                 * @description Самая поздняя дата и время обновления заказа включительно.
+                 * @example 2021-01-01T00:00:00Z
+                 */
+                updated_to?: string;
             };
             header?: never;
             path?: never;

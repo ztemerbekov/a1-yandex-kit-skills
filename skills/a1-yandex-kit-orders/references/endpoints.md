@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT — Orders — endpoints
 
-## Endpoints (27 operations)
+## Endpoints (28 operations)
 
 ### Заказы
 
@@ -27,6 +27,7 @@
 | GET | `/v1/customers` | `GetCustomers` | Получение списка клиентов |
 | GET | `/v1/customers/{customer_id}` | `GetCustomerById` | Получение клиента по ID |
 | PATCH | `/v1/customers/{customer_id}` | `UpdateCustomer` | Обновление клиента |
+| GET | `/v1/customers/{customer_id}/cart` | `GetCustomerCart` | Получение корзины клиента |
 
 ### Подарочные карты
 

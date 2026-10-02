@@ -22,7 +22,13 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     "list_orders",
     {
       title: "List orders",
-      description: "List orders of the store (paginated), newest first. " + COVERAGE_DESCRIPTION,
+      description:
+        "List orders of the store (paginated), newest first. updated_from/updated_to filter " +
+        "by last-change time, which is what an incremental sync should poll on: an order " +
+        "that only changed status still falls inside the window, while a created-at filter " +
+        "would miss it. The filter is inclusive on both ends, so an overlapping window " +
+        "re-delivers boundary orders — deduplicate by order ID. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -35,18 +41,34 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        updated_from: z
+          .string()
+          .optional()
+          .describe(
+            "Earliest order update time, inclusive. RFC 3339 date-time, e.g. " +
+              '"2026-10-01T00:00:00Z".',
+          ),
+        updated_to: z
+          .string()
+          .optional()
+          .describe(
+            'Latest order update time, inclusive. RFC 3339 date-time, e.g. "2026-10-02T00:00:00Z".',
+          ),
         redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
         fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, redact, format, fields }) => {
+    async ({ page, per_page, all, updated_from, updated_to, redact, format, fields }) => {
       try {
         const perPage = clampPerPage(per_page);
+        const filters = { updated_from, updated_to };
         const data = all
-          ? withCoverage({ all: await client.listAll("GetOrders") })
+          ? withCoverage({ all: await client.listAll("GetOrders", { query: filters }) })
           : withCoverage({
-              page: await client.call("GetOrders", { query: { page, per_page: perPage } }),
+              page: await client.call("GetOrders", {
+                query: { page, per_page: perPage, ...filters },
+              }),
               operationId: "GetOrders",
               perPage,
               pageNumber: page ?? 1,

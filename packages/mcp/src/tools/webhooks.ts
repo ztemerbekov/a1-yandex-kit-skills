@@ -49,7 +49,11 @@ export function registerWebhookTools(server: McpServer, client: KitClient): void
       title: "Create webhook",
       description:
         "Create a new webhook. The url must use HTTPS (HTTP is rejected). Allowed events: " +
-        "ORDER_STATUS_CHANGED, ORDER_PAYMENT_STATUS_CHANGED, ORDER_DELIVERY_STATUS_CHANGED. " +
+        "ORDER_STATUS_CHANGED, ORDER_PAYMENT_STATUS_CHANGED, ORDER_DELIVERY_STATUS_CHANGED, " +
+        "CUSTOMER_CHANGED. " +
+        "CUSTOMER_CHANGED fires when a customer appears or their name/phone/email changes; " +
+        "its data carries only {customer_id}, so a CRM sync must follow up with get_customer " +
+        "to read the new values (no before/after diff is delivered). " +
         "NOTE: ORDER_STATUS_CHANGED will stop firing for the receipt-technical statuses " +
         "CREATING_INITIAL_RECEIPT and CREATING_FINAL_RECEIPTS — key new integrations on " +
         "ORDER_PLACED and COMPLETED instead (the statuses themselves stay readable via get_order). " +
@@ -81,7 +85,9 @@ export function registerWebhookTools(server: McpServer, client: KitClient): void
       title: "Update webhook",
       description:
         "Update an existing webhook: change url (HTTPS only), the subscribed events, or set " +
-        "deactivate=true to switch the webhook to INACTIVE. " +
+        "deactivate=true to switch the webhook to INACTIVE. `events` is the full subscription " +
+        "list, not a delta — to add CUSTOMER_CHANGED to an existing webhook, read it with " +
+        "get_webhook first and send its current events plus the new one. " +
         'Call get_operation_schema("UpdateWebhook") for the exact request shape.',
       inputSchema: {
         id: z.string().describe("Webhook ID (UUID)."),

@@ -9,7 +9,18 @@ delivery automation is off), write «Честный знак» marking codes ont
 (`POST /v1/orders/{id}/marking-codes` — one code per item, null removes a code), and read
 the attached additional services (addons), customer records and gift cards. A customer record also carries the marketing-consent pair
 `agreement_for_promo` + `agreement_at` — read it before adding anyone to a mailing list
-and mirror it into your CRM. Waybills (акты приёма-передачи) for delivery chunks come
+and mirror it into your CRM — and, since the 2026-10-02 release, `birth_date`: read-only
+(`UpdateCustomer` has no such field), present only when the buyer entered it, and personal
+data like the name and phone next to it. The buyer's live cart comes from
+`GET /v1/customers/{customer_id}/cart` — the abandoned-cart source: line items plus
+`total_price`/`total_final_price`. There is no abandoned flag: an empty cart and a
+never-created one both return `items: []`, and only a missing `updated_at` separates them,
+so staleness is your own cutoff. A cart promocode is not reflected in the cart totals (it
+is in `Order.total_final_price`), `product_variant_id` repeats across lines (bundles,
+addons, gifts), and `quantity` may exceed stock until the buyer reopens the cart.
+For incremental sync, filter `GET /v1/orders` by `updated_from`/`updated_to` — an order
+whose status changed stays inside the window, which a created-at filter would miss; both
+bounds are inclusive, so deduplicate by order ID across overlapping polls. Waybills (акты приёма-передачи) for delivery chunks come
 from `GenerateOrderWaybills` — one signed, expiring PDF per warehouse + delivery
 service group, regenerated on every call, with unprintable chunks listed in
 `skipped` with a reason. Per-parcel delivery labels (ярлыки — address, tracking

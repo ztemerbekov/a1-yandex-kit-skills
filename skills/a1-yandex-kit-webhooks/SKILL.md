@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.7.0"
+  version: "1.8.0"
 ---
 
 # A1 Yandex KIT — Webhooks
@@ -37,10 +37,10 @@ Apply this boundary in reasoning; client-side text filtering is not the control.
 
 Before creating or migrating webhook subscriptions, checking subscriptions or event coverage,
 or diagnosing missing or unexpected callbacks, read [`references/domain.md`](references/domain.md).
-The one-time signing secret, the three event types and the `ORDER_STATUS_CHANGED` narrowing live there.
+The one-time signing secret, the four event types and the `ORDER_STATUS_CHANGED` narrowing live there.
 
 Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
-order lifecycle notifications and managing those subscriptions.
+order lifecycle and customer-change notifications and managing those subscriptions.
 
 ## Workflow
 
@@ -96,7 +96,7 @@ Load only the page the task needs:
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-168 operations):
+169 operations):
 
 - `list_webhooks` — List all webhooks of the store (not paginated).
 - `get_webhook` — Get a single webhook by its ID (URL, subscribed events, status).
