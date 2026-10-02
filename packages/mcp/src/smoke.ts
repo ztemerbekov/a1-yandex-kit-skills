@@ -33,6 +33,22 @@ interface ColorCollection {
   colors?: unknown[];
 }
 
+interface CustomerCollection {
+  customers?: Array<{ customer_id?: string; birth_date?: unknown }>;
+}
+
+interface Cart {
+  items?: unknown[];
+  total_final_price?: string;
+  updated_at?: string;
+}
+
+interface OrderCollection {
+  total_count?: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 async function main(): Promise<void> {
   let config: Config;
   try {
@@ -131,6 +147,46 @@ async function main(): Promise<void> {
       : `variant storefront link: relative_link_url=${
           typeof probed.relative_link_url === "string" ? "present" : "MISSING"
         }`,
+  );
+
+  // Endpoints and fields added in the 2026-10-02 KIT release. Nothing personal is
+  // printed: only presence flags and counts, because smoke output ends up in logs.
+  const customerProbe = await client.call<CustomerCollection>("GetCustomers", {
+    query: { page: 1, per_page: 1 },
+  });
+  const customer = customerProbe?.customers?.[0];
+  if (customer?.customer_id === undefined) {
+    console.log("customer cart: indeterminate — the store has no customers to probe with");
+  } else {
+    console.log(
+      `customer birth_date: ${typeof customer.birth_date === "string" ? "present" : "absent"}`,
+    );
+    const cart = await client.call<Cart>("GetCustomerCart", {
+      pathParams: { customer_id: customer.customer_id },
+    });
+    console.log(
+      `customer cart: items=${cart?.items?.length ?? 0} total_final_price=` +
+        `${cart?.total_final_price ?? "?"} updated_at=${cart?.updated_at ?? "never"}`,
+    );
+  }
+
+  const allOrders = await client.call<OrderCollection>("GetOrders", {
+    query: { page: 1, per_page: 1 },
+  });
+  const recentOrders = await client.call<OrderCollection>("GetOrders", {
+    query: { page: 1, per_page: 1, updated_from: new Date(Date.now() - DAY_MS).toISOString() },
+  });
+  const allTotal = allOrders?.total_count;
+  const recentTotal = recentOrders?.total_count;
+  console.log(
+    allTotal === undefined || recentTotal === undefined
+      ? "orders updated_from: indeterminate — the listing carries no total_count"
+      : allTotal === 0
+        ? "orders updated_from: indeterminate — the store has no orders to probe with"
+        : recentTotal < allTotal
+          ? `orders updated_from: honored — ${recentTotal} of ${allTotal} orders changed in the last 24h`
+          : `orders updated_from: unproven — ${recentTotal} of ${allTotal}; either every order ` +
+            "changed within the window or the filter is ignored",
   );
 
   console.log("smoke OK");

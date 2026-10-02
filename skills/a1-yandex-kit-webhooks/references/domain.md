@@ -5,8 +5,14 @@
 Key facts:
 
 - Callback URLs must be **HTTPS** — plain `http://` URLs are rejected.
-- Exactly **three event types** exist: `ORDER_STATUS_CHANGED`,
-  `ORDER_PAYMENT_STATUS_CHANGED` and `ORDER_DELIVERY_STATUS_CHANGED`.
+- Exactly **four event types** exist: `ORDER_STATUS_CHANGED`,
+  `ORDER_PAYMENT_STATUS_CHANGED`, `ORDER_DELIVERY_STATUS_CHANGED` and
+  `CUSTOMER_CHANGED` (added by the 2026-10-02 release).
+- **`CUSTOMER_CHANGED`** fires when a customer appears or their name, phone or email
+  changes. Its `data` carries only `{customer_id}` — no before/after diff and no field
+  list — so a CRM sync must read `GET /v1/customers/{customer_id}` to learn the new
+  values. It is the only non-order event: a receiver that assumed `data.order_id` is
+  always present breaks on it, so branch on `event` before touching `data`.
 - **`ORDER_STATUS_CHANGED` is being narrowed** (Yandex announced it; no cutoff date given):
   it will stop firing for the two receipt-technical statuses `CREATING_INITIAL_RECEIPT`
   and `CREATING_FINAL_RECEIPTS`. An integration triggered by those two events must move to

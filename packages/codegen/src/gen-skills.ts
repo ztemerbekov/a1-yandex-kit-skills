@@ -33,7 +33,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
 const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
-const SKILL_VERSION = "1.7.0";
+const SKILL_VERSION = "1.8.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 91) {
-  throw new Error(`Expected 91 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 92) {
+  throw new Error(`Expected 92 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -225,16 +225,22 @@ finish the task, not to learn about API internals.`;
 
 const WEBHOOKS_OVERVIEW = `Before creating or migrating webhook subscriptions, checking subscriptions or event coverage,
 or diagnosing missing or unexpected callbacks, read [\`references/domain.md\`](references/domain.md).
-The one-time signing secret, the three event types and the \`ORDER_STATUS_CHANGED\` narrowing live there.
+The one-time signing secret, the four event types and the \`ORDER_STATUS_CHANGED\` narrowing live there.
 
 Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
-order lifecycle notifications and managing those subscriptions.`;
+order lifecycle and customer-change notifications and managing those subscriptions.`;
 
 const WEBHOOKS_DETAILS = `Key facts:
 
 - Callback URLs must be **HTTPS** — plain \`http://\` URLs are rejected.
-- Exactly **three event types** exist: \`ORDER_STATUS_CHANGED\`,
-  \`ORDER_PAYMENT_STATUS_CHANGED\` and \`ORDER_DELIVERY_STATUS_CHANGED\`.
+- Exactly **four event types** exist: \`ORDER_STATUS_CHANGED\`,
+  \`ORDER_PAYMENT_STATUS_CHANGED\`, \`ORDER_DELIVERY_STATUS_CHANGED\` and
+  \`CUSTOMER_CHANGED\` (added by the 2026-10-02 release).
+- **\`CUSTOMER_CHANGED\`** fires when a customer appears or their name, phone or email
+  changes. Its \`data\` carries only \`{customer_id}\` — no before/after diff and no field
+  list — so a CRM sync must read \`GET /v1/customers/{customer_id}\` to learn the new
+  values. It is the only non-order event: a receiver that assumed \`data.order_id\` is
+  always present breaks on it, so branch on \`event\` before touching \`data\`.
 - **\`ORDER_STATUS_CHANGED\` is being narrowed** (Yandex announced it; no cutoff date given):
   it will stop firing for the two receipt-technical statuses \`CREATING_INITIAL_RECEIPT\`
   and \`CREATING_FINAL_RECEIPTS\`. An integration triggered by those two events must move to
@@ -413,7 +419,18 @@ delivery automation is off), write «Честный знак» marking codes ont
 (\`POST /v1/orders/{id}/marking-codes\` — one code per item, null removes a code), and read
 the attached additional services (addons), customer records and gift cards. A customer record also carries the marketing-consent pair
 \`agreement_for_promo\` + \`agreement_at\` — read it before adding anyone to a mailing list
-and mirror it into your CRM. Waybills (акты приёма-передачи) for delivery chunks come
+and mirror it into your CRM — and, since the 2026-10-02 release, \`birth_date\`: read-only
+(\`UpdateCustomer\` has no such field), present only when the buyer entered it, and personal
+data like the name and phone next to it. The buyer's live cart comes from
+\`GET /v1/customers/{customer_id}/cart\` — the abandoned-cart source: line items plus
+\`total_price\`/\`total_final_price\`. There is no abandoned flag: an empty cart and a
+never-created one both return \`items: []\`, and only a missing \`updated_at\` separates them,
+so staleness is your own cutoff. A cart promocode is not reflected in the cart totals (it
+is in \`Order.total_final_price\`), \`product_variant_id\` repeats across lines (bundles,
+addons, gifts), and \`quantity\` may exceed stock until the buyer reopens the cart.
+For incremental sync, filter \`GET /v1/orders\` by \`updated_from\`/\`updated_to\` — an order
+whose status changed stays inside the window, which a created-at filter would miss; both
+bounds are inclusive, so deduplicate by order ID across overlapping polls. Waybills (акты приёма-передачи) for delivery chunks come
 from \`GenerateOrderWaybills\` — one signed, expiring PDF per warehouse + delivery
 service group, regenerated on every call, with unprintable chunks listed in
 \`skipped\` with a reason. Per-parcel delivery labels (ярлыки — address, tracking

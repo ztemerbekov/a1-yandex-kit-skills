@@ -38,17 +38,23 @@ function resultText(res: unknown): string {
   return (res as { content: { text: string }[] }).content[0]!.text;
 }
 
-test("registers exactly the four customer tools with correct annotations", async () => {
+test("registers exactly the five customer tools with correct annotations", async () => {
   const { mcp } = await setup();
   const { tools } = await mcp.listTools();
   const names = tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
     "get_customer",
+    "get_customer_cart",
     "get_customer_orders",
     "list_customers",
     "update_customer",
   ]);
-  const readOnly = new Set(["list_customers", "get_customer", "get_customer_orders"]);
+  const readOnly = new Set([
+    "list_customers",
+    "get_customer",
+    "get_customer_cart",
+    "get_customer_orders",
+  ]);
   for (const tool of tools) {
     assert.equal(
       tool.annotations?.readOnlyHint,
@@ -169,6 +175,66 @@ test("update_customer sends a plain application/json PATCH to /v1/customers/{cus
   const headers = calls[0]!.init?.headers as Record<string, string>;
   assert.equal(headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), customer);
+});
+
+test("get_customer_cart hits /v1/customers/{customer_id}/cart with a plain GET", async () => {
+  const { calls, mcp } = await setup({ items: [], total_price: "0.00", total_final_price: "0.00" });
+  const res = await mcp.callTool({ name: "get_customer_cart", arguments: { id: "cust-42" } });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/customers/cust-42/cart");
+  assert.equal(url.search, "");
+  assert.equal(calls[0]!.init?.method, "GET");
+});
+
+test("get_customer_cart returns items and totals verbatim", async () => {
+  const cart = {
+    items: [
+      {
+        product_variant_id: "00000000-0000-0000-0000-000000000001",
+        name: "Футболка, размер M",
+        quantity: 2,
+        price: "1200.00",
+        final_price: "1100.00",
+        total_price: "2400.00",
+        total_final_price: "2200.00",
+      },
+    ],
+    total_price: "2400.00",
+    total_final_price: "2200.00",
+    updated_at: "2024-05-20T12:30:00Z",
+  };
+  const { mcp } = await setup(cart);
+  const res = await mcp.callTool({ name: "get_customer_cart", arguments: { id: "cust-42" } });
+  assert.deepEqual(JSON.parse(resultText(res)), cart);
+});
+
+test("get_customer redact:true masks birth_date but keeps lifecycle dates", async () => {
+  const { mcp } = await setup({
+    customer_id: "c1",
+    birth_date: "2003-02-04",
+    registered_at: "2020-01-01T00:00:00Z",
+    agreement_at: "2020-01-02T00:00:00Z",
+    order_count: 3,
+  });
+  const res = await mcp.callTool({
+    name: "get_customer",
+    arguments: { id: "c1", redact: true },
+  });
+  assert.deepEqual(JSON.parse(resultText(res)), {
+    customer_id: "c1",
+    birth_date: "[redacted]",
+    registered_at: "2020-01-01T00:00:00Z",
+    agreement_at: "2020-01-02T00:00:00Z",
+    order_count: 3,
+  });
+});
+
+test("get_customer without redact returns birth_date as sent", async () => {
+  const { mcp } = await setup({ customer_id: "c1", birth_date: "2003-02-04" });
+  const res = await mcp.callTool({ name: "get_customer", arguments: { id: "c1" } });
+  assert.equal(JSON.parse(resultText(res)).birth_date, "2003-02-04");
 });
 
 test("get_customer_orders hits /v1/customers/{customer_id}/orders and clamps per_page", async () => {

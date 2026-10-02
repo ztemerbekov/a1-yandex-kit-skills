@@ -79,6 +79,39 @@ test("list_orders passes page through and clamps per_page to 100", async () => {
   assert.equal(url.searchParams.get("per_page"), "100");
 });
 
+test("list_orders forwards updated_from/updated_to to the single-page query", async () => {
+  const { calls, mcp } = await setup({ orders: [], total_count: 0 });
+  const res = await mcp.callTool({
+    name: "list_orders",
+    arguments: { updated_from: "2026-10-01T00:00:00Z", updated_to: "2026-10-02T00:00:00Z" },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.searchParams.get("updated_from"), "2026-10-01T00:00:00Z");
+  assert.equal(url.searchParams.get("updated_to"), "2026-10-02T00:00:00Z");
+});
+
+test("list_orders all=true keeps the update window on every auto-paginated page", async () => {
+  const { calls, mcp } = await setup({ orders: [{ id: "o1" }], total_count: 1 });
+  await mcp.callTool({
+    name: "list_orders",
+    arguments: { all: true, updated_from: "2026-10-01T00:00:00Z" },
+  });
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.searchParams.get("updated_from"), "2026-10-01T00:00:00Z");
+  assert.equal(url.searchParams.get("per_page"), "100");
+});
+
+test("list_orders omits the update window from the query when not requested", async () => {
+  const { calls, mcp } = await setup({ orders: [], total_count: 0 });
+  await mcp.callTool({ name: "list_orders", arguments: { page: 1 } });
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.searchParams.has("updated_from"), false);
+  assert.equal(url.searchParams.has("updated_to"), false);
+});
+
 test("list_orders all=true fetches via listAll with per_page=100", async () => {
   const { calls, mcp } = await setup({ orders: [{ id: "o1" }], total_count: 1 });
   const res = await mcp.callTool({ name: "list_orders", arguments: { all: true } });

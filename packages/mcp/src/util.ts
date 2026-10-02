@@ -138,7 +138,8 @@ export const REDACTED = "[redacted]";
  * bundled OpenAPI spec (specs/kit-swagger.openapi.json):
  *
  * - `OrderClientInfo`: first_name, last_name, patronymic, phone, email
- * - `Customer`: first_name, last_name, phone, email, note (customer note)
+ * - `Customer`: first_name, last_name, phone, email, note (customer note),
+ *   birth_date (the 2026-10-02 spec update)
  * - `OrderDeliveryInfo`: delivery_notes (delivery comment)
  * - `OrderAddressInfo` (delivery address parts): locality, address (the
  *   method-agnostic pair added by the 2026-09-17 spec update — the one the API
@@ -149,8 +150,11 @@ export const REDACTED = "[redacted]";
  *   correctly spelled `apartment` alongside it), entrance, intercom
  * - `GiftCard`: buyer_name, buyer_email, buyer_phone, holder_email
  *
- * Identifiers, amounts, statuses and dates are deliberately NOT listed:
- * they are what an aggregating task actually needs.
+ * Identifiers, amounts, statuses and lifecycle dates (registered_at,
+ * created_at, agreement_at) are deliberately NOT listed: they are what an
+ * aggregating task actually needs. `birth_date` is the one date that is: it
+ * describes the person, not the record, so a birthday-campaign task reads it
+ * without redact and a counting task still gets it masked.
  */
 export const PII_FIELDS: ReadonlySet<string> = new Set([
   // person
@@ -159,6 +163,7 @@ export const PII_FIELDS: ReadonlySet<string> = new Set([
   "patronymic",
   "phone",
   "email",
+  "birth_date",
   // free-form notes about the person / the delivery
   "note",
   "delivery_notes",
@@ -214,9 +219,9 @@ export function redactPii<T>(value: T): T {
 /** Shared `.describe()` text for the opt-in `redact` parameter. */
 export const REDACT_PARAM_DESCRIPTION =
   "Use redact:true when the task does not need personal data (e.g. counting or aggregating " +
-  'orders) — personal fields (name, phone, email, delivery address and its parts, notes) are ' +
-  'replaced with "[redacted]". Applies to the response only; request bodies are never ' +
-  "redacted. Default false.";
+  'orders) — personal fields (name, phone, email, date of birth, delivery address and its ' +
+  'parts, notes) are replaced with "[redacted]". Applies to the response only; request ' +
+  "bodies are never redacted. Default false.";
 
 export function clampPerPage(perPage?: number, max: number = MAX_PER_PAGE): number {
   if (perPage === undefined) return Math.min(DEFAULT_PER_PAGE, max);
