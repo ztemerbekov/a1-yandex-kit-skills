@@ -41,7 +41,47 @@ export function fail(err: unknown): ToolResult {
   } else {
     payload.error = String(err);
   }
+
+  const metadata = mutationFailureMetadata(err);
+  if (metadata) Object.assign(payload, metadata);
   return { isError: true, content: [{ type: "text", text: JSON.stringify(payload) }] };
+}
+
+/**
+ * Additive context for an attempted mutation whose server-side outcome cannot
+ * be known from the response. The core attaches this to both API and transport
+ * errors; validation failures and failed GETs have no such context.
+ */
+function mutationFailureMetadata(err: unknown): Record<string, unknown> | undefined {
+  if (!err || typeof err !== "object") return undefined;
+  const value = err as {
+    requestContext?: { operationId?: unknown; method?: unknown; attempted?: unknown };
+    mutationOutcome?: unknown;
+    readbackRequired?: unknown;
+    repeatPolicy?: unknown;
+  };
+  const context = value.requestContext;
+  if (
+    !context ||
+    context.attempted !== true ||
+    typeof context.method !== "string" ||
+    context.method.toUpperCase() === "GET" ||
+    value.mutationOutcome !== "unknown" ||
+    value.readbackRequired !== true ||
+    value.repeatPolicy !== "do_not_repeat"
+  ) {
+    return undefined;
+  }
+  const metadata: Record<string, unknown> = {
+    method: context.method,
+  };
+  if (typeof context.operationId === "string") metadata.operation_id = context.operationId;
+  Object.assign(metadata, {
+    mutation_outcome: "unknown",
+    readback_required: true,
+    repeat_policy: "do_not_repeat",
+  });
+  return metadata;
 }
 
 /** Request body failed the local OpenAPI schema check; nothing was sent. */

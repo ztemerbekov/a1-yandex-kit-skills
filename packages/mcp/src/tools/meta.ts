@@ -238,7 +238,9 @@ export function registerMetaTools(server: McpServer, client: KitClient): void {
         "(create/update/delete/archive) take effect immediately and there is no sandbox. " +
         "Workflow: search_operations -> get_operation_schema -> kit_request. " +
         "The request body is validated against the OpenAPI schema before sending " +
-        "(set validate=false to skip).",
+        "(set validate=false to skip). If a mutation returns HTTP 429, LIMIT_EXCEEDED, " +
+        "timeout or another uncertain result, read back the complete affected resource " +
+        "before considering any repeat; never blindly replay the write.",
       inputSchema: {
         operation_id: z
           .string()

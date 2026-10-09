@@ -198,7 +198,13 @@ test("POST timeout -> single attempt even with maxRetries", async () => {
     fetchImpl,
   });
 
-  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), /attempt aborted/);
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), (err: unknown) => {
+    assert.match(String(err), /attempt aborted/);
+    assert.equal((err as Error & { mutationOutcome?: string }).mutationOutcome, "unknown");
+    assert.equal((err as Error & { readbackRequired?: boolean }).readbackRequired, true);
+    assert.equal((err as Error & { repeatPolicy?: string }).repeatPolicy, "do_not_repeat");
+    return true;
+  });
   assert.equal(calls.length, 1);
 });
 
@@ -213,6 +219,9 @@ test("POST 500 -> not retried, KitApiError surfaces", async () => {
     assert.equal(err.status, 500);
     assert.equal(err.code, "UNKNOWN_ERROR");
     assert.equal(err.traceId, "t3");
+    assert.equal(err.mutationOutcome, "unknown");
+    assert.equal(err.readbackRequired, true);
+    assert.equal(err.repeatPolicy, "do_not_repeat");
     return true;
   });
   assert.equal(calls.length, 1);
@@ -232,6 +241,7 @@ test("POST 429 with Retry-After -> not retried, code/message/traceId preserved",
     assert.equal(err.code, "LIMIT_EXCEEDED");
     assert.equal(err.message, "slow down");
     assert.equal(err.traceId, "t4");
+    assert.equal(err.mutationOutcome, "unknown");
     return true;
   });
   assert.equal(calls.length, 1);
@@ -248,9 +258,141 @@ test("POST 400 LIMIT_EXCEEDED -> not retried, error details preserved", async ()
     assert.equal(err.status, 400);
     assert.equal(err.code, "LIMIT_EXCEEDED");
     assert.equal(err.traceId, "t5");
+    assert.equal(err.mutationOutcome, "unknown");
     return true;
   });
   assert.equal(calls.length, 1);
+});
+
+test("POST 408 -> not retried and remains an unknown mutation outcome", async () => {
+  const { calls, fetchImpl } = stubFetch(() =>
+    jsonResponse({ code: "TIMEOUT", message: "request expired", trace_id: "t408" }, 408),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, retryBaseMs: 1, fetchImpl });
+
+  await assert.rejects(client.call("CreateProduct", { body: { name: "x" } }), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.equal(err.status, 408);
+    assert.equal(err.mutationOutcome, "unknown");
+    assert.equal(err.readbackRequired, true);
+    assert.equal(err.repeatPolicy, "do_not_repeat");
+    return true;
+  });
+  assert.equal(calls.length, 1);
+});
+
+test("mutation failures carry operation context and an unknown-outcome contract", async () => {
+  const { calls, fetchImpl } = stubFetch(() =>
+    new Response("limited", { status: 429, headers: { "content-type": "text/plain" } }),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  await assert.rejects(client.call("CreateCollection", { body: { title: "Summer" } }), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.deepEqual(err.requestContext, {
+      operationId: "CreateCollection",
+      method: "POST",
+      attempted: true,
+    });
+    assert.equal(err.mutationOutcome, "unknown");
+    assert.equal(err.readbackRequired, true);
+    assert.equal(err.repeatPolicy, "do_not_repeat");
+    return true;
+  });
+  assert.equal(calls.length, 1);
+});
+
+test("GET failures keep the API error contract without mutation ambiguity metadata", async () => {
+  const { fetchImpl } = stubFetch(() =>
+    new Response("limited", { status: 429, headers: { "content-type": "text/plain" } }),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, maxRetries: 0, fetchImpl });
+
+  await assert.rejects(client.call("GetStore"), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.deepEqual(err.requestContext, { operationId: "GetStore", method: "GET", attempted: true });
+    assert.equal(err.mutationOutcome, undefined);
+    assert.equal(err.readbackRequired, undefined);
+    assert.equal(err.repeatPolicy, undefined);
+    return true;
+  });
+});
+
+test("reused transport errors get isolated mutation contexts and preserve their prototype", async () => {
+  const shared = new TypeError("fetch failed");
+  const fetchImpl = (async () => {
+    throw shared;
+  }) as typeof fetch;
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  const [first, second] = await Promise.all(
+    ["CreateCollection", "CreateProduct"].map(async (operationId) => {
+      try {
+        await client.call(operationId, { body: {} });
+        throw new Error("expected the mutation to fail");
+      } catch (err) {
+        return err;
+      }
+    }),
+  );
+  assert.notEqual(first, second);
+  assert.ok(first instanceof TypeError);
+  assert.ok(second instanceof TypeError);
+  assert.equal((first as TypeError & { requestContext: { operationId: string } }).requestContext.operationId, "CreateCollection");
+  assert.equal((second as TypeError & { requestContext: { operationId: string } }).requestContext.operationId, "CreateProduct");
+});
+
+test("DOMException transport errors retain their native name and get mutation metadata safely", async () => {
+  const source = new DOMException("request aborted", "AbortError");
+  const fetchImpl = (async () => {
+    throw source;
+  }) as typeof fetch;
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  await assert.rejects(client.call("CreateCollection", { body: {} }), (err: unknown) => {
+    assert.ok(err instanceof DOMException);
+    assert.equal(err.name, "AbortError");
+    assert.equal(err.message, "request aborted");
+    assert.equal((err as DOMException & { mutationOutcome?: string }).mutationOutcome, "unknown");
+    assert.equal(
+      (err as DOMException & { requestContext?: { operationId?: string } }).requestContext?.operationId,
+      "CreateCollection",
+    );
+    return true;
+  });
+});
+
+test("frozen transport errors are cloned without mutating the source", async () => {
+  const source = Object.freeze(new Error("frozen failure"));
+  const fetchImpl = (async () => {
+    throw source;
+  }) as typeof fetch;
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  await assert.rejects(client.call("CreateCollection", { body: {} }), (err: unknown) => {
+    assert.ok(err instanceof Error);
+    assert.notEqual(err, source);
+    assert.equal(err.message, source.message);
+    assert.equal((err as Error & { mutationOutcome?: string }).mutationOutcome, "unknown");
+    return true;
+  });
+  assert.equal((source as Error & { mutationOutcome?: string }).mutationOutcome, undefined);
+});
+
+test("a successful mutation response with invalid JSON is an unknown outcome", async () => {
+  const { fetchImpl } = stubFetch(() =>
+    new Response("created", { status: 201, headers: { "content-type": "text/plain" } }),
+  );
+  const client = new KitClient({ token: "t", rps: 1000, fetchImpl });
+
+  await assert.rejects(client.call("CreateCollection", { body: { title: "Summer" } }), (err: unknown) => {
+    assert.ok(err instanceof KitApiError);
+    assert.equal(err.code, "INVALID_JSON");
+    assert.equal(err.mutationOutcome, "unknown");
+    assert.equal(err.readbackRequired, true);
+    assert.equal(err.repeatPolicy, "do_not_repeat");
+    return true;
+  });
 });
 
 test("PATCH, PUT and DELETE on 500 -> exactly one attempt each despite maxRetries", async () => {

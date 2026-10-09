@@ -41,6 +41,24 @@ and flatten them for this deliverable. Confirm that the CSV file has a header an
 before reporting completion; if an initial product CSV contains only `id,group_id`, continue
 to the variant export automatically.
 
+## Collection create reconciliation
+
+Before creating a dynamic collection, complete the lookup across every relevant page and
+status. After an uncertain create result — including HTTP 429 `limited`, HTTP 400
+`LIMIT_EXCEEDED`, timeout, network failure or an unreadable response — perform that complete
+readback before considering any separate write decision. Compare each candidate with the plan
+using all of these fields: `collection_type: DYNAMIC`, the full canonical `dynamic_filter`
+(including category and characteristic restrictions), every planned field, the exact `title`
+and the slug that was sent. Compare pre-write IDs as part of the plan; a title or slug alone is
+never enough because KIT may auto-suffix a slug.
+
+One complete, trustworthy match can be adopted by its returned ID as the business result, while
+the report says that this run's write acknowledgement is unknown. Multiple full matches are a
+conflict. A failed or incomplete read, or zero visible matches, remains unresolved and never
+authorizes an automatic second POST. Keep the unresolved item for later reconciliation and
+continue independent items where possible. Apply the same rule to `kit_request`, direct HTTP
+and batch scripts; client throttling/backoff never grants a write retry.
+
 ## Catalog identifiers and writes
 
 A variant carries two **distinct** identifiers:

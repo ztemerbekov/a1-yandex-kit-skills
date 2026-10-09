@@ -6,11 +6,27 @@
  */
 
 /** HTTP-level error returned by the KIT API. */
+export interface KitRequestContext {
+  operationId?: string;
+  method: string;
+  attempted: true;
+}
+
+export interface KitMutationUncertainty {
+  mutationOutcome: "unknown";
+  readbackRequired: true;
+  repeatPolicy: "do_not_repeat";
+}
+
 export class KitApiError extends Error {
   status: number;
   code: string;
   traceId?: string;
   details?: unknown;
+  requestContext?: KitRequestContext;
+  mutationOutcome?: KitMutationUncertainty["mutationOutcome"];
+  readbackRequired?: KitMutationUncertainty["readbackRequired"];
+  repeatPolicy?: KitMutationUncertainty["repeatPolicy"];
 
   constructor(
     status: number,
@@ -18,6 +34,8 @@ export class KitApiError extends Error {
     message: string,
     traceId?: string,
     details?: unknown,
+    requestContext?: KitRequestContext,
+    uncertainty?: KitMutationUncertainty,
   ) {
     super(message);
     this.name = "KitApiError";
@@ -25,6 +43,10 @@ export class KitApiError extends Error {
     this.code = code;
     this.traceId = traceId;
     this.details = details;
+    this.requestContext = requestContext;
+    this.mutationOutcome = uncertainty?.mutationOutcome;
+    this.readbackRequired = uncertainty?.readbackRequired;
+    this.repeatPolicy = uncertainty?.repeatPolicy;
   }
 }
 

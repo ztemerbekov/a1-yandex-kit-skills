@@ -12,7 +12,12 @@
  * content type from the generated registry (json / merge-patch+json /
  * multipart), and auto-pagination via listAll().
  */
-import { KitApiError, KitValidationError } from "./errors.js";
+import {
+  KitApiError,
+  KitValidationError,
+  type KitMutationUncertainty,
+  type KitRequestContext,
+} from "./errors.js";
 import { getOp } from "./registry.js";
 
 export interface KitClientOptions {
@@ -40,12 +45,13 @@ export interface CallParams {
   body?: unknown;
 }
 
-interface RawRequest {
+export interface RawRequest {
   method: string;
   path: string;
   query?: Record<string, unknown>;
   body?: unknown;
   contentType?: string;
+  operationId?: string;
 }
 
 const DEFAULT_BASE_URL = "https://api.kit.yandex.net";
@@ -72,6 +78,69 @@ const RETRYABLE_400_CODE = "LIMIT_EXCEEDED";
  * server-controlled, and timeoutMs covers only the fetch — not this sleep.
  */
 const RETRY_AFTER_CAP_MS = 30_000;
+
+const UNKNOWN_MUTATION_OUTCOME: KitMutationUncertainty = {
+  mutationOutcome: "unknown",
+  readbackRequired: true,
+  repeatPolicy: "do_not_repeat",
+};
+
+function isAmbiguousMutationFailure(status: number, code?: string): boolean {
+  return status === 408 || status === 429 || status >= 500 ||
+    (status === 400 && code === RETRYABLE_400_CODE);
+}
+
+function copyMutationTransportError(error: unknown, context: KitRequestContext): Error {
+  const source = error instanceof Error ? error : new Error(String(error));
+  // A fetch implementation is allowed to reject with the same Error instance
+  // for concurrent calls. Clone it so request metadata cannot bleed between
+  // operation contexts, while retaining native prototypes where they are safe
+  // to construct plus the original name/message.
+  let copy: Error;
+  if (typeof DOMException !== "undefined" && source instanceof DOMException) {
+    // DOMException has native internal slots and a read-only name accessor;
+    // constructing a fresh instance is the only safe way to preserve it.
+    copy = new DOMException(source.message, source.name) as unknown as Error;
+  } else if (source instanceof TypeError) {
+    copy = new TypeError(source.message);
+  } else {
+    copy = new Error(source.message);
+    copy.name = source.name;
+  }
+  if (source.stack) copy.stack = source.stack;
+  // Preserve useful transport-specific fields (for example statusCode or
+  // errno) without copying native accessors or mutating the source object.
+  for (const key of Object.keys(source)) {
+    if (
+      key === "cause" ||
+      key === "name" ||
+      key === "message" ||
+      key === "stack" ||
+      key === "requestContext" ||
+      key in UNKNOWN_MUTATION_OUTCOME
+    ) continue;
+    Object.defineProperty(copy, key, {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: source[key as keyof Error],
+    });
+  }
+  const metadata: Record<string, unknown> = {
+    requestContext: context,
+    ...UNKNOWN_MUTATION_OUTCOME,
+  };
+  if ("cause" in source) metadata.cause = source.cause;
+  for (const [key, value] of Object.entries(metadata)) {
+    Object.defineProperty(copy, key, {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value,
+    });
+  }
+  return copy;
+}
 
 // NOTE: the timer must stay ref'd — an in-flight request awaiting its backoff
 // delay has to keep the event loop (and thus the process) alive.
@@ -204,6 +273,7 @@ export class KitClient {
       query: params.query,
       body: params.body,
       contentType: op.requestContentType ?? undefined,
+      operationId,
     });
   }
 
@@ -226,6 +296,11 @@ export class KitClient {
       }
     }
     const method = req.method.toUpperCase();
+    const requestContext: KitRequestContext = {
+      ...(req.operationId !== undefined ? { operationId: req.operationId } : {}),
+      method,
+      attempted: true,
+    };
     const init: RequestInit = { method, headers, body };
 
     // Only GET is safe to retry automatically: a mutation whose attempt timed
@@ -250,7 +325,7 @@ export class KitClient {
           await sleep(this.backoffDelayMs(attempt));
           continue;
         }
-        throw err;
+        throw method === "GET" ? err : copyMutationTransportError(err, requestContext);
       }
 
       if (res.ok) {
@@ -262,6 +337,10 @@ export class KitClient {
             res.status,
             "INVALID_JSON",
             `Failed to parse response body as JSON: ${text.slice(0, 500)}`,
+            undefined,
+            undefined,
+            requestContext,
+            method === "GET" ? undefined : UNKNOWN_MUTATION_OUTCOME,
           );
         }
       }
@@ -294,9 +373,23 @@ export class KitClient {
           parsed.message ?? `HTTP ${res.status}`,
           parsed.trace_id,
           parsed,
+          requestContext,
+          method !== "GET" && isAmbiguousMutationFailure(res.status, parsed.code)
+            ? UNKNOWN_MUTATION_OUTCOME
+            : undefined,
         );
       }
-      throw new KitApiError(res.status, "HTTP_ERROR", text.slice(0, 500));
+      throw new KitApiError(
+        res.status,
+        "HTTP_ERROR",
+        text.slice(0, 500),
+        undefined,
+        undefined,
+        requestContext,
+        method !== "GET" && isAmbiguousMutationFailure(res.status)
+          ? UNKNOWN_MUTATION_OUTCOME
+          : undefined,
+      );
     }
   }
 
