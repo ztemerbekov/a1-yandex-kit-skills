@@ -77,7 +77,9 @@ async function main(): Promise<void> {
 
   // Issue #54 state detector: the KIT API silently strips ARCHIVED from the
   // GetVariants status filter. Informational only — reports whether the defect
-  // is still present so the list_variants guardrail can be removed once fixed.
+  // is still present. Only a listed archived variant proves the fix; an empty
+  // archive merely shows the old symptom is gone, and e2e (which archives a
+  // variant of its own) carries the positive probe (issue #151).
   const filtered = await client.call<VariantCollection>("GetVariants", {
     query: { page: 1, per_page: 100, status: ["ARCHIVED"] },
   });
@@ -101,8 +103,9 @@ async function main(): Promise<void> {
     const controlNonEmpty = (control?.variants?.length ?? 0) > 0;
     console.log(
       controlNonEmpty
-        ? "archived-filter: API FIXED — the filter is honored and the archive is empty; " +
-            "the list_variants guardrail (issue #54) can be removed"
+        ? "archived-filter: defect symptom gone — status=ARCHIVED returned an empty page, " +
+            "not the default listing; the archive is empty, so the fix is unproven here — " +
+            "see the e2e archived-filter probe before removing the guardrail (issue #151)"
         : "archived-filter: indeterminate — the store has no variants to probe with",
     );
   }

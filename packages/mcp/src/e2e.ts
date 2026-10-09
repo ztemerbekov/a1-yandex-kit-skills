@@ -124,6 +124,38 @@ function idOf(entity: Record<string, unknown>, wrapper: string): string {
   return id;
 }
 
+/**
+ * Lists ARCHIVED variants of the e2e product right after its only variant was
+ * archived. Scoped by product_id, so the list_variants guardrail's control
+ * probe sees an empty default listing: with the issue #54 defect the tool
+ * fails with ARCHIVE_READ_UNSUPPORTED (or STATUS_FILTER_IGNORED), and a fixed
+ * API returns the variant — the one proof an empty-archive smoke cannot give.
+ */
+async function probeArchivedFilter(
+  client: ToolCaller,
+  productId: string,
+  variantId: string,
+): Promise<string> {
+  try {
+    const page = await tool<{ variants?: Array<{ id?: unknown }> }>(client, "list_variants", {
+      product_id: productId,
+      status: ["ARCHIVED"],
+      per_page: 100,
+    });
+    return page.variants?.some((v) => v.id === variantId)
+      ? "API FIXED — status=ARCHIVED lists the just-archived variant; the list_variants " +
+          "guardrail (issue #54) can be removed"
+      : `indeterminate — status=ARCHIVED returned ${page.variants?.length ?? 0} variants ` +
+          "without the just-archived one";
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const code = /ARCHIVE_READ_UNSUPPORTED|STATUS_FILTER_IGNORED/.exec(message)?.[0];
+    return code
+      ? `KIT defect still present — list_variants failed with ${code}`
+      : `indeterminate — probe failed: ${message}`;
+  }
+}
+
 async function main(): Promise<void> {
   if (!process.env.YANDEX_KIT_TOKEN) {
     fatal("YANDEX_KIT_TOKEN is required.");
@@ -161,6 +193,7 @@ async function main(): Promise<void> {
   const stamp = new Date().toISOString();
   let categoryId: string | undefined;
   let variantId: string | undefined;
+  let productId: string | undefined;
   let failed = false;
 
   try {
@@ -182,7 +215,7 @@ async function main(): Promise<void> {
     const product = await tool(client, "create_product", {
       product: { category_ids: [categoryId] },
     });
-    const productId = idOf(product, "product");
+    productId = idOf(product, "product");
     console.log(`[4/10] create_product: id=${productId}`);
 
     const productBack = await tool(client, "get_product", { id: productId });
@@ -230,11 +263,15 @@ async function main(): Promise<void> {
         console.log(`cleanup: variant archive failed: ${err instanceof Error ? err.message : err}`);
       }
     }
+    if (variantId && variantArchived && productId) {
+      // Positive probe for issue #54/#151: the archive is now known to hold this
+      // variant, so the ARCHIVED filter either lists it or is still broken.
+      // Informational only — the delete below must run either way.
+      console.log(`archived-filter: ${await probeArchivedFilter(client, productId, variantId)}`);
+    }
     if (variantId && variantArchived) {
       // Permanent delete is only legal for ARCHIVED variants; without it every
-      // run leaves one more card in the merchant UI's archive tab (issue #54),
-      // and the API cannot even list them back (ARCHIVED is stripped from the
-      // GetVariants status filter).
+      // run leaves one more card in the merchant UI's archive tab (issue #54).
       try {
         await tool(client, "kit_request", {
           operation_id: "DeleteVariant",
