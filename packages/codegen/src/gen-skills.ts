@@ -161,7 +161,9 @@ docs are in Russian; the full OpenAPI spec (${registry.opsCount} operations) is 
   \`CONFLICT\` (409), \`UNKNOWN_ERROR\` (500). Quote \`trace_id\` when contacting support.
 - **Datetimes**: everything is UTC.
 - **No sandbox**: production only — prefer read-only calls while exploring and
-  double-check every write.
+  double-check every write. A mutation that returns HTTP 429 \`limited\` or
+  \`LIMIT_EXCEEDED\` (400) has an unknown outcome: throttling or backoff does not
+  authorize replaying the write. Read back the complete affected resource first.
 - **Pagination**: list endpoints take \`page\` + \`per_page\` (max 100) query parameters.
 - **Content types**: request bodies are \`application/json\`, except the ${MERGE_PATCH_OPS.length} operations
   that use JSON Merge Patch (\`application/merge-patch+json\`): ${MERGE_PATCH_OPS.map((id) => `\`${id}\``).join(", ")} — send only the fields to change.
@@ -338,6 +340,24 @@ by default and serializes nested \`pricing\`/\`stocks\` as JSON cells, so read v
 and flatten them for this deliverable. Confirm that the CSV file has a header and meaningful rows
 before reporting completion; if an initial product CSV contains only \`id,group_id\`, continue
 to the variant export automatically.
+
+## Collection create reconciliation
+
+Before creating a dynamic collection, complete the lookup across every relevant page and
+status. After an uncertain create result — including HTTP 429 \`limited\`, HTTP 400
+\`LIMIT_EXCEEDED\`, timeout, network failure or an unreadable response — perform that complete
+readback before considering any separate write decision. Compare each candidate with the plan
+using all of these fields: \`collection_type: DYNAMIC\`, the full canonical \`dynamic_filter\`
+(including category and characteristic restrictions), every planned field, the exact \`title\`
+and the slug that was sent. Compare pre-write IDs as part of the plan; a title or slug alone is
+never enough because KIT may auto-suffix a slug.
+
+One complete, trustworthy match can be adopted by its returned ID as the business result, while
+the report says that this run's write acknowledgement is unknown. Multiple full matches are a
+conflict. A failed or incomplete read, or zero visible matches, remains unresolved and never
+authorizes an automatic second POST. Keep the unresolved item for later reconciliation and
+continue independent items where possible. Apply the same rule to \`kit_request\`, direct HTTP
+and batch scripts; client throttling/backoff never grants a write retry.
 
 ## Catalog identifiers and writes
 
@@ -760,7 +780,16 @@ Run the bundled scripts from this skill's directory — they are self-contained
      the body against the same schema before sending;
    - or plain HTTP:
      \`curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...\`
-     (mind the 3 rps limit).`;
+     (mind the 3 rps limit).
+
+After any mutation with an uncertain outcome — explicitly including HTTP 429 \`limited\`,
+HTTP 400 \`LIMIT_EXCEEDED\`, timeout, network failure, HTTP 408/5xx or an unreadable response —
+do not requeue or replay the write. First perform a complete readback of the affected resource,
+including every page and relevant status, and compare it with the pre-write plan. A single
+trustworthy match may be adopted by ID while retaining the unknown acknowledgement; multiple
+matches, an incomplete/failed read or zero visible matches stay unresolved. This rule applies
+equally to MCP tools, \`kit_request\`, direct HTTP and batch scripts; throttling/backoff never
+authorizes a write retry.`;
 }
 
 function endpointsSection(tags: string[]): string {

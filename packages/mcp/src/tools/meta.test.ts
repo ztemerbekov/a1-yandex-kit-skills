@@ -13,13 +13,14 @@ interface RecordedCall {
   init?: RequestInit;
 }
 
-async function setup(payload: unknown = { ok: true }) {
+async function setup(payload: unknown = { ok: true }, responseInit: ResponseInit = {}) {
   const calls: RecordedCall[] = [];
   const fetchImpl = (async (url: unknown, init?: RequestInit) => {
     calls.push({ url: String(url), init });
-    return new Response(JSON.stringify(payload), {
+    return new Response(typeof payload === "string" ? payload : JSON.stringify(payload), {
       status: 200,
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(responseInit.headers ?? {}) },
+      ...responseInit,
     });
   }) as typeof fetch;
 
@@ -134,6 +135,9 @@ test("kit_request blocks invalid CreateWebhook body before any network call", as
   });
   assert.equal((res as any).isError, true);
   assert.equal(parse(res).code, "LOCAL_VALIDATION_ERROR");
+  assert.equal(parse(res).mutation_outcome, undefined);
+  assert.equal(parse(res).readback_required, undefined);
+  assert.equal(parse(res).repeat_policy, undefined);
   assert.equal(calls.length, 0, "must not hit the API on invalid body");
 });
 
@@ -148,6 +152,100 @@ test("kit_request with validate=false skips validation and sends the request", a
   assert.deepEqual(parse(res), { id: "wh1" });
   assert.equal(calls.length, 1, "request must reach the API when validation is skipped");
   assert.equal(calls[0]!.init?.method, "POST");
+});
+
+test("kit_request reports an ambiguous mutation after a rate-limit response", async () => {
+  const { calls, mcpClient } = await setup("limited", { status: 429, headers: { "content-type": "text/plain" } });
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: {
+      operation_id: "CreateCollection",
+      body: { title: "Summer", status: "ACTIVE", collection_type: "STATIC" },
+    },
+  });
+  const out = parse(res);
+  assert.equal((res as any).isError, true);
+  assert.equal(out.error, "limited");
+  assert.equal(out.code, "HTTP_ERROR");
+  assert.equal(out.status, 429);
+  assert.equal(out.operation_id, "CreateCollection");
+  assert.equal(out.method, "POST");
+  assert.equal(out.mutation_outcome, "unknown");
+  assert.equal(out.readback_required, true);
+  assert.equal(out.repeat_policy, "do_not_repeat");
+  assert.equal(calls.length, 1);
+});
+
+test("kit_request keeps 400 LIMIT_EXCEEDED mutation guidance and trace details", async () => {
+  const { calls, mcpClient } = await setup(
+    { code: "LIMIT_EXCEEDED", message: "rate limited", trace_id: "trace-148" },
+    { status: 400 },
+  );
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: {
+      operation_id: "CreateCollection",
+      body: { title: "Summer", status: "ACTIVE", collection_type: "STATIC" },
+    },
+  });
+  const out = parse(res);
+  assert.equal(out.error, "rate limited");
+  assert.equal(out.code, "LIMIT_EXCEEDED");
+  assert.equal(out.status, 400);
+  assert.equal(out.traceId, "trace-148");
+  assert.equal(out.operation_id, "CreateCollection");
+  assert.equal(out.method, "POST");
+  assert.equal(out.mutation_outcome, "unknown");
+  assert.equal(out.readback_required, true);
+  assert.equal(out.repeat_policy, "do_not_repeat");
+  assert.equal(calls.length, 1);
+});
+
+test("ordinary mutation 400 and 401 keep the original envelope without uncertainty fields", async () => {
+  for (const status of [400, 401]) {
+    const { calls, mcpClient } = await setup(
+      { code: "INVALID_REQUEST", message: "bad request", trace_id: `trace-${status}` },
+      { status },
+    );
+    const res = await mcpClient.callTool({
+      name: "kit_request",
+      arguments: {
+        operation_id: "CreateCollection",
+        body: { title: "Summer", status: "ACTIVE", collection_type: "STATIC" },
+      },
+    });
+    const out = parse(res);
+    assert.equal((res as any).isError, true);
+    assert.equal(out.error, "bad request");
+    assert.equal(out.code, "INVALID_REQUEST");
+    assert.equal(out.status, status);
+    assert.equal(out.traceId, `trace-${status}`);
+    for (const field of [
+      "operation_id",
+      "method",
+      "mutation_outcome",
+      "readback_required",
+      "repeat_policy",
+    ]) {
+      assert.equal(out[field], undefined, `${status}: ${field} must stay absent`);
+    }
+    assert.equal(calls.length, 1);
+  }
+});
+
+test("failed GET responses do not carry mutation guidance", async () => {
+  const { mcpClient } = await setup("limited", { status: 429, headers: { "content-type": "text/plain" } });
+  const res = await mcpClient.callTool({
+    name: "kit_request",
+    arguments: { operation_id: "GetStore" },
+  });
+  const out = parse(res);
+  assert.equal(out.status, 429);
+  assert.equal(out.operation_id, undefined);
+  assert.equal(out.method, undefined);
+  assert.equal(out.mutation_outcome, undefined);
+  assert.equal(out.readback_required, undefined);
+  assert.equal(out.repeat_policy, undefined);
 });
 
 test("kit_request rejects multipart UploadFile pointing at upload_file", async () => {

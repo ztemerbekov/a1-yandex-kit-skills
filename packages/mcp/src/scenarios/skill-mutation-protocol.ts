@@ -14,19 +14,31 @@ export function isKitObjectId(value: string): boolean {
 
 export function mutationResultIsAmbiguous(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
+  if (
+    "mutationOutcome" in error &&
+    error.mutationOutcome === "unknown" &&
+    "repeatPolicy" in error &&
+    error.repeatPolicy === "do_not_repeat"
+  ) {
+    return true;
+  }
   const status =
     "status" in error && typeof error.status === "number"
       ? error.status
       : "statusCode" in error && typeof error.statusCode === "number"
         ? error.statusCode
         : undefined;
+  const code = "code" in error && typeof error.code === "string" ? error.code : undefined;
   return (
     status === 408 ||
+    status === 429 ||
     (status !== undefined && status >= 500) ||
+    code === "LIMIT_EXCEEDED" ||
+    code === "INVALID_JSON" ||
     error.name === "AbortError" ||
     error.name === "TimeoutError" ||
     error instanceof TypeError ||
-    /timeout|timed out|network|fetch failed|aborted|http\s*5\d\d|status(?: code)?\s*[:=]?\s*5\d\d/iu.test(
+    /timeout|timed out|network|fetch failed|aborted|rate[- ]?limited?|limit_exceeded|invalid json|http\s*5\d\d|status(?: code)?\s*[:=]?\s*5\d\d/iu.test(
       error.message,
     )
   );
@@ -86,11 +98,12 @@ export async function executeVerifiedMutation<T>({
   if (writeError) {
     const message = writeError instanceof Error ? writeError.message : String(writeError);
     if (mutationResultIsAmbiguous(writeError)) {
+      const verification = verifyAfter(after, before);
       return {
         kind: "ambiguous",
         message:
           `${subject}: операция записи вызвана один раз и завершилась ошибкой «${message}»; ` +
-          "результат неизвестен, нужна проверка",
+          `проверка состояния: ${verification.message}; результат неизвестен, нужна проверка`,
       };
     }
     return { kind: "failed", message: `${subject}: ${message}` };

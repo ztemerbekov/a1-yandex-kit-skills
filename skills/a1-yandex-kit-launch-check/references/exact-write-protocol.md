@@ -67,7 +67,9 @@ Apply this sequence to every mutation stage:
    from the detail-read value, change only the authorized element and preserve
    every untouched field and sibling.
 4. Call the stage's write operation at most once. Never issue that mutation a
-   second time after timeout, abort, network failure or any other response.
+   second time after timeout, abort, network failure, HTTP 429 `limited`, HTTP
+   400 `LIMIT_EXCEEDED` or any other response. Throttling and backoff do not
+   authorize a write retry.
 5. Detail-read the same object and every affected relation after the write
    attempt. Compare the complete expected field or state. An operation-specific
    rule may define confirmed not-found as the successful verification state for
@@ -77,9 +79,9 @@ Apply this sequence to every mutation stage:
      verification matches the complete expected state;
    - **failed** for a confirmed lookup, precondition, validation or local API
      failure that is not transport-ambiguous;
-   - **ambiguous** for timeout, abort, network failure, HTTP 408, HTTP 5xx, an
-     unreadable verification, or a verification mismatch after a possible
-     write.
+   - **ambiguous** for timeout, abort, network failure, HTTP 408, HTTP 429
+     `limited`, HTTP 400 `LIMIT_EXCEEDED`, HTTP 5xx, an unreadable verification,
+     or a verification mismatch after a possible write.
 7. Run a dependent stage only after every stage it depends on is **completed**.
    A **failed** or **ambiguous** stage blocks all of its dependent stages.
 
@@ -87,6 +89,15 @@ A successful write response without matching verification is ambiguous, not
 failed or completed. Transport ambiguity takes priority even if a later read
 happens to match: the write acknowledgement remains unreliable. Report
 «результат неизвестен, нужна проверка» and never retry the mutation blindly.
+
+For a create operation, reconcile against a complete readback before any
+separate write decision. Compare the full planned state, not only a title or
+slug; a server-added slug suffix does not establish uniqueness. One trustworthy
+logical match may be adopted by ID while retaining the unknown acknowledgement.
+Multiple matches, a failed or incomplete read, and zero visible matches remain
+unresolved and never authorize an automatic second write. Continue independent
+items where possible and keep each unresolved item for later reconciliation.
+The same rule applies to `kit_request`, direct HTTP and batch scripts.
 
 ## Plan and batch completion
 

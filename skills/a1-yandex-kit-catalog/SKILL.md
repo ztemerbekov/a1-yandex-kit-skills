@@ -84,6 +84,15 @@ Run the bundled scripts from this skill's directory — they are self-contained
      `curl -H "Authorization: Bearer $YANDEX_KIT_TOKEN" https://api.kit.yandex.net/v1/...`
      (mind the 3 rps limit).
 
+After any mutation with an uncertain outcome — explicitly including HTTP 429 `limited`,
+HTTP 400 `LIMIT_EXCEEDED`, timeout, network failure, HTTP 408/5xx or an unreadable response —
+do not requeue or replay the write. First perform a complete readback of the affected resource,
+including every page and relevant status, and compare it with the pre-write plan. A single
+trustworthy match may be adopted by ID while retaining the unknown acknowledgement; multiple
+matches, an incomplete/failed read or zero visible matches stay unresolved. This rule applies
+equally to MCP tools, `kit_request`, direct HTTP and batch scripts; throttling/backoff never
+authorizes a write retry.
+
 ## Reference map
 
 Load only the page the task needs:

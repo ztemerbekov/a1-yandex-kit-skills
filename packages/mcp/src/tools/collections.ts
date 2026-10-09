@@ -103,7 +103,10 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
       description:
         "Create a new collection. Required: title, status (ACTIVE|INACTIVE) and collection_type " +
         "(STATIC|DYNAMIC; DYNAMIC also takes a dynamic_filter). " +
-        'Call get_operation_schema("CreateCollection") for the exact request shape.',
+        'Call get_operation_schema("CreateCollection") for the exact request shape. ' +
+        "If a write returns HTTP 429, LIMIT_EXCEEDED, timeout or another uncertain result, " +
+        "read back the complete collection list and reconcile before considering any repeat; " +
+        "never blindly retry the create.",
       inputSchema: {
         collection: z
           .record(z.unknown())

@@ -12,16 +12,17 @@ interface RecordedCall {
   init: RequestInit | undefined;
 }
 
-async function setup(payload: unknown = { ok: true }) {
+async function setup(payload: unknown = { ok: true }, responseInit: ResponseInit = {}) {
   const calls: RecordedCall[] = [];
   const client = new KitClient({
     token: "t",
     rps: 1000,
     fetchImpl: (async (url: unknown, init?: RequestInit) => {
       calls.push({ url: String(url), init });
-      return new Response(JSON.stringify(payload), {
+      return new Response(typeof payload === "string" ? payload : JSON.stringify(payload), {
         status: 200,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(responseInit.headers ?? {}) },
+        ...responseInit,
       });
     }) as typeof fetch,
   });
@@ -118,6 +119,23 @@ test("create_collection with a minimal valid body performs the request", async (
   const headers = calls[0]!.init?.headers as Record<string, string>;
   assert.equal(headers["Content-Type"], "application/json");
   assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), collection);
+});
+
+test("create_collection returns mutation readback guidance after HTTP 429", async () => {
+  const { calls, mcp } = await setup("limited", { status: 429, headers: { "content-type": "text/plain" } });
+  const res = await mcp.callTool({
+    name: "create_collection",
+    arguments: { collection: { title: "Summer", status: "ACTIVE", collection_type: "STATIC" } },
+  });
+  const out = JSON.parse(resultText(res));
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(out.status, 429);
+  assert.equal(out.operation_id, "CreateCollection");
+  assert.equal(out.method, "POST");
+  assert.equal(out.mutation_outcome, "unknown");
+  assert.equal(out.readback_required, true);
+  assert.equal(out.repeat_policy, "do_not_repeat");
+  assert.equal(calls.length, 1);
 });
 
 test("update_collection with an empty body fails without any network call", async () => {
