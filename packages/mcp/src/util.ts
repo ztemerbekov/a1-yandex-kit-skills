@@ -458,9 +458,9 @@ export function withCoverage(
 /**
  * Distinct `status` values found in `items` that lie outside the requested
  * status filter. A non-empty result proves the server ignored the filter and
- * fell back to a different listing (issue #54: the KIT API silently strips
- * `ARCHIVED` from the GetVariants status filter and returns the default
- * non-archived catalog instead).
+ * fell back to a different listing — the shape of the former KIT defect
+ * (issue #54, fixed server-side by 2026-10) when `ARCHIVED` was stripped from
+ * the GetVariants status filter and the default catalog came back instead.
  */
 export function statusesOutsideFilter(requested: readonly string[], items: unknown[]): string[] {
   const allowed = new Set(requested);
@@ -472,7 +472,7 @@ export function statusesOutsideFilter(requested: readonly string[], items: unkno
   return [...outside].sort();
 }
 
-/** The server returned items outside the requested status filter (issue #54). */
+/** The server returned items outside the requested status filter (regression of issue #54). */
 export function statusFilterIgnoredFailure(
   requested: readonly string[],
   outside: readonly string[],
@@ -481,46 +481,14 @@ export function statusFilterIgnoredFailure(
     new KitValidationError(
       `The KIT API ignored the requested status filter [${requested.join(", ")}]: ` +
         `the response contains statuses [${outside.join(", ")}] outside the filter ` +
-        "(known KIT API defect: ARCHIVED is silently stripped from the GetVariants " +
-        "status filter and the listing falls back to the default non-archived catalog). " +
-        "The response was discarded so the default listing cannot be mistaken for the " +
-        "filtered view. Archived variants cannot be listed via the API; they can only " +
-        "be read by ID (get_variant).",
+        "(the shape of a former KIT defect, issue #54, when ARCHIVED was stripped from " +
+        "the GetVariants status filter and the default listing came back instead). " +
+        "The response was discarded so it cannot be mistaken for the filtered view. " +
+        "Report the requested slice as unreadable — never as empty — and do not " +
+        "substitute an unfiltered listing: the default listing excludes ARCHIVED, so " +
+        "filtering it client-side would hide the archive.",
       [],
       "STATUS_FILTER_IGNORED",
-    ),
-  );
-}
-
-/**
- * Mixed status filter with ARCHIVED (issue #54): the stripped listing is
- * indistinguishable from an honored view with an empty archive — unprovable.
- */
-export function mixedArchivedFilterFailure(requested: readonly string[]): ToolResult {
-  return fail(
-    new KitValidationError(
-      `A status filter mixing ARCHIVED with other statuses [${requested.join(", ")}] cannot ` +
-        "be trusted: the KIT API silently strips ARCHIVED from the GetVariants status filter " +
-        "(known defect), so the response would hold only the non-archived slice presented as " +
-        "the full filtered view. The response was discarded. Query the non-archived statuses " +
-        "without ARCHIVED; archived variants can only be read by ID (get_variant).",
-      [],
-      "MIXED_ARCHIVED_FILTER_UNSUPPORTED",
-    ),
-  );
-}
-
-/** Empty ARCHIVED listing that cannot be told apart from the filter defect (issue #54). */
-export function archiveReadUnsupportedFailure(): ToolResult {
-  return fail(
-    new KitValidationError(
-      "Listing archived variants is not supported by the KIT API right now: the server " +
-        "silently strips ARCHIVED from the GetVariants status filter (known defect), and " +
-        "both the filtered and the unfiltered listings are empty, so an empty archive " +
-        "cannot be distinguished from the defect. Do NOT conclude the archive is empty. " +
-        "Archived variants can only be read by ID (get_variant).",
-      [],
-      "ARCHIVE_READ_UNSUPPORTED",
     ),
   );
 }
