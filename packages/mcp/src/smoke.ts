@@ -75,40 +75,24 @@ async function main(): Promise<void> {
   });
   console.log(`products: fetched=${collection?.products?.length ?? 0} (page=1 per_page=1)`);
 
-  // Issue #54 state detector: the KIT API silently strips ARCHIVED from the
-  // GetVariants status filter. Informational only — reports whether the defect
-  // is still present. Only a listed archived variant proves the fix; an empty
-  // archive merely shows the old symptom is gone, and e2e (which archives a
-  // variant of its own) carries the positive probe (issue #151).
+  // Regression detector for issue #54 (fixed server-side by 2026-10): the KIT
+  // API used to strip ARCHIVED from the GetVariants status filter and return
+  // the default listing. Informational; an empty archive proves nothing, which
+  // is why e2e archives a variant of its own and checks it is listed.
   const filtered = await client.call<VariantCollection>("GetVariants", {
     query: { page: 1, per_page: 100, status: ["ARCHIVED"] },
   });
   const variants = filtered?.variants ?? [];
   const archived = variants.filter((v) => v.status === "ARCHIVED").length;
   const outside = variants.length - archived;
-  if (archived > 0) {
-    console.log(
-      `archived-filter: API FIXED — status=ARCHIVED returned ${archived} archived variants; ` +
-        "the list_variants guardrail (issue #54) can be removed",
-    );
-  } else if (outside > 0) {
-    console.log(
-      `archived-filter: KIT defect still present — status=ARCHIVED returned ${outside} ` +
-        "non-archived variants (the default listing)",
-    );
-  } else {
-    const control = await client.call<VariantCollection>("GetVariants", {
-      query: { page: 1, per_page: 1 },
-    });
-    const controlNonEmpty = (control?.variants?.length ?? 0) > 0;
-    console.log(
-      controlNonEmpty
-        ? "archived-filter: defect symptom gone — status=ARCHIVED returned an empty page, " +
-            "not the default listing; the archive is empty, so the fix is unproven here — " +
-            "see the e2e archived-filter probe before removing the guardrail (issue #151)"
-        : "archived-filter: indeterminate — the store has no variants to probe with",
-    );
-  }
+  console.log(
+    outside > 0
+      ? `archived-filter: REGRESSION — status=ARCHIVED returned ${outside} non-archived ` +
+          "variants (the default listing); list_variants now fails with STATUS_FILTER_IGNORED"
+      : archived > 0
+        ? `archived-filter: honored — status=ARCHIVED returned ${archived} archived variants`
+        : "archived-filter: indeterminate — the archive is empty; e2e carries the positive probe",
+  );
 
   // Endpoints added in the 2026-08 KIT release — read-only reachability check.
   const alerts = await client.call<AlertCollection>("GetAlerts", {

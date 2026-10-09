@@ -50,16 +50,12 @@ Read the base catalog in this order:
 5. Treat «целиком» / “complete catalog” as the complete active-catalog scope
    above. Include archived variants/categories/warehouses beyond referenced
    entities only when the owner explicitly says «включая архив» or otherwise
-   asks for an archive audit. Archived categories and warehouses are
-   enumerable with `status: ["ARCHIVED"]`. Archived variants are NOT: the API
-   silently strips `ARCHIVED` from the `GetVariants` status filter (known
-   defect, issue #54), and `list_variants`/`kit_request` fail with
-   `STATUS_FILTER_IGNORED` or `ARCHIVE_READ_UNSUPPORTED` instead of returning
-   the default listing. Treat those failures — and any list response
-   containing statuses outside the requested filter — as an unreadable
-   archive: report the variant archive as not enumerable via the API
-   (unsupported), never as empty and never as proof that no archived variant
-   exists. Archived variants can be read only by ID with `get_variant`.
+   asks for an archive audit. Archived variants, categories and warehouses
+   are enumerable with `status: ["ARCHIVED"]` and the same pagination rule.
+   If `list_variants`/`kit_request` fail with `STATUS_FILTER_IGNORED` (the
+   response held statuses outside the requested filter), treat the archive
+   as unreadable: report it as not enumerable (unsupported), never as empty
+   and never as proof that no archived variant exists.
 6. Continue every independent scope after another scope fails. Record the tool,
    page, received count, expected count when known and the error. Every
    paginated operation uses the same termination rule: continue until the

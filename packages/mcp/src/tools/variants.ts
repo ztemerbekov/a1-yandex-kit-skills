@@ -3,7 +3,6 @@ import { z } from "zod";
 import { KitValidationError, validateRequestBody, type KitClient } from "yandex-kit-core";
 
 import {
-  archiveReadUnsupportedFailure,
   clampPerPage,
   COVERAGE_DESCRIPTION,
   CSV_FIELDS_DESCRIPTION,
@@ -11,7 +10,6 @@ import {
   csvListResult,
   emptyUpdateFailure,
   fail,
-  mixedArchivedFilterFailure,
   ok,
   READ_ONLY,
   statusesOutsideFilter,
@@ -30,41 +28,20 @@ function normalizePrice(value: string | number | null | undefined): string | nul
 }
 
 /**
- * Post-check for the known KIT API defect (issue #54): the server silently
- * strips `ARCHIVED` from the GetVariants status filter (honoring the rest).
- * Shapes: out-of-filter items — the filter was ignored; a mixed filter with no
- * archived item in the response — indistinguishable from an honored view with
- * an empty archive, unprovable; an empty page-1 for a pure [ARCHIVED] filter —
- * disambiguated by one probe carrying the same scope (product_id/name): if the
- * scoped listing is non-empty, a stripped filter would have returned it, so
- * the empty response proves an empty archive. The proof fails for other pages
- * (an empty later page of the stripped listing is legitimate) and for an
- * unscoped probe (other products would make it non-empty).
+ * Post-check of the status filter: a response holding items whose status lies
+ * outside the requested filter is the default listing, not the filtered view —
+ * the shape of the former KIT defect (issue #54, fixed server-side by
+ * 2026-10), when ARCHIVED was silently stripped from the filter. Cheap (no
+ * extra call), so it stays as a regression guard.
  * Returns the failure to surface, or null when the response can be trusted.
  */
-async function verifyStatusFilterHonored(
-  client: KitClient,
+function checkStatusFilterHonored(
   requested: string[] | undefined,
-  scope: { product_id?: string; name?: string },
-  page: number | undefined,
   items: unknown[],
-): Promise<ToolResult | null> {
+): ToolResult | null {
   if (!requested || requested.length === 0) return null;
   const outside = statusesOutsideFilter(requested, items);
-  if (outside.length > 0) return statusFilterIgnoredFailure(requested, outside);
-  if (!requested.includes("ARCHIVED")) return null;
-  const anyArchived = items.some(
-    (item) => (item as { status?: unknown } | null)?.status === "ARCHIVED",
-  );
-  if (anyArchived) return null; // archived items came back — the filter was honored
-  if (requested.length > 1) return mixedArchivedFilterFailure(requested);
-  if (items.length > 0) return null; // items without a readable status — trust as before
-  if ((page ?? 1) > 1) return archiveReadUnsupportedFailure();
-  const probe = await client.call<{ variants?: unknown[] }>("GetVariants", {
-    query: { page: 1, per_page: 1, ...scope },
-  });
-  const defaultListingNonEmpty = Array.isArray(probe?.variants) && probe.variants.length > 0;
-  return defaultListingNonEmpty ? null : archiveReadUnsupportedFailure();
+  return outside.length > 0 ? statusFilterIgnoredFailure(requested, outside) : null;
 }
 
 export function registerVariantTools(server: McpServer, client: KitClient): void {
@@ -80,11 +57,9 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
         "By default the API returns variants of all statuses except ARCHIVED. " +
         "format:\"csv\" defaults to top-level scalar fields and serializes nested pricing/stocks " +
         "as JSON cells; it does not create flat price or per-warehouse stock columns. " +
-        "Known KIT API defect: ARCHIVED is silently stripped from the status filter, so " +
-        "archived variants cannot be listed (only read by ID via get_variant); the tool " +
-        "detects this and fails with STATUS_FILTER_IGNORED, ARCHIVE_READ_UNSUPPORTED or " +
-        "MIXED_ARCHIVED_FILTER_UNSUPPORTED (for filters mixing ARCHIVED with other " +
-        "statuses) instead of returning the wrong catalog slice. " +
+        "List the archive with status [\"ARCHIVED\"]. If the response ever holds statuses " +
+        "outside the requested filter, the tool fails with STATUS_FILTER_IGNORED instead of " +
+        "returning the wrong catalog slice. " +
         "For storefront page URLs use list_variant_links — it joins each item's " +
         "`relative_link_url` with the store's b2c_url for you. " +
         COVERAGE_DESCRIPTION,
@@ -118,13 +93,11 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
     },
     async ({ page, per_page, all, product_id, status, name, format, fields }) => {
       const filters = { product_id, status, name };
-      const scope = { product_id, name };
       try {
         const perPage = clampPerPage(per_page);
         if (all) {
-          // listAll always starts at page 1, so the probe-proof is valid.
           const result = await client.listAll("GetVariants", { query: filters });
-          const guard = await verifyStatusFilterHonored(client, status, scope, 1, result.items);
+          const guard = checkStatusFilterHonored(status, result.items);
           if (guard) return guard;
           const data = withCoverage({ all: result });
           return csvListResult("GetVariants", data, format, fields) ?? ok(data);
@@ -133,7 +106,7 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
           query: { page, per_page: perPage, ...filters },
         });
         const items = Array.isArray(res?.variants) ? res.variants : [];
-        const guard = await verifyStatusFilterHonored(client, status, scope, page, items);
+        const guard = checkStatusFilterHonored(status, items);
         if (guard) return guard;
         const data = withCoverage({ page: res, operationId: "GetVariants", perPage, pageNumber: page ?? 1 });
         return csvListResult("GetVariants", data, format, fields) ?? ok(data);

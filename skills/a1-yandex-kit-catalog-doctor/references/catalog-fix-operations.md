@@ -154,14 +154,13 @@ blocked as possibly missing hidden values.
   `kit_request(operation_id: DeleteVariant, path_params: {id})`, only after an
   exact permanent-delete verb and a detail read confirming `ARCHIVED`. The API
   has no permanent category-delete operation; never promise one. A bulk
-  command over the archive as a set («удали все карточки из архива») cannot be
-  resolved to targets: the API cannot enumerate archived variants (`ARCHIVED`
-  is silently stripped from the `GetVariants` status filter — known defect,
-  issue #54), and `list_variants` fails with
-  `STATUS_FILTER_IGNORED`/`ARCHIVE_READ_UNSUPPORTED`. Report enumeration as
-  unsupported, ask the owner for the exact variant IDs (for example from
-  creation logs), and never derive targets from the default listing or report
-  the archive as empty.
+  command over the archive as a set («удали все карточки из архива») is not
+  yet an exact target list: read every page of `list_variants` with
+  `status: ["ARCHIVED"]`, show the owner the resulting IDs and names, and
+  delete only after the owner confirms that exact list. If the listing fails
+  with `STATUS_FILTER_IGNORED`, report enumeration as unsupported, ask for the
+  exact variant IDs, and never derive targets from the default listing or
+  report the archive as empty.
 
 An image addition requires an exact existing `image_id` or a separately
 authorized upload source. Treat file upload and variant linking as two explicit

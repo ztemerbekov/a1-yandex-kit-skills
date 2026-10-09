@@ -25,9 +25,9 @@ import {
 } from "../util.js";
 
 /**
- * Generic post-check for paginated list responses (issue #54): the KIT API is
- * known to silently strip `ARCHIVED` from the GetVariants status filter and
- * fall back to the default listing. A response containing items whose status
+ * Generic post-check for paginated list responses: the KIT API once silently
+ * stripped `ARCHIVED` from the GetVariants status filter and fell back to the
+ * default listing (issue #54, fixed server-side by 2026-10). A response containing items whose status
  * lies outside the requested status filter must never be returned as if it
  * were the filtered view — for any list operation, current or future.
  */
