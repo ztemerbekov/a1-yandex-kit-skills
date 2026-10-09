@@ -60,11 +60,11 @@ The `mcp-yandex-kit` MCP server exposes **92 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `list_customers` | yes | List customers of the store (paginated). |
+| `list_customers` | yes | List customers of the store (paginated), by customer ID ascending by default. |
 | `get_customer` | yes | Get a single customer by their ID. |
 | `update_customer` | no | Update a customer (plain JSON PATCH). |
 | `get_customer_cart` | yes | Get the current cart of a customer — the source for abandoned-cart work: `items` with quantity and per-unit/line prices, plus `total_price` (before discounts) and `total_final_price` (after item and bundle discounts). |
-| `get_customer_orders` | yes | List order IDs of a customer by their customer ID (paginated). |
+| `get_customer_orders` | yes | List order IDs of a customer by their customer ID (paginated) — the purchase history. |
 
 ## Discounts (`discounts.ts`)
 
@@ -104,8 +104,8 @@ The `mcp-yandex-kit` MCP server exposes **92 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `list_orders` | yes | List orders of the store (paginated), newest first. |
-| `get_order` | yes | Get a single order by its ID, including line items, delivery chunks, payment and status. |
+| `list_orders` | yes | List orders of the store (paginated), newest first by default. |
+| `get_order` | yes | Get a single order by its ID, including line items (items[].name is the product name at order time), delivery chunks, payment and status. |
 | `confirm_order` | no | Confirm an order. |
 | `cancel_order` | no | Cancel an order. |
 | `complete_order_delivery` | no | Mark the delivery of an order as fully completed. |

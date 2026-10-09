@@ -34,7 +34,8 @@ interface ColorCollection {
 }
 
 interface CustomerCollection {
-  customers?: Array<{ customer_id?: string; birth_date?: unknown }>;
+  customers?: Array<{ customer_id?: string; birth_date?: unknown; updated_at?: unknown }>;
+  total_count?: number;
 }
 
 interface Cart {
@@ -44,6 +45,7 @@ interface Cart {
 }
 
 interface OrderCollection {
+  orders?: Array<{ customer_id?: unknown; updated_at?: unknown; items?: Array<{ name?: unknown }> }>;
   total_count?: number;
 }
 
@@ -188,6 +190,51 @@ async function main(): Promise<void> {
           : `orders updated_from: unproven — ${recentTotal} of ${allTotal}; either every order ` +
             "changed within the window or the filter is ignored",
   );
+
+  // Fields and sort added in the 2026-10-09 KIT release — again flags and counts only.
+  const syncOrders = await client.call<OrderCollection>("GetOrders", {
+    query: { page: 1, per_page: 2, sort_by: "updated_at", sort_direction: "asc" },
+  });
+  const firstOrder = syncOrders?.orders?.[0];
+  if (firstOrder === undefined) {
+    console.log("order customer link: indeterminate — the store has no orders to probe with");
+  } else {
+    const present = (v: unknown) => (typeof v === "string" ? "present" : "MISSING");
+    const firstItem = firstOrder.items?.[0];
+    console.log(
+      `order customer link: customer_id=${present(firstOrder.customer_id)} ` +
+        `updated_at=${present(firstOrder.updated_at)} items[].name=` +
+        `${firstItem === undefined ? "no items" : present(firstItem.name)}`,
+    );
+    const [a, b] = (syncOrders?.orders ?? []).map((o) => o.updated_at);
+    console.log(
+      typeof a === "string" && typeof b === "string"
+        ? `orders sort_by=updated_at asc: ${a <= b ? "honored" : "IGNORED"} on the first two`
+        : "orders sort_by=updated_at asc: indeterminate — fewer than two orders",
+    );
+  }
+
+  const allCustomers = customerProbe?.total_count;
+  const recentCustomers = (
+    await client.call<CustomerCollection>("GetCustomers", {
+      query: { page: 1, per_page: 1, updated_from: new Date(Date.now() - DAY_MS).toISOString() },
+    })
+  )?.total_count;
+  console.log(
+    allCustomers === undefined || recentCustomers === undefined
+      ? "customers updated_from: indeterminate — the listing carries no total_count"
+      : allCustomers === 0
+        ? "customers updated_from: indeterminate — the store has no customers to probe with"
+        : recentCustomers < allCustomers
+          ? `customers updated_from: honored — ${recentCustomers} of ${allCustomers} changed in the last 24h`
+          : `customers updated_from: unproven — ${recentCustomers} of ${allCustomers}; either every ` +
+            "customer changed within the window or the filter is ignored",
+  );
+  if (customer !== undefined) {
+    console.log(
+      `customer updated_at: ${typeof customer.updated_at === "string" ? "present" : "MISSING"}`,
+    );
+  }
 
   console.log("smoke OK");
 }

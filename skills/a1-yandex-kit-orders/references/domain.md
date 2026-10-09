@@ -18,9 +18,15 @@ never-created one both return `items: []`, and only a missing `updated_at` separ
 so staleness is your own cutoff. A cart promocode is not reflected in the cart totals (it
 is in `Order.total_final_price`), `product_variant_id` repeats across lines (bundles,
 addons, gifts), and `quantity` may exceed stock until the buyer reopens the cart.
-For incremental sync, filter `GET /v1/orders` by `updated_from`/`updated_to` — an order
-whose status changed stays inside the window, which a created-at filter would miss; both
-bounds are inclusive, so deduplicate by order ID across overlapping polls. Waybills (акты приёма-передачи) for delivery chunks come
+For incremental sync, filter `GET /v1/orders` and `GET /v1/customers` by
+`updated_from` with `sort_by=updated_at&sort_direction=asc` and advance the cursor to the
+largest `updated_at` seen (since the 2026-10-09 release both records carry it) — an order
+whose status changed stays inside the window, which a created-at filter would miss, and a
+record that changes mid-paging moves to the end instead of being skipped; both bounds are
+inclusive, so deduplicate by ID across overlapping polls. Every order carries
+`customer_id` (the buyer's card is `GET /v1/customers/{customer_id}`) and every line item
+its `name`, so an order links to a CRM contact and shows what was bought in one read;
+`GET /v1/customers/{customer_id}/orders` returns only order IDs. Waybills (акты приёма-передачи) for delivery chunks come
 from `GenerateOrderWaybills` — one signed, expiring PDF per warehouse + delivery
 service group, regenerated on every call, with unprintable chunks listed in
 `skipped` with a reason. Per-parcel delivery labels (ярлыки — address, tracking

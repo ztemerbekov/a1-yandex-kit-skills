@@ -23,11 +23,17 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     {
       title: "List orders",
       description:
-        "List orders of the store (paginated), newest first. updated_from/updated_to filter " +
-        "by last-change time, which is what an incremental sync should poll on: an order " +
-        "that only changed status still falls inside the window, while a created-at filter " +
-        "would miss it. The filter is inclusive on both ends, so an overlapping window " +
-        "re-delivers boundary orders — deduplicate by order ID. " +
+        "List orders of the store (paginated), newest first by default. Each order carries " +
+        "customer_id (look the buyer up with get_customer) and items[].name, so a CRM can " +
+        "link an order to its customer card without extra calls. updated_from/updated_to " +
+        "filter by last-change time, which is what an incremental sync should poll on: an " +
+        "order that only changed status still falls inside the window, while a created-at " +
+        "filter would miss it. Sync recipe: updated_from=<cursor>, sort_by=updated_at, " +
+        "sort_direction=asc, then advance the cursor to the largest updated_at seen — an " +
+        "order that changes mid-paging moves to the end instead of being skipped, and an " +
+        "all=true run cut off at 500 items resumes from that cursor. The filter is inclusive " +
+        "on both ends, so the boundary order comes back on the next poll — deduplicate by " +
+        "order ID. " +
         COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
@@ -54,15 +60,34 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
           .describe(
             'Latest order update time, inclusive. RFC 3339 date-time, e.g. "2026-10-02T00:00:00Z".',
           ),
+        sort_by: z
+          .enum(["created_at", "updated_at"])
+          .optional()
+          .describe('Sort field (default "created_at"). Use "updated_at" for incremental sync.'),
+        sort_direction: z
+          .enum(["asc", "desc"])
+          .optional()
+          .describe('Sort direction (default "desc"). Use "asc" with sort_by "updated_at" for sync.'),
         redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
         fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, updated_from, updated_to, redact, format, fields }) => {
+    async ({
+      page,
+      per_page,
+      all,
+      updated_from,
+      updated_to,
+      sort_by,
+      sort_direction,
+      redact,
+      format,
+      fields,
+    }) => {
       try {
         const perPage = clampPerPage(per_page);
-        const filters = { updated_from, updated_to };
+        const filters = { updated_from, updated_to, sort_by, sort_direction };
         const data = all
           ? withCoverage({ all: await client.listAll("GetOrders", { query: filters }) })
           : withCoverage({
@@ -86,7 +111,9 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     {
       title: "Get order",
       description:
-        "Get a single order by its ID, including line items, delivery chunks, payment and status. " +
+        "Get a single order by its ID, including line items (items[].name is the product " +
+        "name at order time), delivery chunks, payment and status. customer_id links the " +
+        "order to its buyer — read the card with get_customer. " +
         "Read the delivery address from delivery_chunks[].delivery_info.address.locality/.address: " +
         "they always match the chosen delivery method, while the courier_*, pickup_point_* and " +
         "self_pick_up_* groups keep whatever the buyer picked earlier in checkout and are stale " +

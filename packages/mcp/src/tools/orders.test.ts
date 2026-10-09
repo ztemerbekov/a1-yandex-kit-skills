@@ -104,12 +104,47 @@ test("list_orders all=true keeps the update window on every auto-paginated page"
   assert.equal(url.searchParams.get("per_page"), "100");
 });
 
+test("list_orders forwards sort_by/sort_direction for the incremental-sync recipe", async () => {
+  const { calls, mcp } = await setup({ orders: [], total_count: 0 });
+  await mcp.callTool({
+    name: "list_orders",
+    arguments: {
+      updated_from: "2026-10-01T00:00:00Z",
+      sort_by: "updated_at",
+      sort_direction: "asc",
+    },
+  });
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.searchParams.get("sort_by"), "updated_at");
+  assert.equal(url.searchParams.get("sort_direction"), "asc");
+});
+
+test("list_orders all=true keeps the sort order on every auto-paginated page", async () => {
+  const { calls, mcp } = await setup({ orders: [{ id: "o1" }], total_count: 1 });
+  await mcp.callTool({
+    name: "list_orders",
+    arguments: { all: true, sort_by: "updated_at", sort_direction: "asc" },
+  });
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.searchParams.get("sort_by"), "updated_at");
+  assert.equal(url.searchParams.get("sort_direction"), "asc");
+});
+
+test("list_orders rejects an unknown sort_by before any network call", async () => {
+  const { calls, mcp } = await setup({ orders: [], total_count: 0 });
+  const res = await mcp.callTool({ name: "list_orders", arguments: { sort_by: "total_price" } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(calls.length, 0);
+});
+
 test("list_orders omits the update window from the query when not requested", async () => {
   const { calls, mcp } = await setup({ orders: [], total_count: 0 });
   await mcp.callTool({ name: "list_orders", arguments: { page: 1 } });
   const url = new URL(calls[0]!.url);
   assert.equal(url.searchParams.has("updated_from"), false);
   assert.equal(url.searchParams.has("updated_to"), false);
+  assert.equal(url.searchParams.has("sort_by"), false);
+  assert.equal(url.searchParams.has("sort_direction"), false);
 });
 
 test("list_orders all=true fetches via listAll with per_page=100", async () => {

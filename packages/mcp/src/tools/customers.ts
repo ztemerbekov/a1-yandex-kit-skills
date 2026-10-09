@@ -23,7 +23,16 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     "list_customers",
     {
       title: "List customers",
-      description: "List customers of the store (paginated). " + COVERAGE_DESCRIPTION,
+      description:
+        "List customers of the store (paginated), by customer ID ascending by default. " +
+        "updated_from/updated_to filter by last-change time (updated_at) for incremental " +
+        "CRM sync. Sync recipe: updated_from=<cursor>, sort_by=updated_at, " +
+        "sort_direction=asc, then advance the cursor to the largest updated_at seen — a " +
+        "customer that changes mid-paging moves to the end instead of being skipped, and an " +
+        "all=true run cut off at 500 items resumes from that cursor. Both bounds are " +
+        "inclusive, so the boundary customer comes back on the next poll — deduplicate by " +
+        "customer_id. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -36,18 +45,54 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        updated_from: z
+          .string()
+          .optional()
+          .describe(
+            "Earliest customer update time, inclusive. RFC 3339 date-time, e.g. " +
+              '"2026-10-01T00:00:00Z".',
+          ),
+        updated_to: z
+          .string()
+          .optional()
+          .describe(
+            "Latest customer update time, inclusive. RFC 3339 date-time, e.g. " +
+              '"2026-10-02T00:00:00Z".',
+          ),
+        sort_by: z
+          .enum(["customer_id", "registered_at", "updated_at"])
+          .optional()
+          .describe('Sort field (default "customer_id"). Use "updated_at" for incremental sync.'),
+        sort_direction: z
+          .enum(["asc", "desc"])
+          .optional()
+          .describe('Sort direction (default "asc").'),
         redact: z.boolean().optional().describe(REDACT_PARAM_DESCRIPTION),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
         fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, redact, format, fields }) => {
+    async ({
+      page,
+      per_page,
+      all,
+      updated_from,
+      updated_to,
+      sort_by,
+      sort_direction,
+      redact,
+      format,
+      fields,
+    }) => {
       try {
         const perPage = clampPerPage(per_page);
+        const filters = { updated_from, updated_to, sort_by, sort_direction };
         const data = all
-          ? withCoverage({ all: await client.listAll("GetCustomers") })
+          ? withCoverage({ all: await client.listAll("GetCustomers", { query: filters }) })
           : withCoverage({
-              page: await client.call("GetCustomers", { query: { page, per_page: perPage } }),
+              page: await client.call("GetCustomers", {
+                query: { page, per_page: perPage, ...filters },
+              }),
               operationId: "GetCustomers",
               perPage,
               pageNumber: page ?? 1,
@@ -157,7 +202,10 @@ export function registerCustomerTools(server: McpServer, client: KitClient): voi
     {
       title: "Get customer orders",
       description:
-        "List order IDs of a customer by their customer ID (paginated). " + COVERAGE_DESCRIPTION,
+        "List order IDs of a customer by their customer ID (paginated) — the purchase " +
+        "history. Read each order with get_order for its line items (items[].name, " +
+        "quantity, price). " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Customer ID (UUID)."),
