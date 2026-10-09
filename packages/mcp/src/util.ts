@@ -444,8 +444,9 @@ export function statusFilterIgnoredFailure(
         "(the shape of a former KIT defect, issue #54, when ARCHIVED was stripped from " +
         "the GetVariants status filter and the default listing came back instead). " +
         "The response was discarded so it cannot be mistaken for the filtered view. " +
-        "Filter an unfiltered listing by status client-side instead, and report the " +
-        "regression.",
+        "Report the requested slice as unreadable — never as empty — and do not " +
+        "substitute an unfiltered listing: the default listing excludes ARCHIVED, so " +
+        "filtering it client-side would hide the archive.",
       [],
       "STATUS_FILTER_IGNORED",
     ),
