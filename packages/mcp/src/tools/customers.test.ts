@@ -94,6 +94,49 @@ test("list_customers all=true fetches via listAll with per_page=100", async () =
   });
 });
 
+test("list_customers forwards the update window and sort to the single-page query", async () => {
+  const { calls, mcp } = await setup({ customers: [], total_count: 0 });
+  const res = await mcp.callTool({
+    name: "list_customers",
+    arguments: {
+      updated_from: "2026-10-01T00:00:00Z",
+      updated_to: "2026-10-02T00:00:00Z",
+      sort_by: "updated_at",
+      sort_direction: "asc",
+    },
+  });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/customers");
+  assert.equal(url.searchParams.get("updated_from"), "2026-10-01T00:00:00Z");
+  assert.equal(url.searchParams.get("updated_to"), "2026-10-02T00:00:00Z");
+  assert.equal(url.searchParams.get("sort_by"), "updated_at");
+  assert.equal(url.searchParams.get("sort_direction"), "asc");
+});
+
+test("list_customers all=true keeps the update window on every auto-paginated page", async () => {
+  const { calls, mcp } = await setup({ customers: [{ customer_id: "c1" }], total_count: 1 });
+  await mcp.callTool({
+    name: "list_customers",
+    arguments: { all: true, updated_from: "2026-10-01T00:00:00Z", sort_by: "updated_at" },
+  });
+  assert.equal(calls.length, 1);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.searchParams.get("updated_from"), "2026-10-01T00:00:00Z");
+  assert.equal(url.searchParams.get("sort_by"), "updated_at");
+  assert.equal(url.searchParams.get("per_page"), "100");
+});
+
+test("list_customers omits the update window and sort when not requested", async () => {
+  const { calls, mcp } = await setup({ customers: [], total_count: 0 });
+  await mcp.callTool({ name: "list_customers", arguments: { page: 1 } });
+  const url = new URL(calls[0]!.url);
+  for (const key of ["updated_from", "updated_to", "sort_by", "sort_direction"]) {
+    assert.equal(url.searchParams.has(key), false, key);
+  }
+});
+
 test("list_customers redact:true masks personal fields but keeps ids, sums and dates", async () => {
   const customer = {
     customer_id: "c1",

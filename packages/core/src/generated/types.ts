@@ -579,6 +579,7 @@ export interface paths {
         /**
          * Создание нового товара
          * @description Создает новый товар с указанными параметрами.
+         *     Добавьте товар в существующий продукт. Для этого в `product_id` укажите идентификатор продукта, который создали через POST /v1/products. Задайте категории на уровне продукта.
          */
         post: operations["CreateVariant"];
         delete?: never;
@@ -1046,7 +1047,9 @@ export interface paths {
         };
         /**
          * Получение списка клиентов
-         * @description Возвращает список клиентов магазина с пагинацией.
+         * @description Возвращает список клиентов магазина с пагинацией. По умолчанию список отсортирован по идентификатору клиента по возрастанию.
+         *
+         *     Чтобы забирать изменения, передайте параметр `updated_from` с сортировкой `sort_by=updated_at&sort_direction=asc`.
          */
         get: operations["GetCustomers"];
         put?: never;
@@ -1146,7 +1149,9 @@ export interface paths {
         };
         /**
          * Получение списка заказов
-         * @description Возвращает список заказов магазина с пагинацией, отсортированный по дате создания по убыванию.
+         * @description Возвращает список заказов магазина с пагинацией. По умолчанию список отсортирован по дате создания по убыванию.
+         *
+         *     Чтобы забирать изменения, передайте параметр `updated_from` с сортировкой `sort_by=updated_at&sort_direction=asc`.
          *
          *     Состав списка совпадает со списком заказов в кабинете продавца: отдаются оформленные заказы
          *     в любом статусе, включая `FROZEN` и `CANCELLED`. Не отдаются незавершенные оформления —
@@ -4508,7 +4513,15 @@ export interface components {
              * @example 2020-01-01T00:00:00Z
              */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description Дата и время последнего обновления заказа.
+             * @example 2020-01-02T00:00:00Z
+             */
+            updated_at: string;
             status: components["schemas"]["OrderStatus"];
+            /** @description Идентификатор покупателя, оформившего заказ. Данные покупателя — `GET /v1/customers/{customer_id}`. */
+            customer_id: components["schemas"]["CustomerID"];
             client: components["schemas"]["OrderClientInfo"];
             payment?: components["schemas"]["OrderPaymentInfo"];
             /** @description Части заказа с информацией о доставке. Каждый чанк содержит товары, отправляемые с одного склада. */
@@ -4728,6 +4741,11 @@ export interface components {
              */
             product_variant_id: string;
             /**
+             * @description Название товара.
+             * @example Футболка белая, размер M
+             */
+            name: string;
+            /**
              * @description Является ли товар на данный момент удаленным.
              * @example false
              */
@@ -4927,6 +4945,12 @@ export interface components {
              * @example 2020-01-01T00:00:00Z
              */
             registered_at: string;
+            /**
+             * Format: date-time
+             * @description Дата и время последнего обновления клиента.
+             * @example 2020-01-02T00:00:00Z
+             */
+            updated_at: string;
             /**
              * @description Количество завершенных заказов клиента.
              * @example 10
@@ -10530,6 +10554,20 @@ export interface operations {
                  *     Не передавайте параметр, чтобы получить всех клиентов.
                  */
                 agreement_for_promo?: boolean;
+                /**
+                 * @description Самая ранняя дата и время обновления клиента включительно.
+                 * @example 2021-01-01T00:00:00Z
+                 */
+                updated_from?: string;
+                /**
+                 * @description Самая поздняя дата и время обновления клиента включительно.
+                 * @example 2021-01-01T00:00:00Z
+                 */
+                updated_to?: string;
+                /** @description Поле для сортировки. */
+                sort_by?: "customer_id" | "registered_at" | "updated_at";
+                /** @description Направление сортировки. */
+                sort_direction?: "asc" | "desc";
             };
             header?: never;
             path?: never;
@@ -10833,6 +10871,10 @@ export interface operations {
                  * @example 2021-01-01T00:00:00Z
                  */
                 updated_to?: string;
+                /** @description Поле для сортировки. */
+                sort_by?: "created_at" | "updated_at";
+                /** @description Направление сортировки. */
+                sort_direction?: "asc" | "desc";
             };
             header?: never;
             path?: never;

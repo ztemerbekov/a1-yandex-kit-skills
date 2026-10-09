@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.8.0"
+  version: "1.9.0"
 ---
 
 # A1 Yandex KIT — Orders
@@ -99,8 +99,8 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
 169 operations):
 
-- `list_orders` — List orders of the store (paginated), newest first.
-- `get_order` — Get a single order by its ID, including line items, delivery chunks, payment and status.
+- `list_orders` — List orders of the store (paginated), newest first by default.
+- `get_order` — Get a single order by its ID, including line items (items[].name is the product name at order time), delivery chunks, payment and status.
 - `confirm_order` — Confirm an order.
 - `cancel_order` — Cancel an order.
 - `complete_order_delivery` — Mark the delivery of an order as fully completed.
@@ -110,11 +110,11 @@ Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta 
 - `generate_order_waybills` — Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and return links to PDF documents.
 - `get_order_delivery_labels` — Get the delivery labels (ярлыки) of an order's delivery chunks — the PDF with the address, tracking number and barcode that goes onto the parcel.
 - `get_delivery_label_formats` — List the label sizes the given delivery services can print — the values accepted by get_order_delivery_labels' label_format.
-- `list_customers` — List customers of the store (paginated).
+- `list_customers` — List customers of the store (paginated), by customer ID ascending by default.
 - `get_customer` — Get a single customer by their ID.
 - `update_customer` — Update a customer (plain JSON PATCH).
 - `get_customer_cart` — Get the current cart of a customer — the source for abandoned-cart work: `items` with quantity and per-unit/line prices, plus `total_price` (before discounts) and `total_final_price` (after item and bundle discounts).
-- `get_customer_orders` — List order IDs of a customer by their customer ID (paginated).
+- `get_customer_orders` — List order IDs of a customer by their customer ID (paginated) — the purchase history.
 - `list_gift_cards` — List gift cards of the store (paginated), with optional status and purchase-date filters.
 - `get_gift_card` — Get a single gift card by its ID, including status, balance and purchase info.
 

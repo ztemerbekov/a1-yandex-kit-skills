@@ -870,7 +870,7 @@
       "path": "/v1/variants",
       "tag": "Товары",
       "summaryRu": "Создание нового товара",
-      "descriptionRu": "Создает новый товар с указанными параметрами.",
+      "descriptionRu": "Создает новый товар с указанными параметрами.\nДобавьте товар в существующий продукт. Для этого в `product_id` укажите идентификатор продукта, который создали через POST /v1/products. Задайте категории на уровне продукта.",
       "pathParams": [],
       "queryParams": [],
       "requestContentType": "application/json",
@@ -1300,7 +1300,7 @@
       "path": "/v1/customers",
       "tag": "Клиенты",
       "summaryRu": "Получение списка клиентов",
-      "descriptionRu": "Возвращает список клиентов магазина с пагинацией.",
+      "descriptionRu": "Возвращает список клиентов магазина с пагинацией. По умолчанию список отсортирован по идентификатору клиента по возрастанию.\n\nЧтобы забирать изменения, передайте параметр `updated_from` с сортировкой `sort_by=updated_at&sort_direction=asc`.",
       "pathParams": [],
       "queryParams": [
         {
@@ -1332,6 +1332,53 @@
           "maximum": null,
           "default": null,
           "descriptionRu": "Фильтр по согласию клиента на получение рекламных материалов.\nНе передавайте параметр, чтобы получить всех клиентов."
+        },
+        {
+          "name": "updated_from",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Самая ранняя дата и время обновления клиента включительно."
+        },
+        {
+          "name": "updated_to",
+          "required": false,
+          "type": "string",
+          "enum": null,
+          "minimum": null,
+          "maximum": null,
+          "default": null,
+          "descriptionRu": "Самая поздняя дата и время обновления клиента включительно."
+        },
+        {
+          "name": "sort_by",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "customer_id",
+            "registered_at",
+            "updated_at"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "customer_id",
+          "descriptionRu": "Поле для сортировки."
+        },
+        {
+          "name": "sort_direction",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "asc",
+          "descriptionRu": "Направление сортировки."
         }
       ],
       "requestContentType": null,
@@ -1435,7 +1482,7 @@
       "path": "/v1/orders",
       "tag": "Заказы",
       "summaryRu": "Получение списка заказов",
-      "descriptionRu": "Возвращает список заказов магазина с пагинацией, отсортированный по дате создания по убыванию.\n\nСостав списка совпадает со списком заказов в кабинете продавца: отдаются оформленные заказы\nв любом статусе, включая `FROZEN` и `CANCELLED`. Не отдаются незавершенные оформления —\nкорзины, по которым покупатель не дошел до оплаты, — и заказы подарочных карт.",
+      "descriptionRu": "Возвращает список заказов магазина с пагинацией. По умолчанию список отсортирован по дате создания по убыванию.\n\nЧтобы забирать изменения, передайте параметр `updated_from` с сортировкой `sort_by=updated_at&sort_direction=asc`.\n\nСостав списка совпадает со списком заказов в кабинете продавца: отдаются оформленные заказы\nв любом статусе, включая `FROZEN` и `CANCELLED`. Не отдаются незавершенные оформления —\nкорзины, по которым покупатель не дошел до оплаты, — и заказы подарочных карт.",
       "pathParams": [],
       "queryParams": [
         {
@@ -1477,6 +1524,32 @@
           "maximum": null,
           "default": null,
           "descriptionRu": "Самая поздняя дата и время обновления заказа включительно."
+        },
+        {
+          "name": "sort_by",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "created_at",
+            "updated_at"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "created_at",
+          "descriptionRu": "Поле для сортировки."
+        },
+        {
+          "name": "sort_direction",
+          "required": false,
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "minimum": null,
+          "maximum": null,
+          "default": "desc",
+          "descriptionRu": "Направление сортировки."
         }
       ],
       "requestContentType": null,
