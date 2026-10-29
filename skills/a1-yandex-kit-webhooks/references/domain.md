@@ -5,14 +5,22 @@
 Key facts:
 
 - Callback URLs must be **HTTPS** — plain `http://` URLs are rejected.
-- Exactly **four event types** exist: `ORDER_STATUS_CHANGED`,
-  `ORDER_PAYMENT_STATUS_CHANGED`, `ORDER_DELIVERY_STATUS_CHANGED` and
-  `CUSTOMER_CHANGED` (added by the 2026-10-02 release).
+- Exactly **five event types** exist: `ORDER_STATUS_CHANGED`,
+  `ORDER_PAYMENT_STATUS_CHANGED`, `ORDER_DELIVERY_STATUS_CHANGED`,
+  `CUSTOMER_CHANGED` (added by the 2026-10-02 release) and `CART_UPDATED` (added by
+  the 2026-10-29 release).
 - **`CUSTOMER_CHANGED`** fires when a customer appears or their name, phone or email
   changes. Its `data` carries only `{customer_id}` — no before/after diff and no field
   list — so a CRM sync must read `GET /v1/customers/{customer_id}` to learn the new
-  values. It is the only non-order event: a receiver that assumed `data.order_id` is
-  always present breaks on it, so branch on `event` before touching `data`.
+  values. Like `CART_UPDATED` it is a non-order event: a receiver that assumed
+  `data.order_id` is always present breaks on it, so branch on `event` before touching
+  `data`.
+- **`CART_UPDATED`** fires when a customer changes their cart, clearing included. Its
+  `data` carries only `{customer_id}`; a series of changes to one cart collapses into a
+  single event, delivered at most once per 15 minutes and up to 15 minutes after the change.
+  Read the current contents with `GET /v1/customers/{customer_id}/cart` when handling the
+  event — never reconstruct the cart from events. Abandoned-cart reminders built on it must
+  tolerate that delay and re-check the cart (and recent orders) before messaging the buyer.
 - **`ORDER_STATUS_CHANGED` is being narrowed** (Yandex announced it; no cutoff date given):
   it will stop firing for the two receipt-technical statuses `CREATING_INITIAL_RECEIPT`
   and `CREATING_FINAL_RECEIPTS`. An integration triggered by those two events must move to
@@ -22,10 +30,17 @@ Key facts:
 - Creating a webhook (`CreateWebhook`) returns a signing `secret` that is shown
   **only once** — persist it immediately; it cannot be retrieved later (delete and
   recreate the webhook if lost).
-- **The signature algorithm is not documented by Yandex.** Use the secret to verify that
-  incoming calls are authentic, but check the KIT community chat
-  (https://t.me/+f9qV8snaY1pmM2Ji) or Yandex support for the current signing scheme
-  before relying on any particular construction.
+- **Verify every delivery by its signature.** Each request carries
+  `X-Webhook-Signature` — the hex HMAC-SHA256 of the raw request body, keyed
+  with the webhook's `secret`. Compute it over the exact bytes received (before any JSON
+  parsing or re-serialization) and compare in constant time; reject a mismatch.
+- **Delivery is at-least-once and unordered.** Deduplicate by `event_id` (a redelivery
+  reuses it) and order by `occurred_at`, not by arrival. Retries back off exponentially
+  (1 s → 10 min, at most 8 attempts within a 10-minute window) on `5xx`, `408`,
+  `429`, `401`, `403`, `404`, `3xx` (redirects are not followed), network errors
+  and the 10-second timeout; any other `4xx` (including `410`) is final. After the
+  last attempt the event is dropped — reconcile through the list endpoints, never assume
+  the callback stream is complete.
 - `ValidateWebhook` asks the API to POST a `WEBHOOK_VALIDATE` event to your URL — use it
   to test reachability after deploying the receiver.
 

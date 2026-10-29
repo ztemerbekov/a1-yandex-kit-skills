@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **92 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 169 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 178 API operations, including those without a dedicated tool.
 
 ## Alerts (`alerts.ts`)
 
@@ -96,9 +96,9 @@ The `mcp-yandex-kit` MCP server exposes **92 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 169 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 178 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 169 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 178 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -134,6 +134,15 @@ The `mcp-yandex-kit` MCP server exposes **92 tools** for the Yandex KIT e-commer
 | `create_promocode` | no | Create a new promocode. |
 | `update_promocode` | no | Update an existing promocode (plain application/json PATCH): send only the fields to change (code, title, discount_value, promocode_dates, status, binding_mode, limits). |
 | `manage_promocode_objects` | no | Attach objects to a promocode or detach them. |
+
+## Similar-cards (`similar-cards.ts`)
+
+| Tool | Read-only | Description |
+| --- | --- | --- |
+| `get_similar_cards` | yes | Get the similar-products settings of a product card: its binding_mode plus the bound objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 IDs each). |
+| `set_similar_cards_mode` | no | Create the similar-products settings of a product card (action="create"; 409 if they already exist) or change the binding mode of existing ones (action="update"; 404 if there are none — check with get_similar_cards). |
+| `manage_similar_cards_objects` | no | Bind objects to a product card's similar-products settings or unbind them (up to 500 per call). |
+| `delete_similar_cards` | no | Delete the similar-products settings of a product card. |
 
 ## Store (`store.ts`)
 
@@ -188,7 +197,7 @@ The `mcp-yandex-kit` MCP server exposes **92 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**95 of 169 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**104 of 178 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 

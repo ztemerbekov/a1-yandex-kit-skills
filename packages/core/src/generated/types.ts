@@ -500,8 +500,11 @@ export interface paths {
         };
         /**
          * Получение списка похожих карточек товара.
-         * @description Возвращает список уникальных идентификаторов похожих карточек товара по идентификатору карточки товара.
-         *     Похожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.
+         * @deprecated
+         * @description Deprecated. Используйте `GET /v1/similar-cards/{product_card_id}/cards`.
+         *
+         *     Возвращает список уникальных идентификаторов похожих карточек товара по идентификатору карточки товара.
+         *     Похожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.
          */
         get: operations["GetSimilarProductCardIDs"];
         put?: never;
@@ -525,8 +528,12 @@ export interface paths {
         put?: never;
         /**
          * Добавление похожих карточек товара
-         * @description Добавляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.
-         *     Похожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.
+         * @deprecated
+         * @description Deprecated. Используйте `POST /v1/similar-cards/{product_card_id}/objects/add`.
+         *     В отличие от этого метода, новый метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса новый метод не создает.
+         *
+         *     Добавляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.
+         *     Похожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.
          */
         post: operations["AddSimilarProductCards"];
         delete?: never;
@@ -548,8 +555,12 @@ export interface paths {
         put?: never;
         /**
          * Удаление похожих карточек товара
-         * @description Удаляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.
-         *     Похожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.
+         * @deprecated
+         * @description Deprecated. Используйте `POST /v1/similar-cards/{product_card_id}/objects/remove`.
+         *     В отличие от этого метода, новый метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса новый метод не удаляет.
+         *
+         *     Удаляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.
+         *     Похожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.
          */
         post: operations["DeleteSimilarProductCards"];
         delete?: never;
@@ -1027,7 +1038,7 @@ export interface paths {
          * @description Возвращает ссылки на фиды каталога магазина — регулярные выгрузки товаров.
          *
          *     Ссылка на фид постоянная — она не меняется при обновлении содержимого фида.
-         *     Достаточно получить ее один раз и периодически скачивать по ней сам фид.
+         *     Получите ее один раз и периодически скачивайте по ней сам фид.
          */
         get: operations["GetStoreFeeds"];
         put?: never;
@@ -2882,6 +2893,160 @@ export interface paths {
          *     Услуга должна иметь `binding_mode = SELECTED_VARIANTS` (для удаления товаров) или `SELECTED_CATEGORIES_COLLECTIONS` (для удаления категорий и коллекций).
          */
         post: operations["RemoveAddonObjects"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/similar-cards/{product_card_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение настроек похожих карточек
+         * @description Возвращает настройки похожих карточек по идентификатору карточки товара.
+         */
+        get: operations["GetSimilarCardsById"];
+        /**
+         * Обновление настроек похожих карточек
+         * @description Обновляет режим привязки похожих карточек из поля `binding_mode`.
+         */
+        put: operations["UpdateSimilarCards"];
+        /**
+         * Создание настроек похожих карточек
+         * @description Создает настройки похожих карточек для указанной карточки товара.
+         *     Если настройки для карточки уже существуют, возвращает `409`.
+         */
+        post: operations["CreateSimilarCards"];
+        /**
+         * Удаление настроек похожих карточек
+         * @description Удаляет настройки похожих карточек по идентификатору карточки товара.
+         */
+        delete: operations["DeleteSimilarCards"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/similar-cards/{product_card_id}/cards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение идентификаторов выбранных похожих карточек
+         * @description Возвращает идентификаторы выбранных похожих карточек.
+         *     Работает только для настроек с `binding_mode = SELECTED_CARDS`.
+         */
+        get: operations["GetSimilarCardsCardIDs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/similar-cards/{product_card_id}/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение идентификаторов категорий похожих карточек
+         * @description Возвращает идентификаторы категорий настроек похожих карточек.
+         *     Работает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.
+         */
+        get: operations["GetSimilarCardsCategoryIDs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/similar-cards/{product_card_id}/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Получение идентификаторов коллекций похожих карточек
+         * @description Возвращает идентификаторы коллекций настроек похожих карточек.
+         *     Работает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.
+         */
+        get: operations["GetSimilarCardsCollectionIDs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/similar-cards/{product_card_id}/objects/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Добавление объектов в настройки похожих карточек
+         * @description Добавляет карточки, категории или коллекции в настройки похожих карточек. Лимит на количество объектов — 500.
+         *     Метод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).
+         *     В одном запросе передавайте либо карточки, либо категории и коллекции.
+         *     Метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не создает.
+         */
+        post: operations["AddSimilarCardsObjects"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/similar-cards/{product_card_id}/objects/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Удаление объектов из настроек похожих карточек
+         * @description Удаляет карточки, категории или коллекции из настроек похожих карточек. Лимит на количество объектов — 500.
+         *     Метод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).
+         *     В одном запросе передавайте либо карточки, либо категории и коллекции.
+         *     Метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не удаляет.
+         */
+        post: operations["RemoveSimilarCardsObjects"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4952,6 +5117,12 @@ export interface components {
              */
             updated_at: string;
             /**
+             * Format: date-time
+             * @description Дата и время создания клиента в магазине. Может быть раньше `registered_at`.
+             * @example 2019-12-31T00:00:00Z
+             */
+            created_at: string;
+            /**
              * @description Количество завершенных заказов клиента.
              * @example 10
              */
@@ -5825,20 +5996,12 @@ export interface components {
              * @example price
              */
             field: string;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            operator: "EQ" | "NE" | "GT" | "LT" | "GE" | "LE";
+            operator: components["schemas"]["SingleValueFilterOperator"];
             value?: string;
         };
         ProductVariantMultiValueFilter: {
             field: string;
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            operator: "IN" | "NOT_IN";
+            operator: components["schemas"]["MultiValueFilterOperator"];
             /** @description Массив значений для фильтрации. */
             values: string[];
         };
@@ -6630,9 +6793,10 @@ export interface components {
          *     - `ORDER_PAYMENT_STATUS_CHANGED` — изменился статус оплаты заказа.
          *     - `ORDER_DELIVERY_STATUS_CHANGED` — изменился статус доставки заказа.
          *     - `CUSTOMER_CHANGED` — изменились данные клиента.
+         *     - `CART_UPDATED` — изменилась корзина клиента (события по одной корзине схлопываются).
          * @enum {string}
          */
-        WebhookEventTypes: "ORDER_STATUS_CHANGED" | "ORDER_PAYMENT_STATUS_CHANGED" | "ORDER_DELIVERY_STATUS_CHANGED" | "CUSTOMER_CHANGED";
+        WebhookEventTypes: "ORDER_STATUS_CHANGED" | "ORDER_PAYMENT_STATUS_CHANGED" | "ORDER_DELIVERY_STATUS_CHANGED" | "CUSTOMER_CHANGED" | "CART_UPDATED";
         CreateWebhookRequest: {
             /**
              * @description URL вебхука. Поддерживается только HTTPS протокол.
@@ -7098,6 +7262,39 @@ export interface components {
         AddonObjects: {
             /** @description Идентификаторы товаров. */
             product_variant_ids?: string[];
+            /** @description Идентификаторы категорий. */
+            category_ids?: string[];
+            /** @description Идентификаторы коллекций. */
+            collection_ids?: string[];
+        };
+        /**
+         * @description Режим привязки похожих карточек:
+         *     - `ALL_VARIANTS` — похожи все товары магазина.
+         *     - `SELECTED_CARDS` — похожи выбранные карточки товара.
+         *     - `SELECTED_CATEGORIES_COLLECTIONS` — похожи товары из выбранных категорий и коллекций.
+         * @enum {string}
+         */
+        SimilarCardBindingMode: "ALL_VARIANTS" | "SELECTED_CARDS" | "SELECTED_CATEGORIES_COLLECTIONS";
+        SimilarCards: {
+            product_card_id: components["schemas"]["ProductCardID"];
+            binding_mode: components["schemas"]["SimilarCardBindingMode"];
+        };
+        CreateSimilarCardsRequest: {
+            binding_mode: components["schemas"]["SimilarCardBindingMode"];
+        };
+        UpdateSimilarCardsRequest: {
+            binding_mode: components["schemas"]["SimilarCardBindingMode"];
+        };
+        /**
+         * @description Объекты для привязки к настройкам похожих карточек:
+         *     - `product_card_ids` — для привязки конкретных карточек.
+         *     - `category_ids` — для привязки категорий.
+         *     - `collection_ids` — для привязки коллекций.
+         *     В одном запросе передавайте либо карточки, либо категории и коллекции.
+         */
+        SimilarCardObjects: {
+            /** @description Идентификаторы карточек товара. */
+            product_card_ids?: components["schemas"]["ProductCardID"][];
             /** @description Идентификаторы категорий. */
             category_ids?: string[];
             /** @description Идентификаторы коллекций. */
@@ -11398,7 +11595,7 @@ export interface operations {
                 /**
                  * @description Метка источника перехода: попадает в параметр `from` итоговой ссылки,
                  *     чтобы магазин мог отличать в аналитике переходы из разных интеграций.
-                 *     Если не передан, используется `api`.
+                 *     Если параметр не передан, используется `crm` для токена CRM-интеграции и `api` для остальных токенов.
                  */
                 source?: string;
             };
@@ -16940,6 +17137,562 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AddonObjects"];
+            };
+        };
+        responses: {
+            /** @description Объекты успешно удалены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetSimilarCardsById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Настройки похожих карточек. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarCards"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UpdateSimilarCards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSimilarCardsRequest"];
+            };
+        };
+        responses: {
+            /** @description Настройки успешно обновлены. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarCards"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    CreateSimilarCards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSimilarCardsRequest"];
+            };
+        };
+        responses: {
+            /** @description Настройки успешно созданы. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SimilarCards"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Конфликт данных. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    DeleteSimilarCards: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Настройки успешно удалены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetSimilarCardsCardIDs: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ID похожих карточек. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductCardIDCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetSimilarCardsCategoryIDs: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ID категорий. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryIDCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    GetSimilarCardsCollectionIDs: {
+        parameters: {
+            query?: {
+                /** @description Номер страницы. */
+                page?: number;
+                /** @description Количество элементов на странице. */
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description ID коллекций. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CollectionIDCollection"];
+                };
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AddSimilarCardsObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimilarCardObjects"];
+            };
+        };
+        responses: {
+            /** @description Объекты успешно добавлены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Ресурс не найден. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    RemoveSimilarCardsObjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_card_id: components["schemas"]["ProductCardID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SimilarCardObjects"];
             };
         };
         responses: {

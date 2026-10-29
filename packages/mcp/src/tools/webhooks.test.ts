@@ -102,6 +102,15 @@ test("create_webhook with a minimal valid body performs the request", async () =
   assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), webhook);
 });
 
+test("create_webhook accepts the CART_UPDATED event", async () => {
+  const { calls, mcp } = await setup({ id: "wh-1", secret: "s" });
+  const webhook = { url: "https://example.com/hook", events: ["CUSTOMER_CHANGED", "CART_UPDATED"] };
+  const res = await mcp.callTool({ name: "create_webhook", arguments: { webhook } });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(JSON.parse(calls[0]!.init?.body as string), webhook);
+});
+
 test("update_webhook with an empty body fails without any network call", async () => {
   const { calls, mcp } = await setup();
   const res = await mcp.callTool({ name: "update_webhook", arguments: { id: "wh-1", webhook: {} } });

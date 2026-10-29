@@ -33,7 +33,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
 const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
-const SKILL_VERSION = "1.10.0";
+const SKILL_VERSION = "1.11.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
@@ -77,7 +77,7 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
   const sections = new Map<string, { name: string; description: string }[]>();
   let current: { name: string; description: string }[] | null = null;
   for (const line of readFileSync(TOOLS_MD_PATH, "utf8").split("\n")) {
-    const heading = line.match(/^## .+ \(`([a-z]+)\.ts`\)$/);
+    const heading = line.match(/^## .+ \(`([a-z-]+)\.ts`\)$/);
     if (heading) {
       current = [];
       sections.set(heading[1]!, current);
@@ -95,8 +95,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 92) {
-  throw new Error(`Expected 92 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 96) {
+  throw new Error(`Expected 96 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -227,22 +227,30 @@ finish the task, not to learn about API internals.`;
 
 const WEBHOOKS_OVERVIEW = `Before creating or migrating webhook subscriptions, checking subscriptions or event coverage,
 or diagnosing missing or unexpected callbacks, read [\`references/domain.md\`](references/domain.md).
-The one-time signing secret, the four event types and the \`ORDER_STATUS_CHANGED\` narrowing live there.
+The one-time signing secret, signature verification, retry semantics, the five event types and the \`ORDER_STATUS_CHANGED\` narrowing live there.
 
 Covers the Вебхуки tag of the Yandex KIT e-commerce API: subscribing HTTPS endpoints to
-order lifecycle and customer-change notifications and managing those subscriptions.`;
+order lifecycle, customer-change and cart-change notifications and managing those subscriptions.`;
 
 const WEBHOOKS_DETAILS = `Key facts:
 
 - Callback URLs must be **HTTPS** — plain \`http://\` URLs are rejected.
-- Exactly **four event types** exist: \`ORDER_STATUS_CHANGED\`,
-  \`ORDER_PAYMENT_STATUS_CHANGED\`, \`ORDER_DELIVERY_STATUS_CHANGED\` and
-  \`CUSTOMER_CHANGED\` (added by the 2026-10-02 release).
+- Exactly **five event types** exist: \`ORDER_STATUS_CHANGED\`,
+  \`ORDER_PAYMENT_STATUS_CHANGED\`, \`ORDER_DELIVERY_STATUS_CHANGED\`,
+  \`CUSTOMER_CHANGED\` (added by the 2026-10-02 release) and \`CART_UPDATED\` (added by
+  the 2026-10-29 release).
 - **\`CUSTOMER_CHANGED\`** fires when a customer appears or their name, phone or email
   changes. Its \`data\` carries only \`{customer_id}\` — no before/after diff and no field
   list — so a CRM sync must read \`GET /v1/customers/{customer_id}\` to learn the new
-  values. It is the only non-order event: a receiver that assumed \`data.order_id\` is
-  always present breaks on it, so branch on \`event\` before touching \`data\`.
+  values. Like \`CART_UPDATED\` it is a non-order event: a receiver that assumed
+  \`data.order_id\` is always present breaks on it, so branch on \`event\` before touching
+  \`data\`.
+- **\`CART_UPDATED\`** fires when a customer changes their cart, clearing included. Its
+  \`data\` carries only \`{customer_id}\`; a series of changes to one cart collapses into a
+  single event, delivered at most once per 15 minutes and up to 15 minutes after the change.
+  Read the current contents with \`GET /v1/customers/{customer_id}/cart\` when handling the
+  event — never reconstruct the cart from events. Abandoned-cart reminders built on it must
+  tolerate that delay and re-check the cart (and recent orders) before messaging the buyer.
 - **\`ORDER_STATUS_CHANGED\` is being narrowed** (Yandex announced it; no cutoff date given):
   it will stop firing for the two receipt-technical statuses \`CREATING_INITIAL_RECEIPT\`
   and \`CREATING_FINAL_RECEIPTS\`. An integration triggered by those two events must move to
@@ -252,10 +260,17 @@ const WEBHOOKS_DETAILS = `Key facts:
 - Creating a webhook (\`CreateWebhook\`) returns a signing \`secret\` that is shown
   **only once** — persist it immediately; it cannot be retrieved later (delete and
   recreate the webhook if lost).
-- **The signature algorithm is not documented by Yandex.** Use the secret to verify that
-  incoming calls are authentic, but check the KIT community chat
-  (https://t.me/+f9qV8snaY1pmM2Ji) or Yandex support for the current signing scheme
-  before relying on any particular construction.
+- **Verify every delivery by its signature.** Each request carries
+  \`X-Webhook-Signature\` — the hex HMAC-SHA256 of the raw request body, keyed
+  with the webhook's \`secret\`. Compute it over the exact bytes received (before any JSON
+  parsing or re-serialization) and compare in constant time; reject a mismatch.
+- **Delivery is at-least-once and unordered.** Deduplicate by \`event_id\` (a redelivery
+  reuses it) and order by \`occurred_at\`, not by arrival. Retries back off exponentially
+  (1 s → 10 min, at most 8 attempts within a 10-minute window) on \`5xx\`, \`408\`,
+  \`429\`, \`401\`, \`403\`, \`404\`, \`3xx\` (redirects are not followed), network errors
+  and the 10-second timeout; any other \`4xx\` (including \`410\`) is final. After the
+  last attempt the event is dropped — reconcile through the list endpoints, never assume
+  the callback stream is complete.
 - \`ValidateWebhook\` asks the API to POST a \`WEBHOOK_VALIDATE\` event to your URL — use it
   to test reachability after deploying the receiver.
 
@@ -363,9 +378,19 @@ and batch scripts; client throttling/backoff never grants a write retry.
 
 A variant carries two **distinct** identifiers:
 \`product_id\` and \`product_card_id\` (карточка товара) — the card-scoped endpoints
-(\`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
+(\`/v1/similar-cards/{product_card_id}...\`, the deprecated
+\`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
 «Добавление/Удаление карточек») take \`product_card_id\`, never a product id; read it
-from the variant first. Variant documents (инструкции, сертификаты, паспорта) live under
+from the variant first. Similar products are configured per card under
+\`/v1/similar-cards/{product_card_id}\`: a \`binding_mode\` (\`ALL_VARIANTS\`,
+\`SELECTED_CARDS\` or \`SELECTED_CATEGORIES_COLLECTIONS\`) plus bound cards or
+categories/collections via \`objects/add\` and \`objects/remove\`. Unlike the deprecated
+symmetric \`AddSimilarProductCards\`/\`DeleteSimilarProductCards\`, these change only the
+given card's settings and create no reverse links. The two APIs store bindings
+separately — \`GetSimilarProductCardIDs\` does not show cards bound through
+\`objects/add\` and vice versa. Changing \`binding_mode\` (\`UpdateSimilarCards\`) drops
+all bound objects, and switching back does not restore them: read the bindings first and
+re-bind after the change. Variant documents (инструкции, сертификаты, паспорта) live under
 \`/v1/variants/{id}/attachments\`: upload the file via \`POST /v1/files\` first, then
 attach it by \`file_id\`; the title must not contain \`:\` or \`/\`, and
 \`display_sequence\` must be unique per variant (an occupied value returns 409 — nothing
@@ -405,7 +430,7 @@ when the store's URL rules change.
 
 ${DOMAIN_TRAILER}`,
     tags: ["Товары", "Категории товаров", "Характеристики товаров", "Видео", "Коллекции", "Контекстные коллекции", "Бейджи"],
-    toolFiles: ["products", "variants", "categories", "characteristics", "videos", "collections"],
+    toolFiles: ["products", "similar-cards", "variants", "categories", "characteristics", "videos", "collections"],
     toolsNote:
       "Контекстные коллекции and Бейджи have no dedicated tools — reach them through " +
       "`search_operations` + `kit_request`.",

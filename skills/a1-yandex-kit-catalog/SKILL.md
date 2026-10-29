@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.10.0"
+  version: "1.11.0"
 ---
 
 # A1 Yandex KIT — Catalog
@@ -101,19 +101,23 @@ Load only the page the task needs:
   identifiers, content types, lifecycle rules and edge cases. Read it before
   planning any write.
 - [`references/endpoints.md`](references/endpoints.md) — the full operation
-  tables of this domain (71 operations: method, path, operationId,
+  tables of this domain (80 operations: method, path, operationId,
   Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-169 operations):
+178 operations):
 
 - `list_products` — List product records (paginated); for export requests, use this for explicit raw product-group or catalog-structure dumps.
 - `get_product` — Get a single product by its ID, including its category bindings.
 - `create_product` — Create a new product.
 - `update_product` — Update an existing product (plain JSON PATCH, not merge-patch).
+- `get_similar_cards` — Get the similar-products settings of a product card: its binding_mode plus the bound objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 IDs each).
+- `set_similar_cards_mode` — Create the similar-products settings of a product card (action="create"; 409 if they already exist) or change the binding mode of existing ones (action="update"; 404 if there are none — check with get_similar_cards).
+- `manage_similar_cards_objects` — Bind objects to a product card's similar-products settings or unbind them (up to 500 per call).
+- `delete_similar_cards` — Delete the similar-products settings of a product card.
 - `list_variants` — Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU.
 - `get_variant` — Get a single variant by its ID (name, SKU, pricing, stocks, media, status).
 - `list_variant_links` — Storefront page URLs of variants, ready to hand to a CMS, PIM or feed.

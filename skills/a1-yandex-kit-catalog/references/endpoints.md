@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT — Catalog — endpoints
 
-## Endpoints (71 operations)
+## Endpoints (80 operations)
 
 ### Товары
 
@@ -31,6 +31,15 @@
 | DELETE | `/v1/variants/{id}/attachments/{file_id}` | `DeleteVariantAttachment` | Открепление документа от товара |
 | POST | `/v1/variants/stocks/bulk_update` | `BulkUpdateStocks` | Массовое обновление остатков |
 | POST | `/v1/variants/prices/bulk_update` | `BulkUpdatePrices` | Массовое обновление цен |
+| GET | `/v1/similar-cards/{product_card_id}` | `GetSimilarCardsById` | Получение настроек похожих карточек |
+| POST | `/v1/similar-cards/{product_card_id}` | `CreateSimilarCards` | Создание настроек похожих карточек |
+| PUT | `/v1/similar-cards/{product_card_id}` | `UpdateSimilarCards` | Обновление настроек похожих карточек |
+| DELETE | `/v1/similar-cards/{product_card_id}` | `DeleteSimilarCards` | Удаление настроек похожих карточек |
+| GET | `/v1/similar-cards/{product_card_id}/cards` | `GetSimilarCardsCardIDs` | Получение идентификаторов выбранных похожих карточек |
+| GET | `/v1/similar-cards/{product_card_id}/categories` | `GetSimilarCardsCategoryIDs` | Получение идентификаторов категорий похожих карточек |
+| GET | `/v1/similar-cards/{product_card_id}/collections` | `GetSimilarCardsCollectionIDs` | Получение идентификаторов коллекций похожих карточек |
+| POST | `/v1/similar-cards/{product_card_id}/objects/add` | `AddSimilarCardsObjects` | Добавление объектов в настройки похожих карточек |
+| POST | `/v1/similar-cards/{product_card_id}/objects/remove` | `RemoveSimilarCardsObjects` | Удаление объектов из настроек похожих карточек |
 
 ### Категории товаров
 

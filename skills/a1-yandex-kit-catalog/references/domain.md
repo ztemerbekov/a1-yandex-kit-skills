@@ -63,9 +63,19 @@ and batch scripts; client throttling/backoff never grants a write retry.
 
 A variant carries two **distinct** identifiers:
 `product_id` and `product_card_id` (карточка товара) — the card-scoped endpoints
-(`/v1/products/cards/{product_card_id}/similar...` and collection card management,
+(`/v1/similar-cards/{product_card_id}...`, the deprecated
+`/v1/products/cards/{product_card_id}/similar...` and collection card management,
 «Добавление/Удаление карточек») take `product_card_id`, never a product id; read it
-from the variant first. Variant documents (инструкции, сертификаты, паспорта) live under
+from the variant first. Similar products are configured per card under
+`/v1/similar-cards/{product_card_id}`: a `binding_mode` (`ALL_VARIANTS`,
+`SELECTED_CARDS` or `SELECTED_CATEGORIES_COLLECTIONS`) plus bound cards or
+categories/collections via `objects/add` and `objects/remove`. Unlike the deprecated
+symmetric `AddSimilarProductCards`/`DeleteSimilarProductCards`, these change only the
+given card's settings and create no reverse links. The two APIs store bindings
+separately — `GetSimilarProductCardIDs` does not show cards bound through
+`objects/add` and vice versa. Changing `binding_mode` (`UpdateSimilarCards`) drops
+all bound objects, and switching back does not restore them: read the bindings first and
+re-bind after the change. Variant documents (инструкции, сертификаты, паспорта) live under
 `/v1/variants/{id}/attachments`: upload the file via `POST /v1/files` first, then
 attach it by `file_id`; the title must not contain `:` or `/`, and
 `display_sequence` must be unique per variant (an occupied value returns 409 — nothing
