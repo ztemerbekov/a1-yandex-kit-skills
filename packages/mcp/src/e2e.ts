@@ -5,7 +5,10 @@
 //
 // Flow: connect over stdio -> tools/list sanity -> get_store -> create an E2E
 // category -> create a product in it -> create a HIDDEN variant (never visible
-// on the storefront) -> update its price -> read it back -> archive the variant
+// on the storefront) -> update its price -> read it back -> similar-products
+// settings on its card (none yet -> create + bind the e2e category -> a mode
+// change drops the bindings -> delete) -> a webhook subscribed to CART_UPDATED
+// (create INACTIVE -> read -> delete) -> archive the variant
 // -> permanently delete it (DeleteVariant is only legal for ARCHIVED variants;
 // without this step every run leaves one more card in the merchant UI's
 // archive tab, see issue #54) -> archive the category. The product itself
@@ -29,8 +32,17 @@ const REQUIRED_TOOLS = [
   "update_variant",
   "get_variant",
   "variant_action",
+  "get_similar_cards",
+  "set_similar_cards_mode",
+  "manage_similar_cards_objects",
+  "delete_similar_cards",
+  "create_webhook",
+  "get_webhook",
+  "delete_webhook",
   "kit_request",
 ];
+
+const TOTAL_STEPS = 17;
 
 const PRICE_INITIAL = "999.00";
 const PRICE_UPDATED = "1499.00";
@@ -113,6 +125,25 @@ function assertOk(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`assertion failed: ${message}`);
 }
 
+function step(n: number, message: string): void {
+  console.log(`[${n}/${TOTAL_STEPS}] ${message}`);
+}
+
+/** Resolves when the tool answers 404; any other outcome is a failed expectation. */
+async function expectNotFound(
+  client: ToolCaller,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<void> {
+  try {
+    await tool(client, name, args);
+  } catch (err) {
+    if (err instanceof ToolError && err.status === 404) return;
+    throw err;
+  }
+  throw new Error(`assertion failed: ${name} must answer 404`);
+}
+
 /** KIT create/get responses are the entity itself; be lenient about nesting. */
 function idOf(entity: Record<string, unknown>, wrapper: string): string {
   const nested = entity[wrapper];
@@ -181,6 +212,8 @@ async function main(): Promise<void> {
   let categoryId: string | undefined;
   let variantId: string | undefined;
   let productId: string | undefined;
+  let similarCardId: string | undefined;
+  let webhookId: string | undefined;
   let failed = false;
 
   try {
@@ -188,26 +221,26 @@ async function main(): Promise<void> {
     const names = new Set(tools.map((t) => t.name));
     const missing = REQUIRED_TOOLS.filter((t) => !names.has(t));
     assertOk(missing.length === 0, `tools/list has required tools (missing: ${missing.join(", ")})`);
-    console.log(`[1/10] tools/list: ${tools.length} tools, all required present`);
+    step(1, `tools/list: ${tools.length} tools, all required present`);
 
     const store = await tool(client, "get_store", {});
-    console.log(`[2/10] get_store: id=${store.id ?? "?"} slug=${store.slug ?? "?"}`);
+    step(2, `get_store: id=${store.id ?? "?"} slug=${store.slug ?? "?"}`);
 
     const category = await tool(client, "create_category", {
       category: { title: `E2E ${stamp}`, is_hidden_in_menu: true },
     });
     categoryId = idOf(category, "category");
-    console.log(`[3/10] create_category: id=${categoryId}`);
+    step(3, `create_category: id=${categoryId}`);
 
     const product = await tool(client, "create_product", {
       product: { category_ids: [categoryId] },
     });
     productId = idOf(product, "product");
-    console.log(`[4/10] create_product: id=${productId}`);
+    step(4, `create_product: id=${productId}`);
 
     const productBack = await tool(client, "get_product", { id: productId });
     assertOk(idOf(productBack, "product") === productId, "get_product returns the created product");
-    console.log(`[5/10] get_product: readback OK`);
+    step(5, "get_product: readback OK");
 
     const variant = await tool(client, "create_variant", {
       variant: {
@@ -218,7 +251,7 @@ async function main(): Promise<void> {
       },
     });
     variantId = idOf(variant, "variant");
-    console.log(`[6/10] create_variant: id=${variantId} (HIDDEN, price=${PRICE_INITIAL})`);
+    step(6, `create_variant: id=${variantId} (HIDDEN, price=${PRICE_INITIAL})`);
 
     await toolRetrying(client, "update_variant", {
       id: variantId,
@@ -231,12 +264,118 @@ async function main(): Promise<void> {
       `updated price readback (${String(pricing.price)} == ${PRICE_UPDATED})`,
     );
     assertOk(variantBack.status === "HIDDEN", "variant stays HIDDEN after update");
-    console.log(`[7/10] update_variant + get_variant: price=${String(pricing.price)}, still HIDDEN`);
+    step(7, `update_variant + get_variant: price=${String(pricing.price)}, still HIDDEN`);
+
+    // Similar products: the card of the e2e variant, bound to the e2e category.
+    const cardId = variantBack.product_card_id;
+    assertOk(typeof cardId === "string" && cardId.length > 0, "variant has a product_card_id");
+    await expectNotFound(client, "get_similar_cards", { product_card_id: cardId });
+    step(8, "get_similar_cards: a fresh card has no settings (404)");
+
+    await tool(client, "set_similar_cards_mode", {
+      product_card_id: cardId,
+      action: "create",
+      binding_mode: "SELECTED_CATEGORIES_COLLECTIONS",
+    });
+    similarCardId = cardId;
+    await toolRetrying(client, "manage_similar_cards_objects", {
+      product_card_id: cardId,
+      action: "add",
+      objects: { category_ids: [categoryId] },
+    });
+    const bound = await tool<{ binding_mode?: string; categories?: { items?: unknown[] } }>(
+      client,
+      "get_similar_cards",
+      { product_card_id: cardId },
+    );
+    assertOk(
+      bound.binding_mode === "SELECTED_CATEGORIES_COLLECTIONS",
+      `similar-cards mode readback (${String(bound.binding_mode)})`,
+    );
+    assertOk(
+      bound.categories?.items?.includes(categoryId) === true,
+      "the e2e category is bound to the similar-cards settings",
+    );
+    step(9, "set_similar_cards_mode + manage_similar_cards_objects: category bound");
+
+    // Tool descriptions promise that a mode change drops every binding; a
+    // change in this live behaviour must fail e2e so the guidance gets updated.
+    await toolRetrying(client, "set_similar_cards_mode", {
+      product_card_id: cardId,
+      action: "update",
+      binding_mode: "ALL_VARIANTS",
+    });
+    await toolRetrying(client, "set_similar_cards_mode", {
+      product_card_id: cardId,
+      action: "update",
+      binding_mode: "SELECTED_CATEGORIES_COLLECTIONS",
+    });
+    const flipped = await tool<{ categories?: { items?: unknown[] } }>(
+      client,
+      "get_similar_cards",
+      { product_card_id: cardId },
+    );
+    assertOk(
+      flipped.categories?.items?.length === 0,
+      `a binding_mode change drops the bound categories (left: ${JSON.stringify(flipped.categories?.items)})`,
+    );
+    step(10, "set_similar_cards_mode update: a mode change drops the bindings");
+
+    await toolRetrying(client, "delete_similar_cards", { product_card_id: cardId });
+    await expectNotFound(client, "get_similar_cards", { product_card_id: cardId });
+    similarCardId = undefined;
+    step(11, "delete_similar_cards: settings deleted, readback is 404");
+
+    // Webhooks: created INACTIVE, so nothing is ever delivered to the URL.
+    const webhook = await tool<{ id?: string; events?: unknown[]; status?: string; secret?: unknown }>(
+      client,
+      "create_webhook",
+      {
+        webhook: {
+          url: `https://example.com/kit-e2e?run=${encodeURIComponent(stamp)}`,
+          events: ["CUSTOMER_CHANGED", "CART_UPDATED"],
+        },
+      },
+    );
+    webhookId = idOf(webhook, "webhook");
+    assertOk(webhook.events?.includes("CART_UPDATED") === true, "created webhook subscribes to CART_UPDATED");
+    assertOk(typeof webhook.secret === "string", "create_webhook returns the one-time secret");
+    step(12, `create_webhook: id=${webhookId} status=${String(webhook.status)} (secret not printed)`);
+
+    const webhookBack = await tool<{ events?: unknown[]; status?: string }>(client, "get_webhook", {
+      id: webhookId,
+    });
+    assertOk(webhookBack.events?.includes("CART_UPDATED") === true, "get_webhook keeps CART_UPDATED");
+    assertOk(webhookBack.status === "INACTIVE", `new webhook is INACTIVE (${String(webhookBack.status)})`);
+    step(13, "get_webhook: CART_UPDATED subscribed, INACTIVE");
+
+    await toolRetrying(client, "delete_webhook", { id: webhookId });
+    await expectNotFound(client, "get_webhook", { id: webhookId });
+    webhookId = undefined;
+    step(14, "delete_webhook: webhook deleted, readback is 404");
   } catch (err) {
     failed = true;
     console.log(err instanceof Error ? err.message : String(err));
   } finally {
     // Cleanup always runs; each step reports but never masks the test failure.
+    if (webhookId) {
+      try {
+        await toolRetrying(client, "delete_webhook", { id: webhookId });
+        console.log("cleanup: webhook deleted");
+      } catch (err) {
+        failed = true;
+        console.log(`cleanup: webhook delete failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+    if (similarCardId) {
+      try {
+        await toolRetrying(client, "delete_similar_cards", { product_card_id: similarCardId });
+        console.log("cleanup: similar-cards settings deleted");
+      } catch (err) {
+        failed = true;
+        console.log(`cleanup: similar-cards delete failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
     let variantArchived = false;
     if (variantId) {
       try {
@@ -244,7 +383,7 @@ async function main(): Promise<void> {
         const archived = await tool(client, "get_variant", { id: variantId });
         assertOk(archived.status === "ARCHIVED", "variant is ARCHIVED after archive");
         variantArchived = true;
-        console.log(`[8/10] variant_action: variant archived`);
+        step(15, "variant_action: variant archived");
       } catch (err) {
         failed = true;
         console.log(`cleanup: variant archive failed: ${err instanceof Error ? err.message : err}`);
@@ -280,7 +419,7 @@ async function main(): Promise<void> {
           );
         }
         assertOk(readBack === undefined, "deleted variant must not be readable");
-        console.log(`[9/10] kit_request DeleteVariant: variant deleted, readback is 404`);
+        step(16, "kit_request DeleteVariant: variant deleted, readback is 404");
       } catch (err) {
         failed = true;
         console.log(`cleanup: variant delete failed: ${err instanceof Error ? err.message : err}`);
@@ -293,7 +432,7 @@ async function main(): Promise<void> {
           action: "archive",
           archive_variants: true,
         });
-        console.log(`[10/10] category_action: category archived`);
+        step(17, "category_action: category archived");
       } catch (err) {
         failed = true;
         console.log(`cleanup: category archive failed: ${err instanceof Error ? err.message : err}`);
