@@ -17,9 +17,18 @@ four scopes below; a narrower request selects only the named scopes.
   list also uses `query: {page: <N>, per_page: 100}`.
 - **Context collections:** paginate `GetContextCollections` with
   `query: {page: <N>, per_page: 100}`.
-- **Similar cards:** paginate `GetSimilarProductCardIDs` for every checked card
-  with `path_params: {product_card_id: <id>}` and
-  `query: {page: <N>, per_page: 100}`.
+- **Similar cards:** two stores exist and neither API returns the other's
+  bindings, so read both for every checked card with
+  `path_params: {product_card_id: <id>}`:
+  - settings: `GetSimilarCardsById`. A not-found (404) means the card has no
+    settings — not a defect and not a coverage gap; any other failure is a
+    coverage gap. By `binding_mode`, paginate `GetSimilarCardsCardIDs` for
+    `SELECTED_CARDS`, both `GetSimilarCardsCategoryIDs` and
+    `GetSimilarCardsCollectionIDs` for `SELECTED_CATEGORIES_COLLECTIONS`, and
+    nothing for `ALL_VARIANTS`;
+  - deprecated symmetric links: paginate `GetSimilarProductCardIDs`.
+
+  Every similar-card list uses `query: {page: <N>, per_page: 100}`.
 
 Use the pagination, fallback and interruption rules from `audit-protocol.md`.
 Absence of an optional merchandising entity is not a defect.
@@ -33,7 +42,12 @@ Absence of an optional merchandising entity is not a defect.
 - For an explicit context-collection request, validate characteristic
   conditions against the characteristic slugs actually read.
 - For an explicit similar-card request, validate returned card IDs against
-  checked `product_card_id` values.
+  checked `product_card_id` values, and settings-bound category and collection
+  IDs against the categories and collections actually read; report each
+  unresolved ID. A `SELECTED_CARDS` or `SELECTED_CATEGORIES_COLLECTIONS`
+  setting whose fully read bindings are empty is a risk: the buyer sees no
+  similar products. The report line «похожие карточки N/M» counts cards whose
+  every similar-card read completed.
 - No collection, badge, context collection or similar-card relation is required
   merely because the API supports it. Report only a broken fact in the requested
   scope.

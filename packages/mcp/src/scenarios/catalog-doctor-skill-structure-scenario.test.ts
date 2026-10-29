@@ -540,6 +540,13 @@ test("owner-requested merchandising audit reads optional relations and reports o
       },
     ],
     similarProductCardIds: { "card-1": ["card-missing"] },
+    similarCards: {
+      "card-1": {
+        binding_mode: "SELECTED_CATEGORIES_COLLECTIONS",
+        category_ids: ["similar-category-missing"],
+        collection_ids: ["similar-collection-missing"],
+      },
+    },
   });
 
   const { report } = await runCatalogDoctorScenario({
@@ -555,6 +562,9 @@ test("owner-requested merchandising audit reads optional relations and reports o
     "GetBadgeCollectionIDs",
     "GetContextCollections",
     "GetSimilarProductCardIDs",
+    "GetSimilarCardsById",
+    "GetSimilarCardsCategoryIDs",
+    "GetSimilarCardsCollectionIDs",
   ]) {
     assert.ok(
       mcp.calls.some(
@@ -572,7 +582,91 @@ test("owner-requested merchandising audit reads optional relations and reports o
     "category-missing",
     "collection-missing",
     "card-missing",
+    "similar-category-missing",
+    "similar-collection-missing",
   ]) {
+    assert.ok(report.includes(fact), fact);
   }
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a card without similar-cards settings (404) is not a defect and keeps coverage complete", async () => {
+  const mcp = new FakeCatalogDoctorMcp({
+    products: [product()],
+    variants: [variant()],
+    categories: [category()],
+    warehouses: [warehouse()],
+  });
+
+  const { report } = await runCatalogDoctorScenario({
+    request: "Проверь похожие товары",
+    mcp,
+  });
+
+  assert.ok(
+    mcp.calls.some(
+      (call) =>
+        call.name === "kit_request" && call.arguments.operation_id === "GetSimilarCardsById",
+    ),
+  );
+  assert.ok(
+    !mcp.calls.some(
+      (call) =>
+        call.name === "kit_request" &&
+        String(call.arguments.operation_id).startsWith("GetSimilarCards") &&
+        call.arguments.operation_id !== "GetSimilarCardsById",
+    ),
+  );
+  assert.match(report, /похожие карточки 1\/1/u);
+  assert.doesNotMatch(report, /Покрытие неполное/u);
+  assert.doesNotMatch(report, /похож\p{L}* товар/u);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("SELECTED_CARDS settings are checked against read cards and an empty selection is a risk", async () => {
+  const mcp = new FakeCatalogDoctorMcp({
+    products: [product(), product({ id: "product-2" })],
+    variants: [
+      variant(),
+      variant({ id: "variant-2", sku: "SKU-2", slug: "variant-2", product_id: "product-2", product_card_id: "card-2" }),
+    ],
+    categories: [category()],
+    warehouses: [warehouse()],
+    similarCards: {
+      "card-1": { binding_mode: "SELECTED_CARDS", product_card_ids: ["card-2", "card-unread"] },
+      "card-2": { binding_mode: "SELECTED_CARDS", product_card_ids: [] },
+    },
+  });
+
+  const { report } = await runCatalogDoctorScenario({
+    request: "Проверь похожие товары",
+    mcp,
+  });
+
+  assert.ok(report.includes("card-unread"));
+  assert.ok(!/непроверенную карточку card-2/u.test(report));
+  assert.match(report, /Карточка card-2[^\n]*SELECTED_CARDS без привязанных объектов/u);
+  assert.match(report, /похожие карточки 2\/2/u);
+  assert.equal(mcp.writeCalls.length, 0);
+});
+
+test("a failed similar-cards settings read is a coverage gap, not an absent setting", async () => {
+  const mcp = new FakeCatalogDoctorMcp({
+    products: [product()],
+    variants: [variant()],
+    categories: [category()],
+    warehouses: [warehouse()],
+    readErrors: {
+      "GetSimilarCardsById:card-1": new Error("similar settings read interrupted"),
+    },
+  });
+
+  const { report } = await runCatalogDoctorScenario({
+    request: "Проверь похожие товары",
+    mcp,
+  });
+
+  assert.match(report, /Покрытие неполное[^\n]*GetSimilarCardsById, карточка card-1/u);
+  assert.match(report, /похожие карточки 0\/1/u);
   assert.equal(mcp.writeCalls.length, 0);
 });

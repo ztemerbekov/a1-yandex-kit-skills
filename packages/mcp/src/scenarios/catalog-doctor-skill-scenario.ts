@@ -10,6 +10,7 @@ type KitCharacteristic = components["schemas"]["Characteristic"];
 type KitCollection = components["schemas"]["Collection"];
 type KitBadge = components["schemas"]["Badge"];
 type KitContextCollection = components["schemas"]["ContextCollection"];
+type KitSimilarCards = components["schemas"]["SimilarCards"];
 
 export interface CatalogProduct {
   id: KitProduct["id"];
@@ -78,6 +79,14 @@ export interface CatalogContextCollection {
   conditions: KitContextCollection["conditions"];
 }
 
+/** Per-card similar-products settings of /v1/similar-cards with their bound objects. */
+export interface CatalogSimilarCards {
+  binding_mode: KitSimilarCards["binding_mode"];
+  product_card_ids?: string[];
+  category_ids?: string[];
+  collection_ids?: string[];
+}
+
 export interface CatalogDoctorToolCall {
   name: string;
   arguments: Record<string, unknown>;
@@ -105,6 +114,10 @@ const READ_OPERATIONS = new Set([
   "GetBadgeCollectionIDs",
   "GetContextCollections",
   "GetSimilarProductCardIDs",
+  "GetSimilarCardsById",
+  "GetSimilarCardsCardIDs",
+  "GetSimilarCardsCategoryIDs",
+  "GetSimilarCardsCollectionIDs",
 ]);
 
 function notFound(message: string): Error {
@@ -141,6 +154,7 @@ export class FakeCatalogDoctorMcp {
   readonly #badgeCollectionIds: Record<string, string[]>;
   readonly #contextCollections: CatalogContextCollection[];
   readonly #similarProductCardIds: Record<string, string[]>;
+  readonly #similarCards: Record<string, CatalogSimilarCards>;
   readonly #readErrors: Record<string, Error>;
   finalAnswer: string | undefined;
 
@@ -159,6 +173,7 @@ export class FakeCatalogDoctorMcp {
     badgeCollectionIds = {},
     contextCollections = [],
     similarProductCardIds = {},
+    similarCards = {},
     readErrors = {},
   }: {
     pageSize?: number;
@@ -175,6 +190,7 @@ export class FakeCatalogDoctorMcp {
     badgeCollectionIds?: Record<string, string[]>;
     contextCollections?: CatalogContextCollection[];
     similarProductCardIds?: Record<string, string[]>;
+    similarCards?: Record<string, CatalogSimilarCards>;
     readErrors?: Record<string, Error>;
   }) {
     this.#pageSize = pageSize;
@@ -191,6 +207,7 @@ export class FakeCatalogDoctorMcp {
     this.#badgeCollectionIds = badgeCollectionIds;
     this.#contextCollections = contextCollections;
     this.#similarProductCardIds = similarProductCardIds;
+    this.#similarCards = similarCards;
     this.#readErrors = readErrors;
   }
 
@@ -369,6 +386,25 @@ export class FakeCatalogDoctorMcp {
           product_card_ids: this.page(ids, page),
           total_count: ids.length,
         };
+      }
+      if (operationId.startsWith("GetSimilarCards")) {
+        const cardId = String(pathParams.product_card_id);
+        const settings = this.#similarCards[cardId];
+        if (!settings) {
+          throw notFound(`Similar cards settings for ${cardId} were not found`);
+        }
+        if (operationId === "GetSimilarCardsById") {
+          return { product_card_id: cardId, binding_mode: settings.binding_mode };
+        }
+        const itemKey = {
+          GetSimilarCardsCardIDs: "product_card_ids",
+          GetSimilarCardsCategoryIDs: "category_ids",
+          GetSimilarCardsCollectionIDs: "collection_ids",
+        }[operationId] as "product_card_ids" | "category_ids" | "collection_ids" | undefined;
+        if (itemKey) {
+          const ids = settings[itemKey] ?? [];
+          return { [itemKey]: this.page(ids, page), total_count: ids.length };
+        }
       }
     }
     throw new Error(`Unsupported FakeCatalogDoctorMcp tool: ${name}`);
@@ -1313,6 +1349,7 @@ export async function runCatalogDoctorScenario({
   const badgeBindingCoverages: Coverage<string>[] = [];
   const similarCoverages: Coverage<string>[] = [];
   let similarCardScope = 0;
+  let similarCardsChecked = 0;
   if (checkBadges || checkDynamicFilters) {
     badgesCoverage = await readEveryOperationPage<CatalogBadge>({
       mcp,
@@ -1495,17 +1532,26 @@ export async function runCatalogDoctorScenario({
         .map((variant) => variant.product_card_id)
         .filter((id): id is string => Boolean(id)),
     );
+    const knownCategoryIds = new Set(
+      categoriesCoverage.items.map((category) => category.id),
+    );
+    const knownCollectionIds = new Set(
+      collectionsCoverage.items.map((collection) => collection.id),
+    );
     similarCardScope = knownCardIds.size;
     for (const cardId of knownCardIds) {
-      const coverage = await readEveryOperationPage<string>({
+      const cardCoverages: Coverage<string>[] = [];
+      // Deprecated symmetric links live apart from /v1/similar-cards settings:
+      // neither API returns the other's bindings, so both are read.
+      const legacy = await readEveryOperationPage<string>({
         mcp,
         operationId: "GetSimilarProductCardIDs",
         itemKey: "product_card_ids",
         name: "collections",
         pathParams: { product_card_id: cardId },
       });
-      similarCoverages.push(coverage);
-      for (const similarCardId of coverage.items) {
+      cardCoverages.push(legacy);
+      for (const similarCardId of legacy.items) {
         if (!knownCardIds.has(similarCardId)) {
           addFinding(
             findings,
@@ -1515,6 +1561,89 @@ export async function runCatalogDoctorScenario({
           );
         }
       }
+
+      let settings: { binding_mode?: string } | undefined;
+      try {
+        settings = (await mcp.call("kit_request", {
+          operation_id: "GetSimilarCardsById",
+          path_params: { product_card_id: cardId },
+        })) as { binding_mode?: string };
+      } catch (error) {
+        // 404 means the card has no settings — optional, not a defect.
+        if (!isNotFound(error)) {
+          cardCoverages.push({
+            name: "collections",
+            items: [],
+            expected: undefined,
+            pages: 0,
+            complete: false,
+            error:
+              `GetSimilarCardsById, карточка ${cardId}: ` +
+              (error instanceof Error ? error.message : String(error)),
+          });
+        }
+      }
+
+      const bindings: { operationId: string; itemKey: string; known: Set<string>; label: string }[] =
+        settings?.binding_mode === "SELECTED_CARDS"
+          ? [
+              {
+                operationId: "GetSimilarCardsCardIDs",
+                itemKey: "product_card_ids",
+                known: knownCardIds,
+                label: "карточку",
+              },
+            ]
+          : settings?.binding_mode === "SELECTED_CATEGORIES_COLLECTIONS"
+            ? [
+                {
+                  operationId: "GetSimilarCardsCategoryIDs",
+                  itemKey: "category_ids",
+                  known: knownCategoryIds,
+                  label: "категорию",
+                },
+                {
+                  operationId: "GetSimilarCardsCollectionIDs",
+                  itemKey: "collection_ids",
+                  known: knownCollectionIds,
+                  label: "коллекцию",
+                },
+              ]
+            : [];
+      let boundCount = 0;
+      let bindingsComplete = true;
+      for (const binding of bindings) {
+        const coverage = await readEveryOperationPage<string>({
+          mcp,
+          operationId: binding.operationId,
+          itemKey: binding.itemKey,
+          name: "collections",
+          pathParams: { product_card_id: cardId },
+        });
+        cardCoverages.push(coverage);
+        bindingsComplete &&= coverage.complete;
+        boundCount += coverage.items.length;
+        for (const id of coverage.items) {
+          if (binding.known.has(id)) continue;
+          addFinding(
+            findings,
+            "risk",
+            `Карточка ${cardId}`,
+            `настройки похожих товаров ссылаются на непроверенную ${binding.label} ${id}`,
+          );
+        }
+      }
+      if (bindings.length > 0 && bindingsComplete && boundCount === 0) {
+        addFinding(
+          findings,
+          "risk",
+          `Карточка ${cardId}`,
+          `режим похожих товаров ${settings?.binding_mode} без привязанных объектов — покупатель не увидит подборку`,
+        );
+      }
+
+      similarCoverages.push(...cardCoverages);
+      if (cardCoverages.every((coverage) => coverage.complete)) similarCardsChecked += 1;
     }
   }
 
@@ -1584,7 +1713,7 @@ export async function runCatalogDoctorScenario({
       ? [collectionCoverageLabel("контекстные коллекции", contextCoverage)]
       : []),
     ...(checkSimilarCards
-      ? [`похожие карточки ${similarCoverages.length}/${similarCardScope}`]
+      ? [`похожие карточки ${similarCardsChecked}/${similarCardScope}`]
       : []),
   ].join(", ");
   const evidenceErrors = [...coverageErrors, ...referenceErrors];

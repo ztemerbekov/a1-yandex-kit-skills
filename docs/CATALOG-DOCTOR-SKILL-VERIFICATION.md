@@ -52,6 +52,10 @@ reference model точных исправлений. `catalog-doctor-skill-fix-s
 | Не более одного VIDEO и IMAGE обязателен при VIDEO | `media audit exposes stable findings for the video limit and image prerequisite` проверяет `code`, `level` и `objectId` | автоматизировано |
 | Пустая активная коллекция, скрытые карточки и сломанная связь | Структурный сценарий и `GetVariantsByCollectionId` | автоматизировано |
 | Бейджи, динамические фильтры, контекстные коллекции и похожие карточки читаются только по запросу | `owner-requested merchandising audit reads optional relations and reports only broken facts` | автоматизировано |
+| Похожие товары читаются из обоих хранилищ: настройки `/v1/similar-cards` по `binding_mode` и deprecated симметричные связи; непрочитанные карточки, категории и коллекции попадают в риски | `owner-requested merchandising audit reads optional relations and reports only broken facts` | автоматизировано |
+| Карточка без настроек похожих товаров (404) не дефект и не дыра в покрытии | `a card without similar-cards settings (404) is not a defect and keeps coverage complete` | автоматизировано |
+| Режим `SELECTED_*` с пустым набором привязок — риск | `SELECTED_CARDS settings are checked against read cards and an empty selection is a risk` | автоматизировано |
+| Сбой чтения настроек похожих товаров (не 404) — неполное покрытие, а не отсутствие настроек | `a failed similar-cards settings read is a coverage gap, not an absent setting` | автоматизировано |
 | Отсутствие опционального мерчандайзинга не объявляется дефектом | `optional merchandising entities are not defects and are not read without owner request` | автоматизировано |
 | Структурное покрытие содержит характеристики, коллекции и запрошенные опциональные области | Проверки строки `Структурное покрытие` | автоматизировано |
 | Обрыв списка характеристик восстанавливает используемое определение detail-read и не создаёт ложный blocker | `an interrupted characteristic list uses detail reads instead of inventing a broken reference` | автоматизировано |
