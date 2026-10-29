@@ -8,6 +8,7 @@ import { instrumentToolCalls, Telemetry } from "./telemetry.js";
 import { registerMetaTools } from "./tools/meta.js";
 import { registerStoreTools } from "./tools/store.js";
 import { registerProductTools } from "./tools/products.js";
+import { registerSimilarCardsTools } from "./tools/similar-cards.js";
 import { registerVariantTools } from "./tools/variants.js";
 import { registerCategoryTools } from "./tools/categories.js";
 import { registerOrderTools } from "./tools/orders.js";
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
   registerMetaTools(server, client);
   registerStoreTools(server, client);
   registerProductTools(server, client);
+registerSimilarCardsTools(server, client);
   registerVariantTools(server, client);
   registerCategoryTools(server, client);
   registerOrderTools(server, client);

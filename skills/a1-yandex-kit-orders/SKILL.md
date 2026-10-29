@@ -5,7 +5,7 @@ compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.10.0"
+  version: "1.11.0"
 ---
 
 # A1 Yandex KIT — Orders
@@ -106,7 +106,7 @@ Load only the page the task needs:
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-169 operations):
+178 operations):
 
 - `list_orders` — List orders of the store (paginated), newest first by default.
 - `get_order` — Get a single order by its ID, including line items (items[].name is the product name at order time), delivery chunks, payment and status.

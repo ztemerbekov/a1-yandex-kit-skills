@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KITᵝ API",
   "specVersion": "1.0.0",
-  "opsCount": 169,
+  "opsCount": 178,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -718,7 +718,7 @@
       "path": "/v1/products/cards/{product_card_id}/similar",
       "tag": "Товары",
       "summaryRu": "Получение списка похожих карточек товара.",
-      "descriptionRu": "Возвращает список уникальных идентификаторов похожих карточек товара по идентификатору карточки товара.\nПохожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.",
+      "descriptionRu": "Deprecated. Используйте `GET /v1/similar-cards/{product_card_id}/cards`.\n\nВозвращает список уникальных идентификаторов похожих карточек товара по идентификатору карточки товара.\nПохожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.",
       "pathParams": [
         "product_card_id"
       ],
@@ -756,7 +756,7 @@
       "path": "/v1/products/cards/{product_card_id}/similar/add",
       "tag": "Товары",
       "summaryRu": "Добавление похожих карточек товара",
-      "descriptionRu": "Добавляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.\nПохожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.",
+      "descriptionRu": "Deprecated. Используйте `POST /v1/similar-cards/{product_card_id}/objects/add`.\nВ отличие от этого метода, новый метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса новый метод не создает.\n\nДобавляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.\nПохожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.",
       "pathParams": [
         "product_card_id"
       ],
@@ -773,7 +773,7 @@
       "path": "/v1/products/cards/{product_card_id}/similar/remove",
       "tag": "Товары",
       "summaryRu": "Удаление похожих карточек товара",
-      "descriptionRu": "Удаляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.\nПохожие карточки симметричны, то есть если карточка A является похожей для карточки B, то карточка B также является похожей для карточки A.",
+      "descriptionRu": "Deprecated. Используйте `POST /v1/similar-cards/{product_card_id}/objects/remove`.\nВ отличие от этого метода, новый метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса новый метод не удаляет.\n\nУдаляет похожие карточки товара по идентификатору карточки товара. Максимальное количество карточек — 500.\nПохожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.",
       "pathParams": [
         "product_card_id"
       ],
@@ -1285,7 +1285,7 @@
       "path": "/v1/store/feeds",
       "tag": "Магазин",
       "summaryRu": "Получение ссылок на фиды каталога",
-      "descriptionRu": "Возвращает ссылки на фиды каталога магазина — регулярные выгрузки товаров.\n\nСсылка на фид постоянная — она не меняется при обновлении содержимого фида.\nДостаточно получить ее один раз и периодически скачивать по ней сам фид.",
+      "descriptionRu": "Возвращает ссылки на фиды каталога магазина — регулярные выгрузки товаров.\n\nСсылка на фид постоянная — она не меняется при обновлении содержимого фида.\nПолучите ее один раз и периодически скачивайте по ней сам фид.",
       "pathParams": [],
       "queryParams": [],
       "requestContentType": null,
@@ -1732,7 +1732,7 @@
           "minimum": null,
           "maximum": null,
           "default": null,
-          "descriptionRu": "Метка источника перехода: попадает в параметр `from` итоговой ссылки,\nчтобы магазин мог отличать в аналитике переходы из разных интеграций.\nЕсли не передан, используется `api`."
+          "descriptionRu": "Метка источника перехода: попадает в параметр `from` итоговой ссылки,\nчтобы магазин мог отличать в аналитике переходы из разных интеграций.\nЕсли параметр не передан, используется `crm` для токена CRM-интеграции и `api` для остальных токенов."
         }
       ],
       "requestContentType": null,
@@ -4107,6 +4107,222 @@
       "queryParams": [],
       "requestContentType": "application/json",
       "requestSchemaRef": "#/components/schemas/AddonObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetSimilarCardsById": {
+      "id": "GetSimilarCardsById",
+      "method": "get",
+      "path": "/v1/similar-cards/{product_card_id}",
+      "tag": "Товары",
+      "summaryRu": "Получение настроек похожих карточек",
+      "descriptionRu": "Возвращает настройки похожих карточек по идентификатору карточки товара.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/SimilarCards",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "CreateSimilarCards": {
+      "id": "CreateSimilarCards",
+      "method": "post",
+      "path": "/v1/similar-cards/{product_card_id}",
+      "tag": "Товары",
+      "summaryRu": "Создание настроек похожих карточек",
+      "descriptionRu": "Создает настройки похожих карточек для указанной карточки товара.\nЕсли настройки для карточки уже существуют, возвращает `409`.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/CreateSimilarCardsRequest",
+      "responseSchemaRef": "#/components/schemas/SimilarCards",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "UpdateSimilarCards": {
+      "id": "UpdateSimilarCards",
+      "method": "put",
+      "path": "/v1/similar-cards/{product_card_id}",
+      "tag": "Товары",
+      "summaryRu": "Обновление настроек похожих карточек",
+      "descriptionRu": "Обновляет режим привязки похожих карточек из поля `binding_mode`.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/UpdateSimilarCardsRequest",
+      "responseSchemaRef": "#/components/schemas/SimilarCards",
+      "paginated": false,
+      "itemsProp": null
+    },
+    "DeleteSimilarCards": {
+      "id": "DeleteSimilarCards",
+      "method": "delete",
+      "path": "/v1/similar-cards/{product_card_id}",
+      "tag": "Товары",
+      "summaryRu": "Удаление настроек похожих карточек",
+      "descriptionRu": "Удаляет настройки похожих карточек по идентификатору карточки товара.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "GetSimilarCardsCardIDs": {
+      "id": "GetSimilarCardsCardIDs",
+      "method": "get",
+      "path": "/v1/similar-cards/{product_card_id}/cards",
+      "tag": "Товары",
+      "summaryRu": "Получение идентификаторов выбранных похожих карточек",
+      "descriptionRu": "Возвращает идентификаторы выбранных похожих карточек.\nРаботает только для настроек с `binding_mode = SELECTED_CARDS`.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/ProductCardIDCollection",
+      "paginated": true,
+      "itemsProp": "product_card_ids"
+    },
+    "GetSimilarCardsCategoryIDs": {
+      "id": "GetSimilarCardsCategoryIDs",
+      "method": "get",
+      "path": "/v1/similar-cards/{product_card_id}/categories",
+      "tag": "Товары",
+      "summaryRu": "Получение идентификаторов категорий похожих карточек",
+      "descriptionRu": "Возвращает идентификаторы категорий настроек похожих карточек.\nРаботает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CategoryIDCollection",
+      "paginated": true,
+      "itemsProp": "category_ids"
+    },
+    "GetSimilarCardsCollectionIDs": {
+      "id": "GetSimilarCardsCollectionIDs",
+      "method": "get",
+      "path": "/v1/similar-cards/{product_card_id}/collections",
+      "tag": "Товары",
+      "summaryRu": "Получение идентификаторов коллекций похожих карточек",
+      "descriptionRu": "Возвращает идентификаторы коллекций настроек похожих карточек.\nРаботает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [
+        {
+          "name": "page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": null,
+          "default": 1,
+          "descriptionRu": "Номер страницы."
+        },
+        {
+          "name": "per_page",
+          "required": false,
+          "type": "integer",
+          "enum": null,
+          "minimum": 1,
+          "maximum": 100,
+          "default": 25,
+          "descriptionRu": "Количество элементов на странице."
+        }
+      ],
+      "requestContentType": null,
+      "requestSchemaRef": null,
+      "responseSchemaRef": "#/components/schemas/CollectionIDCollection",
+      "paginated": true,
+      "itemsProp": "collection_ids"
+    },
+    "AddSimilarCardsObjects": {
+      "id": "AddSimilarCardsObjects",
+      "method": "post",
+      "path": "/v1/similar-cards/{product_card_id}/objects/add",
+      "tag": "Товары",
+      "summaryRu": "Добавление объектов в настройки похожих карточек",
+      "descriptionRu": "Добавляет карточки, категории или коллекции в настройки похожих карточек. Лимит на количество объектов — 500.\nМетод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).\nВ одном запросе передавайте либо карточки, либо категории и коллекции.\nМетод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не создает.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/SimilarCardObjects",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
+    "RemoveSimilarCardsObjects": {
+      "id": "RemoveSimilarCardsObjects",
+      "method": "post",
+      "path": "/v1/similar-cards/{product_card_id}/objects/remove",
+      "tag": "Товары",
+      "summaryRu": "Удаление объектов из настроек похожих карточек",
+      "descriptionRu": "Удаляет карточки, категории или коллекции из настроек похожих карточек. Лимит на количество объектов — 500.\nМетод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).\nВ одном запросе передавайте либо карточки, либо категории и коллекции.\nМетод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не удаляет.",
+      "pathParams": [
+        "product_card_id"
+      ],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/SimilarCardObjects",
       "responseSchemaRef": null,
       "paginated": false,
       "itemsProp": null

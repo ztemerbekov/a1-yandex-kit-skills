@@ -50,10 +50,14 @@ export function registerWebhookTools(server: McpServer, client: KitClient): void
       description:
         "Create a new webhook. The url must use HTTPS (HTTP is rejected). Allowed events: " +
         "ORDER_STATUS_CHANGED, ORDER_PAYMENT_STATUS_CHANGED, ORDER_DELIVERY_STATUS_CHANGED, " +
-        "CUSTOMER_CHANGED. " +
+        "CUSTOMER_CHANGED, CART_UPDATED. " +
         "CUSTOMER_CHANGED fires when a customer appears or their name/phone/email changes; " +
         "its data carries only {customer_id}, so a CRM sync must follow up with get_customer " +
         "to read the new values (no before/after diff is delivered). " +
+        "CART_UPDATED fires when a customer changes their cart (clearing included); data is " +
+        "only {customer_id}, a series of changes to one cart collapses into one event, sent at " +
+        "most once per 15 minutes and up to 15 minutes late — read the current contents with " +
+        "get_customer_cart when handling it. " +
         "NOTE: ORDER_STATUS_CHANGED will stop firing for the receipt-technical statuses " +
         "CREATING_INITIAL_RECEIPT and CREATING_FINAL_RECEIPTS — key new integrations on " +
         "ORDER_PLACED and COMPLETED instead (the statuses themselves stay readable via get_order). " +
@@ -86,7 +90,7 @@ export function registerWebhookTools(server: McpServer, client: KitClient): void
       description:
         "Update an existing webhook: change url (HTTPS only), the subscribed events, or set " +
         "deactivate=true to switch the webhook to INACTIVE. `events` is the full subscription " +
-        "list, not a delta — to add CUSTOMER_CHANGED to an existing webhook, read it with " +
+        "list, not a delta — to add CART_UPDATED to an existing webhook, read it with " +
         "get_webhook first and send its current events plus the new one. " +
         'Call get_operation_schema("UpdateWebhook") for the exact request shape.',
       inputSchema: {
