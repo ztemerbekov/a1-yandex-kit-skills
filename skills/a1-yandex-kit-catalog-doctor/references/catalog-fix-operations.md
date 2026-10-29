@@ -137,15 +137,17 @@ blocked as possibly missing hidden values.
   `path_params: {badge_id}`, and a body containing only the applicable
   `product_variant_ids`, `category_ids` or `collection_ids`; then re-read all
   pages with the same read operation.
-- **Similar cards (settings):** `GetSimilarCardsById(path_params:
+- **Similar cards (settings):** read `GetSimilarCardsById(path_params:
   {product_card_id})` plus every page of the bound objects for its
-  `binding_mode` (see `merchandising-audit.md`). Then exactly one write:
+  `binding_mode` (see `merchandising-audit.md`); every verification state below
+  is that same complete read. Stage operations:
   - `CreateSimilarCards(path_params: {product_card_id}, body: {binding_mode})`
     only when the read returned not-found (an existing setting answers 409);
+    it accepts only `binding_mode` and binds nothing;
   - `UpdateSimilarCards` with the same shape changes the mode and **drops every
     bound card, category and collection** — switching back does not restore
     them. List the bindings that will be lost in the plan; the owner command
-    must accept that loss or include the exact re-binding;
+    must accept that loss or name the exact objects to bind afterward;
   - `AddSimilarCardsObjects` or `RemoveSimilarCardsObjects`, `path_params:
     {product_card_id}`, a body with either `product_card_ids` (only in
     `SELECTED_CARDS`) or `category_ids`/`collection_ids` (only in
@@ -155,7 +157,19 @@ blocked as possibly missing hidden values.
   - `DeleteSimilarCards(path_params: {product_card_id})` only on an exact owner
     command; a confirmed not-found on the re-read verifies it.
 
-  Re-read the settings and every page of the bindings afterward.
+  Authorized write plans for one card (each stage is followed by its
+  verification read; a later stage starts only after the earlier one verified):
+  - change the mode only, change bindings only, or delete: one stage;
+  - set up a selection on a card without settings: create with the requested
+    mode → verify → add the owner's objects → verify;
+  - switch the mode and bind the new selection: update the mode → verify (no
+    bindings remain) → add the owner's objects → verify;
+  - more than 500 objects to add or remove: one add/remove stage per chunk of
+    at most 500 IDs, each verified before the next.
+
+  If a later stage fails or its outcome is ambiguous, stop and report the
+  verified state of the earlier stages; never retry, roll back or restore the
+  dropped bindings on your own.
 - **Similar cards (deprecated symmetric links):** only to change links that
   already exist there, on an exact owner command. Read all pages with
   `GetSimilarProductCardIDs(path_params: {product_card_id})`; apply the exact
