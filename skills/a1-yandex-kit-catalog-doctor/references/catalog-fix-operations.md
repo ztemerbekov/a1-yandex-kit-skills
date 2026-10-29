@@ -137,12 +137,33 @@ blocked as possibly missing hidden values.
   `path_params: {badge_id}`, and a body containing only the applicable
   `product_variant_ids`, `category_ids` or `collection_ids`; then re-read all
   pages with the same read operation.
-- **Similar cards:** read all pages with
+- **Similar cards (settings):** `GetSimilarCardsById(path_params:
+  {product_card_id})` plus every page of the bound objects for its
+  `binding_mode` (see `merchandising-audit.md`). Then exactly one write:
+  - `CreateSimilarCards(path_params: {product_card_id}, body: {binding_mode})`
+    only when the read returned not-found (an existing setting answers 409);
+  - `UpdateSimilarCards` with the same shape changes the mode and **drops every
+    bound card, category and collection** — switching back does not restore
+    them. List the bindings that will be lost in the plan; the owner command
+    must accept that loss or include the exact re-binding;
+  - `AddSimilarCardsObjects` or `RemoveSimilarCardsObjects`, `path_params:
+    {product_card_id}`, a body with either `product_card_ids` (only in
+    `SELECTED_CARDS`) or `category_ids`/`collection_ids` (only in
+    `SELECTED_CATEGORIES_COLLECTIONS`), never both, at most 500 IDs per call
+    (documented API limit, absent from the schema). These change only this
+    card's settings and create no reverse links;
+  - `DeleteSimilarCards(path_params: {product_card_id})` only on an exact owner
+    command; a confirmed not-found on the re-read verifies it.
+
+  Re-read the settings and every page of the bindings afterward.
+- **Similar cards (deprecated symmetric links):** only to change links that
+  already exist there, on an exact owner command. Read all pages with
   `GetSimilarProductCardIDs(path_params: {product_card_id})`; apply the exact
   delta with `AddSimilarProductCards` or `DeleteSimilarProductCards`, the same
   path params and `body: {similar_card_ids: [...]}`; then re-read all pages.
-  Validate the request against the current operation schema rather than
-  inventing a client-side item limit.
+  Both sides of a link change. New similar-product setups go through the
+  settings operations above. Validate the request against the current
+  operation schema rather than inventing a client-side item limit.
 - **Context collections:**
   `GetContextCollectionById(path_params: {id})` → one
   `UpdateContextCollection(path_params: {id}, body: <only exact changed fields>)`
