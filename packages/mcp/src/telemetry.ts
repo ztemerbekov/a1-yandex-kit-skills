@@ -14,6 +14,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { KitApiError, KitValidationError } from "yandex-kit-core";
 
 const ENDPOINT = "https://usage.gistrec.cloud/v1/events";
 const APP = "mcp-yandex-kit";
@@ -257,12 +258,14 @@ export function errorDetail(text: string): string {
 }
 
 type NetworkFailure = { reason: ToolOutcome; text: string };
+type ApiFailure = { reason: ToolOutcome; head: string; text: string };
+type Origin =
+  | { origin: "local" | "internal"; text: string }
+  | ({ origin: "network" } & NetworkFailure)
+  | ({ origin: "api" } & ApiFailure);
 
-/** Set by fail(), never serialized: our own refusal ("local"), a bug in our code ("internal") or a failed fetch ("network"). */
-const FAILURE_ORIGIN = new WeakMap<
-  object,
-  { origin: "local" | "internal"; text: string } | ({ origin: "network" } & NetworkFailure)
->();
+/** Set by fail(), never serialized: our own refusal ("local"), a bug in our code ("internal"), a failed fetch ("network") or a KIT API error ("api"). */
+const FAILURE_ORIGIN = new WeakMap<object, Origin>();
 const JS_ERRORS = new Set(["TypeError", "ReferenceError", "RangeError", "SyntaxError", "EvalError", "URIError"]);
 
 function jsBug(err: unknown): string | undefined {
@@ -285,16 +288,58 @@ function fetchFailure(err: unknown): NetworkFailure | undefined {
   };
 }
 
+// KIT error contract: specs/kit-swagger.openapi.json (Error, BulkOperationItemError) and the codes
+// observed live (skills/a1-yandex-kit/SKILL.md). The code wins: LIMIT_EXCEEDED arrives with HTTP 400.
+const KIT_CODE_OUTCOMES = new Map<string, ToolOutcome>([
+  ["LIMIT_EXCEEDED", "error_rate_limit"],
+  ["AUTHENTICATION_ERROR", "error_auth"],
+  ["FORBIDDEN_ERROR", "error_permission"],
+  ...["NOT_FOUND", "VARIANT_NOT_FOUND", "WAREHOUSE_NOT_FOUND"].map((c) => [c, "error_not_found"] as const),
+  ...["VALIDATION_ERROR", "UNSUPPORTED_MEDIA_TYPE", "CONFLICT"].map((c) => [c, "error_invalid_request"] as const),
+  ...["UNKNOWN_ERROR", "INVALID_JSON"].map((c) => [c, "error_upstream"] as const),
+]);
+
+function statusOutcome(status: number): ToolOutcome {
+  if (status === 401) return "error_auth";
+  if (status === 403) return "error_permission";
+  if (status === 404) return "error_not_found";
+  if (status === 408) return "error_timeout";
+  if (status === 429) return "error_rate_limit";
+  if (status >= 500) return "error_upstream";
+  return status >= 400 ? "error_invalid_request" : "error_other";
+}
+
+const kitCode = (code: unknown): string => (typeof code === "string" && /^[A-Z][A-Z0-9_]{1,63}$/.test(code) ? code : "");
+
+/** Status, code and message of a KIT API error; traceId stays home: it identifies the request. */
+function apiFailure(err: KitApiError): ApiFailure {
+  const code = kitCode(err.code);
+  const status = Number.isInteger(err.status) ? err.status : 0;
+  return {
+    reason: KIT_CODE_OUTCOMES.get(code) ?? statusOutcome(status),
+    head: `HTTP ${status}${code ? ` ${code}` : ""}`,
+    // INVALID_JSON quotes the store's response body.
+    text: code === "INVALID_JSON" ? "" : String(err.message),
+  };
+}
+
+function originOf(err: unknown): Origin | undefined {
+  if (err instanceof KitValidationError) {
+    const code = kitCode(err.code);
+    return { origin: "local", text: code ? `${code}: ${err.message}` : String(err.message) };
+  }
+  if (err instanceof KitApiError) return { origin: "api", ...apiFailure(err) };
+  const net = fetchFailure(err);
+  if (net) return { origin: "network", ...net };
+  const bug = jsBug(err);
+  return bug ? { origin: "internal", text: bug } : undefined;
+}
+
 export function noteFailure<T>(result: T, err: unknown): T {
   try {
     if (result && typeof result === "object") {
-      const net = fetchFailure(err);
-      if (typeof err === "string") FAILURE_ORIGIN.set(result, { origin: "local", text: err });
-      else if (net) FAILURE_ORIGIN.set(result, { origin: "network", ...net });
-      else {
-        const bug = jsBug(err);
-        if (bug) FAILURE_ORIGIN.set(result, { origin: "internal", text: bug });
-      }
+      const noted: Origin | undefined = typeof err === "string" ? { origin: "local", text: err } : originOf(err);
+      if (noted) FAILURE_ORIGIN.set(result, noted);
     }
   } catch {
     // never affects the result
@@ -314,15 +359,16 @@ function reportCall(telemetry: Telemetry, tool: string, value: unknown, thrown: 
     let reason = thrown ? toolOutcome(undefined, value) : toolOutcome(value);
     let detail = "";
     if (reason !== "ok") {
-      const noted = value && typeof value === "object" ? FAILURE_ORIGIN.get(value) : undefined;
-      const net = noted?.origin === "network" ? noted : thrown ? fetchFailure(value) : undefined;
-      const bug = noted?.origin === "internal" ? noted.text : thrown ? jsBug(value) : undefined;
-      if (net) {
-        reason = net.reason;
-        detail = net.text;
-      } else if (bug) {
+      const noted = (value && typeof value === "object" ? FAILURE_ORIGIN.get(value) : undefined) ?? (thrown ? originOf(value) : undefined);
+      if (noted?.origin === "network") {
+        reason = noted.reason;
+        detail = noted.text;
+      } else if (noted?.origin === "internal") {
         reason = "error_internal";
-        detail = maskedOwnText("internal: ", bug, false);
+        detail = maskedOwnText("internal: ", noted.text, false);
+      } else if (noted?.origin === "api") {
+        reason = noted.reason;
+        detail = noted.text ? maskedOwnText(`${noted.head}: `, noted.text) : noted.head;
       } else if (noted?.origin === "local") {
         reason = "error_invalid_request";
         detail = maskedOwnText("local: ", noted.text);

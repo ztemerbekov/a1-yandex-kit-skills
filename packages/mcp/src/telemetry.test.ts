@@ -12,7 +12,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { instrumentToolCalls, Telemetry, telemetryEnabled, DETAIL_MAX, errorDetail, noteFailure, TOOL_OUTCOMES, toolOutcome } from "./telemetry.js";
-import { fail } from "./util.js";
+import { KitApiError, KitValidationError } from "yandex-kit-core";
+
+import { emptyUpdateFailure, fail, validationFailure } from "./util.js";
 import { createRuntime } from "./runtime.js";
 import { createMcpServer } from "./server.js";
 
@@ -620,4 +622,118 @@ test("errorDetail masks long quotes and any value after a secret key", () => {
     assert.ok(!errorDetail(text).includes(leak), errorDetail(text));
   }
   assert.equal(errorDetail("HTTP 401: token expired"), "HTTP 401 token expired");
+});
+
+// --- KIT errors: classified by type and code, excerpt built from the error's fields ----------
+
+async function callFailing(produce: () => unknown, thrown = false) {
+  const { mcp, sent } = await pairWith((server) =>
+    server.registerTool("kit", { description: "k", inputSchema: {} }, async () => {
+      const value = produce();
+      if (thrown) throw value;
+      return value as never;
+    }),
+  );
+  const res = await mcp.callTool({ name: "kit", arguments: {} });
+  const calls = sent.filter((s) => s.body.event === "tool_call");
+  assert.equal(calls.length, 1);
+  return { res, call: calls[0].body };
+}
+
+test("LIMIT_EXCEEDED with HTTP 400 is a rate limit, not an invalid request", async () => {
+  const err = new KitApiError(400, "LIMIT_EXCEEDED", "Превышено количество запросов", "trace-limit-1");
+  const { res, call } = await callFailing(() => fail(err));
+  assert.equal(call.reason, "error_rate_limit");
+  assert.equal(call.error_detail, "HTTP 400 LIMIT_EXCEEDED: Превышено количество запросов");
+  assert.ok(!JSON.stringify(call).includes("trace-limit-1"), "traceId identifies the request");
+  assert.deepEqual(res.content, [
+    {
+      type: "text",
+      text: '{"error":"Превышено количество запросов","code":"LIMIT_EXCEEDED","status":400,"traceId":"trace-limit-1"}',
+    },
+  ]);
+  assert.equal(res.isError, true);
+});
+
+test("AUTHENTICATION_ERROR is error_auth with status, code and message", async () => {
+  const { res, call } = await callFailing(() =>
+    fail(new KitApiError(401, "AUTHENTICATION_ERROR", "Ошибка аутентификации", "trace-auth-1")),
+  );
+  assert.equal(call.reason, "error_auth");
+  assert.equal(call.error_detail, "HTTP 401 AUTHENTICATION_ERROR: Ошибка аутентификации");
+  assert.ok(!JSON.stringify(call).includes("trace-auth-1"));
+  assert.match(JSON.stringify(res), /trace-auth-1/, "the client still gets the traceId");
+});
+
+test("a KIT code wins over the status; an unknown code falls back to the status", async () => {
+  for (const [status, code, reason] of [
+    [403, "FORBIDDEN_ERROR", "error_permission"],
+    [404, "NOT_FOUND", "error_not_found"],
+    [400, "VARIANT_NOT_FOUND", "error_not_found"],
+    [400, "VALIDATION_ERROR", "error_invalid_request"],
+    [415, "UNSUPPORTED_MEDIA_TYPE", "error_invalid_request"],
+    [409, "CONFLICT", "error_invalid_request"],
+    [500, "UNKNOWN_ERROR", "error_upstream"],
+    [429, "HTTP_ERROR", "error_rate_limit"],
+    [502, "HTTP_ERROR", "error_upstream"],
+    [422, "SOMETHING_NEW", "error_invalid_request"],
+  ] as const) {
+    const { call } = await callFailing(() => fail(new KitApiError(status, code, "x", "t")));
+    assert.equal(call.reason, reason, code);
+    assert.equal(call.error_detail, `HTTP ${status} ${code}: x`, code);
+  }
+});
+
+test("a KIT message is masked like any excerpt and cut to DETAIL_MAX", async () => {
+  const { call } = await callFailing(() =>
+    fail(
+      new KitApiError(
+        400,
+        "VALIDATION_ERROR",
+        `Товар "Платье Иванова" (id 12345678) от boss@shop.ru: ${"слово ".repeat(60)}`,
+        "trace-mask-1",
+      ),
+    ),
+  );
+  const detail = String(call.error_detail);
+  assert.match(detail, /^HTTP 400 VALIDATION_ERROR: Товар # \(id #\) от #/);
+  for (const leak of ["Платье", "12345678", "boss", "trace-mask-1"]) assert.ok(!detail.includes(leak), detail);
+  assert.ok(detail.length <= DETAIL_MAX);
+});
+
+test("INVALID_JSON sends no message: it quotes the store's response body", async () => {
+  const { call } = await callFailing(() =>
+    fail(new KitApiError(200, "INVALID_JSON", "Failed to parse response body as JSON: {name:Платье")),
+  );
+  assert.equal(call.reason, "error_upstream");
+  assert.equal(call.error_detail, "HTTP 200 INVALID_JSON");
+});
+
+test("a KitApiError thrown past fail() is classified the same way", async () => {
+  const { call } = await callFailing(() => new KitApiError(400, "LIMIT_EXCEEDED", "slow down", "trace-thrown"), true);
+  assert.equal(call.reason, "error_rate_limit");
+  assert.equal(call.error_detail, "HTTP 400 LIMIT_EXCEEDED: slow down");
+});
+
+test("KitValidationError is our own refusal: error_invalid_request with local: code and masked message", async () => {
+  const cases: [() => unknown, string][] = [
+    [
+      () => validationFailure(["/name: must be string"]),
+      "local: LOCAL_VALIDATION_ERROR: Request body failed schema validation: /name: must be string",
+    ],
+    [
+      () => emptyUpdateFailure(),
+      "local: EMPTY_UPDATE_BODY: Update body must not be empty: provide at least one field to change",
+    ],
+    [
+      () => fail(new KitValidationError('Unknown CSV field "Платье Иванова" for product 12345678', [], "UNKNOWN_CSV_FIELD")),
+      "local: UNKNOWN_CSV_FIELD: Unknown CSV field # for product #",
+    ],
+  ];
+  for (const [produce, detail] of cases) {
+    const { res, call } = await callFailing(produce);
+    assert.equal(call.reason, "error_invalid_request");
+    assert.equal(call.error_detail, detail);
+    assert.deepEqual(res.content, (produce() as { content: unknown }).content, "the client gets the same text");
+  }
 });
