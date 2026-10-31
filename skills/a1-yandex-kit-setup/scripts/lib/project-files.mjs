@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { lstat, readFile, mkdir, open, rename, unlink, chmod } from 'node:fs/promises';
+import { lstat, readFile, mkdir, open, rename, unlink, chmod, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { SetupError } from './shared.mjs';
 export const hash = content => createHash('sha256').update(content).digest('hex');
@@ -70,4 +70,28 @@ export async function replaceSnapshot(file, content, expectedRevision) {
         await unlink(temporary).catch(e => { if (e.code !== 'ENOENT')
             throw e; });
     }
+}
+
+export async function canonicalPath(file) {
+    try { return await realpath(file); }
+    catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        const parent = path.dirname(file);
+        if (parent === file) throw error;
+        return path.join(await canonicalPath(parent), path.basename(file));
+    }
+}
+export async function assertProjectConfigScope(adapter) {
+    if (adapter.scope !== 'project' || adapter.client !== 'codex') return;
+    const intended = path.join(path.resolve(adapter.projectDir), '.codex', 'config.toml');
+    if (path.resolve(adapter.configPath) !== intended)
+        throw new SetupError('Codex project configuration must stay in <project>/.codex/config.toml. Use --scope user for user config overrides.', 'UNSAFE_CONFIG');
+    try {
+        if ((await lstat(path.dirname(adapter.configPath))).isSymbolicLink())
+            throw new SetupError('A symbolic link redirects the project Codex configuration. Restore a real project .codex directory before retrying.', 'UNSAFE_CONFIG');
+    } catch(error) { if(error.code !== 'ENOENT') throw error; }
+    const project = await canonicalPath(adapter.projectDir);
+    const config = await canonicalPath(adapter.configPath);
+    if (config !== path.join(project, '.codex', 'config.toml') || config === await canonicalPath(adapter.userConfigPath))
+        throw new SetupError('A symbolic link redirects the project Codex configuration. Restore a real project .codex directory before retrying.', 'UNSAFE_CONFIG');
 }

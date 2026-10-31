@@ -317,3 +317,51 @@ test('corrupt private rollback journals fail without echoing their secret text',
     await writeFile(path.join(env.YANDEX_KIT_CONNECTIONS_DIR,'.setup-transactions',`${result.transactionId}.json`),'private-journal-secret');
     await assert.rejects(rollbackProject(a,result.transactionId),error=>error.code==='INVALID_ROLLBACK'&&!error.message.includes('private-journal-secret'));
 }));
+
+test('review: project Codex rejects user config overrides and ancestor symlink redirects', async () => fixture(async ({adapter,options,home,root}) => {
+    const {symlink}=await import('node:fs/promises');
+    const global=path.join(home,'.codex','config.toml');
+    assert.throws(()=>resolveAdapter({client:'codex',home,env:{},projectDir:path.join(root,'selected'),configPath:global}),error=>error.code==='UNSAFE_CONFIG');
+    assert.equal(resolveAdapter({client:'codex',scope:'user',home,env:{},configPath:global}).configPath,global);
+    assert.throws(()=>resolveAdapter({client:'codex',home,env:{},projectDir:home}),error=>error.code==='UNSAFE_CONFIG');
+    const {spawnCaptured}=await import('./lib/process.mjs');
+    const rejected=await spawnCaptured(process.execPath,[path.resolve('skills/a1-yandex-kit-setup/scripts/setup.mjs'),'configure','--client','codex','--project-dir',path.join(root,'selected'),'--config',global,'--json'],{env:{...process.env,HOME:home,YANDEX_KIT_CONNECTIONS_DIR:path.join(root,'secrets')}});
+    assert.equal(rejected.code,1);assert.match(rejected.stderr,/UNSAFE_CONFIG/);
+    const a=adapter('codex');await mkdir(a.projectDir,{recursive:true});await mkdir(path.dirname(global),{recursive:true});await writeFile(global,'# global must survive\n');
+    await symlink(path.dirname(global),path.join(a.projectDir,'.codex'));
+    await assert.rejects(configureAdapter(a,options('one')),error=>error.code==='UNSAFE_CONFIG');
+    assert.equal(await readFile(global,'utf8'),'# global must survive\n');await assert.rejects(readFile(a.bindingPath),{code:'ENOENT'});
+}));
+
+test('review: global KIT names cannot disable unrelated higher-scope servers in either client', async () => fixture(async ({adapter,options}) => {
+    for(const client of ['codex','claude-code']) {
+        const a=adapter(client,`shadow ${client}`);
+        if(client==='codex') {
+            await mkdir(path.dirname(a.userConfigPath),{recursive:true});await writeFile(a.userConfigPath,'[mcp_servers.yandex-kit]\ncommand = "npx"\nargs = ["-y", "mcp-yandex-kit@latest"]\n');
+            await mkdir(path.dirname(a.configPath),{recursive:true});await writeFile(a.configPath,'[mcp_servers.yandex-kit]\ncommand = "unrelated"\nargs = []\n');
+        } else await writeFile(a.configPath,JSON.stringify({mcpServers:{'yandex-kit':{command:'npx',args:['-y','mcp-yandex-kit@latest']}},projects:{[a.projectDir]:{mcpServers:{'yandex-kit':{command:'unrelated',args:[]}}}}}));
+        const before=await readFile(a.configPath,'utf8');
+        await assert.rejects(configureAdapter(a,options('one')),error=>error.code==='SERVER_CONFLICT');assert.equal(await readFile(a.configPath,'utf8'),before);await assert.rejects(readFile(a.bindingPath),{code:'ENOENT'});
+    }
+}));
+
+test('review: ancestor Codex policy-only deny and tool selection follow inherited KIT transport',async()=>fixture(async({adapter,options,root})=>{
+    const a=adapter('codex','ancestor/project');await mkdir(path.dirname(a.userConfigPath),{recursive:true});await writeFile(a.userConfigPath,'[mcp_servers.yandex-kit]\ncommand = "npx"\nargs = ["-y", "mcp-yandex-kit@latest"]\n');
+    const ancestor=path.join(root,'ancestor','.codex','config.toml');await mkdir(path.dirname(ancestor),{recursive:true});const initial='[mcp_servers.yandex-kit]\ndisabled_tools = ["delete_product"]\n[mcp_servers.yandex-kit.tools.update_product]\napproval_mode = "deny"\n';await writeFile(ancestor,initial);
+    await configureAdapter(a,options('one'));const content=await readFile(a.configPath,'utf8');assert.match(content,/disabled_tools = \["delete_product"\]/);assert.match(content,/a1-yandex-kit-project.tools.update_product\]\napproval_mode = "deny"/);assert.equal(await readFile(ancestor,'utf8'),initial);
+}));
+
+test('review: stale refresh rollback is refused after a later project store switch',async()=>fixture(async({adapter,options,storage})=>{
+    const {rollbackProject}=await import('./lib/project-setup.mjs');const a=adapter('codex');await configureAdapter(a,options('one'));const original=await storage.readBinding(a.bindingPath);
+    const refresh=await configureAdapter(a,options('one',{token:'refreshed-one'}));await configureAdapter(a,options('two',{changeStore:true}));const switched=await storage.readBinding(a.bindingPath);
+    await assert.rejects(rollbackProject(a,refresh.transactionId),error=>error.code==='ROLLBACK_CONFLICT');assert.deepEqual(await storage.readBinding(a.bindingPath),switched);assert.equal((await storage.readConnection(original.value.connection_id)).value.token,'refreshed-one');
+}));
+
+test('review: Claude inventory accepts only supported empty/entry grammar and rejects unknown success output',async()=>fixture(async({adapter,options})=>{
+    const {discoverEffectiveEntries}=await import('./lib/project-check.mjs');const a=adapter('claude-code');await configureAdapter(a,options('one'));
+    const get=`Name: a1-yandex-kit-project\nScope: Local\nCommand: npx\nArgs: -y mcp-yandex-kit@latest --project-config ${a.bindingPath}\nEnvironment:\n  YANDEX_KIT_CONNECTIONS_DIR=${a.env.YANDEX_KIT_CONNECTIONS_DIR}\n`;
+    const run=output=>async(command,args)=>({available:true,code:0,stdout:args[1]==='get'?get:output,stderr:''});
+    for(const output of ['unsupported localized inventory','Checking MCP server health...\n','', 'other: unexpected truncated output'])await assert.rejects(clientCheck(a,{run:run(output)}),error=>error.code==='PLUGIN_CONFLICT');
+    assert.deepEqual(await discoverEffectiveEntries(a,{run:run('No MCP servers configured. Use `claude mcp add` to add a server.\n')}),[]);
+    assert.deepEqual(await discoverEffectiveEntries(a,{run:run('Checking MCP server health...\n\nother: npx unrelated-server - ✓ Connected\n')}),[]);
+}));

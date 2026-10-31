@@ -3,7 +3,7 @@ import { readdir } from 'node:fs/promises';
 import { SetupError, SERVER_COMMAND, SERVER_ARGS } from './shared.mjs';
 import { parseJsonConfig } from './config/json.mjs';
 import { validateTomlSubset, renderToml, parseTomlString, parseTomlArgs, tomlAssignment, splitTomlAssignment, parseTomlDottedKey } from './config/toml.mjs';
-import { readSnapshot } from './project-files.mjs';
+import { readSnapshot, canonicalPath, assertProjectConfigScope } from './project-files.mjs';
 export const PROJECT_SERVER = 'a1-yandex-kit-project';
 const object = v => v && typeof v === 'object' && !Array.isArray(v);
 function expectObject(v) { if (!object(v))
@@ -90,37 +90,51 @@ export function migrateClaudeRules(config, names) {
     }
     return config;
 }
-export async function projectInventory(adapter, { discover = async () => [] } = {}) {
-    const snapshots = new Map();
-    const read = async (file) => { if (!snapshots.has(file))
-        snapshots.set(file, await readSnapshot(file)); return snapshots.get(file).content; };
-    const entries = [];
-    if (adapter.client === 'codex') {
-        for (const file of [...new Set([adapter.userConfigPath, adapter.configPath])]) {
-            for (const found of tableEntries(await read(file), file))
-                if (isKitEntry(found.entry))
-                    entries.push({ ...found, file, kind: 'server' });
-        }
+async function codexConfigHierarchy(adapter) {
+    const ancestors = [];
+    for (let directory = path.dirname(await canonicalPath(adapter.projectDir));; directory = path.dirname(directory)) {
+        ancestors.push(path.join(directory, '.codex', 'config.toml'));
+        if (path.dirname(directory) === directory) break;
     }
-    else {
+    return [...new Set([adapter.userConfigPath, ...ancestors.reverse(), adapter.configPath])];
+}
+export async function projectInventory(adapter, { discover = async () => [] } = {}) {
+    await assertProjectConfigScope(adapter);
+    const snapshots = new Map();
+    const read = async (file) => {
+        if (!snapshots.has(file)) snapshots.set(file, await readSnapshot(file));
+        return snapshots.get(file).content;
+    };
+    const definitions = [];
+    const configFiles = adapter.client === 'codex' ? await codexConfigHierarchy(adapter) : [adapter.configPath];
+    if (adapter.client === 'codex') {
+        for (const file of configFiles)
+            for (const found of tableEntries(await read(file), file))
+                definitions.push({ ...found, file, kind: 'server' });
+    } else {
         const config = parseJsonConfig(await read(adapter.configPath), adapter.configPath);
         const local = config.projects?.[adapter.projectDir];
         for (const [name, entry] of Object.entries(config.mcpServers || {}))
-            if (isKitEntry(entry))
-                entries.push({ name, entry, file: adapter.configPath, kind: 'server' });
-        for (const [name, entry] of Object.entries(local?.mcpServers || {}))
-            if (isKitEntry(entry))
-                entries.push({ name, entry, file: adapter.configPath, kind: 'server' });
+            definitions.push({ name, entry, file: adapter.configPath, kind: 'server', scope: 'user' });
         const projectMcp = path.join(adapter.projectDir, '.mcp.json');
         const project = parseJsonConfig(await read(projectMcp), projectMcp);
         for (const [name, entry] of Object.entries(project.mcpServers || {}))
-            if (isKitEntry(entry))
-                entries.push({ name, entry, file: projectMcp, kind: 'server' });
+            definitions.push({ name, entry, file: projectMcp, kind: 'server', scope: 'project' });
+        for (const [name, entry] of Object.entries(local?.mcpServers || {}))
+            definitions.push({ name, entry, file: adapter.configPath, kind: 'server', scope: 'local' });
     }
-    for (const e of await discover(adapter))
-        if (isKitEntry(e.entry))
-            entries.push(e);
-    return { entries: entries.filter(e => e.name !== PROJECT_SERVER), snapshots, read };
+    definitions.push(...await discover(adapter));
+    const entries = definitions.filter(e => isKitEntry(e.entry) && e.name !== PROJECT_SERVER);
+    const kitNames = new Set(entries.map(e => e.name));
+    // A name-wide disable also affects higher-scope unrelated definitions. Refuse
+    // ambiguous provenance instead of changing those definitions or permissions.
+    for (const definition of definitions) {
+        const entry = definition.entry;
+        const suppliesTransport = object(entry) && ['command', 'args', 'url'].some(key => entry[key] !== undefined);
+        if (kitNames.has(definition.name) && suppliesTransport && !isKitEntry(entry))
+            throw new SetupError('A legacy KIT name is shadowed by another server or an unestablished transport override. Resolve that name in the client before migrating.', 'SERVER_CONFLICT');
+    }
+    return { entries, snapshots, read, configFiles };
 }
 function mergeCodexPolicy(chunks, sources) {
     const assignments = new Map();
@@ -174,8 +188,13 @@ export async function prepareProjectConfig(adapter, root, inventory) {
         setTable(chunks, prefix, { command: desired.command, args: desired.args, enabled: true });
         setTable(chunks, `${prefix}.env`, desired.env);
         const policySources = [...entries];
+        // Policy-only ancestors inherit transport from another layer. Include all
+        // layers for each established KIT identity, even without command/args.
+        for (const name of new Set(entries.filter(e => e.kind !== 'plugin').map(e => e.name)))
+            for (const file of inventory.configFiles)
+                policySources.push({chunks: validateTomlSubset(await read(file), file), prefix: `mcp_servers.${name}`});
         for (const e of entries.filter(e => e.kind === "plugin" && e.pluginId && e.serverKey))
-            for (const file of [...new Set([adapter.userConfigPath, adapter.configPath])]) {
+            for (const file of inventory.configFiles) {
                 policySources.push({ ...e, chunks: validateTomlSubset(await read(file), file), prefix: `plugins.${e.pluginId}.mcp_servers.${e.serverKey}` });
             }
         mergeCodexPolicy(chunks, policySources);
@@ -241,6 +260,7 @@ export async function prepareProjectConfig(adapter, root, inventory) {
     return updates;
 }
 export async function readProjectEntry(adapter) {
+    await assertProjectConfigScope(adapter);
     const s = await readSnapshot(adapter.configPath);
     if (adapter.client === 'codex')
         return tableEntries(s.content, adapter.configPath).find(e => e.name === PROJECT_SERVER)?.entry;

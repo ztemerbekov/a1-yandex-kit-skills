@@ -211,6 +211,9 @@ export function resolveAdapter({
     : selectedScope === "project" && id === "codex"
       ? path.join(selectedProject, ".codex", "config.toml")
       : userConfigPath;
+  if (selectedScope === "project" && id === "codex" && (resolvedPath !== path.join(selectedProject, ".codex", "config.toml") || resolvedPath === userConfigPath)) {
+    throw new SetupError("Codex project scope must use <project>/.codex/config.toml. Select --scope user for a user configuration override.", "UNSAFE_CONFIG");
+  }
   return {
     client: id,
     format: resolvedFormat,

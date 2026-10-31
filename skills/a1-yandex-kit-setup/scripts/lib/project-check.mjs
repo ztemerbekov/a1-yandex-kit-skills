@@ -22,25 +22,29 @@ export async function discoverEffectiveEntries(adapter, { run = spawnCaptured } 
             throw conflict('Codex returned an unsupported MCP inventory.');
         return entries.filter(e => e.name !== 'a1-yandex-kit-project').map(e => ({ name: e.name, entry: e.transport || e, kind: e.plugin_id || e.pluginId || e.name?.startsWith('plugin:') ? 'plugin' : 'server', pluginId: e.plugin_id || e.pluginId, serverKey: e.server_name || e.serverKey, enabled: e.enabled !== false })).filter(e => isKitEntry(e.entry));
     }
-    // Claude has no JSON mode. A plugin's printed command must establish package
-    // identity; do not guess a plugin identifier from its display name.
+    // Claude has no JSON mode. Establish a supported complete inventory grammar
+    // before interpreting package identities; absence of one substring proves nothing.
     const entries = [];
-    for (const line of `${result.stdout}\n${result.stderr}`.split('\n')) {
-        if (!line.includes('mcp-yandex-kit'))
+    let empty = false, listed = 0;
+    const lines = `${result.stdout}\n${result.stderr}`.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    for (const line of lines) {
+        if (line === 'Checking MCP server health...') continue;
+        if (/^No MCP servers configured\.(?: Use `claude mcp add` to add a server\.)?$/.test(line)) {
+            if (empty || listed) throw conflict('Claude returned a conflicting MCP inventory; inspect /mcp and retry.');
+            empty = true;
             continue;
-        const m = line.match(/^\s*([^\s]+):\s+(.*?)\s+(?:-|✓|✗|⚠)/u) || line.match(/^\s*([^\s]+):\s+(.*?)\s*$/u);
-        if (!m)
-            throw conflict();
-        const name = m[1];
-        if (name === 'a1-yandex-kit-project')
-            continue;
-        const args = m[2].split(/\s+/);
-        const command = args.shift();
-        const entry = { command, args };
-        if (!isKitEntry(entry))
-            throw conflict();
-        entries.push({ name, entry, kind: name.startsWith('plugin:') ? 'plugin' : 'server', enabled: !/[Dd]isabled/.test(line) });
+        }
+        const match = line.match(/^(\S+):\s+(.+?)\s+-\s+(✓ Connected|✗ Failed to connect|⚠ Needs authentication|Disabled)$/u);
+        if (!match || empty) throw conflict('Claude MCP inventory output is unsupported or incomplete. Inspect /mcp and disable legacy KIT entries for this project, then retry.');
+        listed += 1;
+        const [,name,definition,status] = match;
+        if (name === 'a1-yandex-kit-project' || !definition.includes('mcp-yandex-kit')) continue;
+        const args = definition.split(/\s+/);
+        const entry = {command: args.shift(), args};
+        if (!isKitEntry(entry)) throw conflict('Claude did not establish the identity of a possible legacy KIT entry. Inspect /mcp before continuing.');
+        entries.push({name, entry, kind: name.startsWith('plugin:') ? 'plugin' : 'server', enabled: status !== 'Disabled'});
     }
+    if (!empty && !listed) throw conflict('Claude did not return a complete MCP inventory. Inspect /mcp and retry.');
     return entries;
 }
 export async function checkProjectClient(adapter, { run = spawnCaptured } = {}) {

@@ -3,7 +3,7 @@ import { mkdir, chmod, realpath, access, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { createConnectionStore, resolveConnectionsRoot } from './connections.mjs';
 import { SetupError, redactSecret } from './shared.mjs';
-import { readSnapshot, replaceSnapshot, withFileLocks, hash } from './project-files.mjs';
+import { readSnapshot, replaceSnapshot, withFileLocks, hash, assertProjectConfigScope } from './project-files.mjs';
 import { projectInventory, prepareProjectConfig, readProjectEntry, projectEntry } from './project-config.mjs';
 function within(parent, child) { const r = path.relative(parent, child); return r === '' || (!r.startsWith(`..${path.sep}`) && r !== '..' && !path.isAbsolute(r)); }
 async function canonical(file) {
@@ -20,6 +20,7 @@ async function canonical(file) {
     }
 }
 export async function projectStorage(adapter) {
+    await assertProjectConfigScope(adapter);
     const root = resolveConnectionsRoot({ storageRoot: adapter.storageRoot, env: adapter.env });
     const resolved = await canonical(root);
     const project = await canonical(adapter.projectDir);
@@ -94,10 +95,12 @@ export async function smokeProject(adapter, overrides = {}) {
     return smokeMcp({ ...overrides, token: undefined, projectConfig: adapter.bindingPath, expectedStoreId: connection.value.store_id, env });
 }
 function copyRecord(v) { return { ...v, token: v.token }; }
-async function undo(actions, storage) {
+async function undo(actions, storage, adapter) {
     for (const a of [...actions].reverse()) {
-        if (a.kind === 'file')
+        if (a.kind === 'file') {
+            if(a.path===adapter.configPath) await assertProjectConfigScope(adapter);
             await replaceSnapshot(a.path, a.before.revision === null ? null : a.before.content, a.after);
+        }
         else if (a.kind === 'binding') {
             if (a.before)
                 await storage.writeBinding(a.path, a.before.value, { expectedRevision: a.after });
@@ -154,7 +157,9 @@ export async function configureProject(adapter, options = {}) {
         const updates = await prepareProjectConfig(adapter, root, inventory);
         const actions = [];
         let id = binding?.value.connection_id;
+        await assertProjectConfigScope(adapter);
         return withFileLocks([...updates.keys()], async () => {
+            await assertProjectConfigScope(adapter);
             // Observe all source files, including read-only global policy, before publishing.
             for (const [file, snapshot] of inventory.snapshots)
                 if ((await readSnapshot(file)).revision !== snapshot.revision)
@@ -176,6 +181,7 @@ export async function configureProject(adapter, options = {}) {
                     }
                 }
                 for (const [file, content] of updates) {
+                    if(file===adapter.configPath) await assertProjectConfigScope(adapter);
                     const before = inventory.snapshots.get(file);
                     if (before.content === content)
                         continue;
@@ -186,6 +192,7 @@ export async function configureProject(adapter, options = {}) {
                 const client = await (options.verifyClient || (async (a) => (await import('./project-check.mjs')).checkProjectClient(a)))(adapter);
                 if (!runtime?.ok || !client?.ok)
                     throw new SetupError('Project verification did not establish readiness.', 'CLIENT_CHECK');
+                await assertProjectConfigScope(adapter);
                 for (const [file, content] of updates)
                     if ((await readSnapshot(file)).revision !== hash(content))
                         throw new SetupError('Configuration changed during verification.', 'CONFIG_CONFLICT');
@@ -206,13 +213,13 @@ export async function configureProject(adapter, options = {}) {
                     const guards = [];
                     for (const file of updates.keys())
                         guards.push({ path: file, revision: (await readSnapshot(file)).revision });
-                    await replaceSnapshot(path.join(dir, `${transactionId}.json`), JSON.stringify({ version: 1, bindingPath: adapter.bindingPath, configPath: adapter.configPath, client: adapter.client, actions, guards }), null);
+                    await replaceSnapshot(path.join(dir, `${transactionId}.json`), JSON.stringify({ version: 1, bindingPath: adapter.bindingPath, configPath: adapter.configPath, client: adapter.client, actions, guards, finalBinding: {revision: finalBinding.revision, connection_id: finalBinding.value.connection_id}, finalConnection: {revision: finalConnection.revision, connection_id: id} }), null);
                 }
                 return { ...await inspectProject(adapter), changed: actions.length > 0, transactionId: transactionId || null, verified: true, restartRequired: true, message: 'Restart all existing chats for this project to load this connection.' };
             }
             catch (e) {
                 try {
-                    await undo(actions, storage);
+                    await undo(actions, storage, adapter);
                 }
                 catch {
                     throw new SetupError('Setup failed and rollback found a concurrent edit. Changes were preserved; inspect the project configuration and private connection before retrying.', 'ROLLBACK_CONFLICT');
@@ -236,9 +243,16 @@ export async function rollbackProject(adapter, transactionId) {
         let journal;
         try { journal = JSON.parse(snapshot.content); }
         catch { throw new SetupError("The private rollback journal is invalid; inspect it locally before retrying.", "INVALID_ROLLBACK"); }
-        if (journal.version !== 1 || journal.bindingPath !== adapter.bindingPath || journal.configPath !== adapter.configPath || journal.client !== adapter.client || !Array.isArray(journal.actions))
+        if (journal.version !== 1 || journal.bindingPath !== adapter.bindingPath || journal.configPath !== adapter.configPath || journal.client !== adapter.client || !Array.isArray(journal.actions) || !journal.finalBinding?.revision || !journal.finalConnection?.revision || journal.finalBinding.connection_id !== journal.finalConnection.connection_id)
             throw new SetupError('Rollback transaction belongs to another project or client.', 'INVALID_ROLLBACK');
         return withFileLocks([...(journal.guards || []).map(g => g.path), ...journal.actions.filter(a => a.kind === 'file').map(a => a.path)], async () => {
+            let finalBinding, finalConnection;
+            try {
+                finalBinding = await storage.readBinding(adapter.bindingPath);
+                finalConnection = await storage.readConnection(journal.finalConnection.connection_id);
+            } catch { throw new SetupError('Project binding or credentials changed after setup; rollback refused.', 'ROLLBACK_CONFLICT'); }
+            if(finalBinding.revision !== journal.finalBinding.revision || finalBinding.value.connection_id !== journal.finalBinding.connection_id || finalConnection.revision !== journal.finalConnection.revision)
+                throw new SetupError('Project binding or credentials changed after setup; rollback refused.', 'ROLLBACK_CONFLICT');
             for (const guard of journal.guards || [])
                 if ((await readSnapshot(guard.path)).revision !== guard.revision)
                     throw new SetupError('Project configuration changed after setup; rollback refused.', 'ROLLBACK_CONFLICT');
@@ -247,7 +261,7 @@ export async function rollbackProject(adapter, transactionId) {
                 if (current.revision !== a.after)
                     throw new SetupError('Project state changed after setup; rollback refused.', 'ROLLBACK_CONFLICT');
             }
-            await undo(journal.actions, storage);
+            await undo(journal.actions, storage, adapter);
             await replaceSnapshot(journalPath, null, snapshot.revision);
             return { rolledBack: true, scope: 'project', restartRequired: true };
         });
