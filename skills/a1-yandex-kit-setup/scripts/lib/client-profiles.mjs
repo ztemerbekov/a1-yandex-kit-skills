@@ -187,6 +187,8 @@ export function resolveAdapter({
   env,
   serverName,
   projectDir,
+  scope,
+  storageRoot,
 }) {
   const id = normalizeClient(client);
   const profile = getClientProfile(id);
@@ -197,15 +199,32 @@ export function resolveAdapter({
       "UNSUPPORTED_FORMAT",
     );
   }
+  const selectedScope = scope || (["codex", "claude-code"].includes(id) ? "project" : "user");
+  if (!["project", "user"].includes(selectedScope) || (selectedScope === "project" && !["codex", "claude-code"].includes(id))) {
+    throw new SetupError("Project scope is supported only for Codex and Claude Code.", "UNSUPPORTED_SCOPE");
+  }
+  if (selectedScope === "project" && serverName && serverName !== "a1-yandex-kit-project") throw new SetupError("Project scope uses a1-yandex-kit-project. Select --scope user for a legacy server name.", "INVALID_SERVER_NAME");
+  const selectedProject = path.resolve(projectDir || process.cwd());
+  const userConfigPath = configPath && selectedScope === "user" ? path.resolve(configPath) : profile ? defaultConfigPath(id, {platform, home, env}) : path.resolve(configPath);
   const resolvedPath = configPath
     ? path.resolve(configPath)
-    : defaultConfigPath(id, { platform, home, env });
+    : selectedScope === "project" && id === "codex"
+      ? path.join(selectedProject, ".codex", "config.toml")
+      : userConfigPath;
   return {
     client: id,
     format: resolvedFormat,
     configPath: resolvedPath,
-    serverName: normalizeServerName(serverName),
-    projectDir: path.resolve(projectDir || process.cwd()),
+    serverName: selectedScope === "project" ? "a1-yandex-kit-project" : normalizeServerName(serverName),
+    projectDir: selectedProject,
+    scope: selectedScope,
+    ...(selectedScope === "project" ? {
+      bindingPath: path.join(selectedProject, ".yandex-kit", "project.json"),
+      userConfigPath,
+      home: home || os.homedir(),
+      env: env || process.env,
+      storageRoot,
+    } : {}),
   };
 }
 

@@ -41,7 +41,7 @@ import {
   mergeYaml,
   openTokenPage,
   probeNetwork,
-  resolveAdapter,
+  resolveAdapter as resolveAdapterDefault,
   rollbackChange,
   selectManagedAdapter,
   smokeMcp,
@@ -49,6 +49,8 @@ import {
   validateTokenPageUrl,
   unreachableReason,
 } from "./setup-lib.mjs";
+
+const resolveAdapter = options => resolveAdapterDefault({...options, scope:"user"});
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const setupScript = path.join(scriptDir, "setup.mjs");
@@ -106,6 +108,7 @@ function delay(ms) {
 }
 
 function runCli(args, stdin = "", { env = process.env } = {}) {
+  if(args.includes("--client") && !args.includes("--scope")) args=[...args,"--scope","user"];
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [setupScript, ...args], {
       env,

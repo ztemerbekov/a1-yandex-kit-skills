@@ -607,3 +607,6 @@ export function mergeKimiApprovalPolicy(
   chunks.splice(insertion === -1 ? chunks.length : insertion, 0, allowChunk);
   return renderToml(chunks);
 }
+
+// Shared syntax helpers for the project adapter; one TOML parser for both scopes.
+export {validateTomlSubset, renderToml, parseTomlString, parseTomlArgs, tomlAssignment, parseTomlDottedKey, splitTomlAssignment};

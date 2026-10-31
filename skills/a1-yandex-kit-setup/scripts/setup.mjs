@@ -33,7 +33,7 @@ function parseArgs(argv) {
       throw new SetupError(`Unexpected argument "${item}".`, "USAGE");
     }
     const key = item.slice(2);
-    if (["json", "token-stdin", "created", "force"].includes(key)) {
+    if (["json", "token-stdin", "created", "force", "change-store"].includes(key)) {
       options[key] = true;
       continue;
     }
@@ -57,6 +57,7 @@ function adapterFrom(options) {
     configPath: options.config,
     serverName: options["server-name"],
     projectDir: options["project-dir"],
+    scope: options.scope,
   });
 }
 
@@ -126,6 +127,9 @@ function usage() {
     "  setup.mjs approval-configure --client <id> [--config <path> --server-name <name> --effective-server-id <id> --cursor-schema <path>] [--json]",
     "  setup.mjs rollback --config <path> --expected-hash <configHash> (--backup <path> --backup-hash <backupHash>|--created) [--json]",
     "",
+    "Scope: Codex and Claude Code default to --scope project; --scope user selects the legacy user configuration. Other clients default to user.",
+    "Project options: --project-dir <root> [--change-store] [--migrate-server <detected-name>]. Configure without --token-stdin reuses an existing binding or verified migration candidate.",
+    "Project rollback: rollback --client <codex|claude-code> --scope project --project-dir <root> --transaction <transactionId>.",
     "Capabilities: mcp-json, vscode-json, codex-toml, hermes-yaml, openclaw-json",
   ].join("\n");
 }
@@ -143,6 +147,13 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
+  if (command === "rollback" && (options.transaction || options.scope === "project")) {
+    const {rollbackProject}=await import("./lib/project-setup.mjs");
+    const adapter=adapterFrom(options);
+    if(adapter.scope!=="project") throw new SetupError("A transaction rollback requires project scope.","USAGE");
+    printResult(await rollbackProject(adapter,options.transaction),options.json);
+    return;
+  }
   if (command === "rollback") {
     if (!options.config) {
       throw new SetupError("--config is required for rollback.", "USAGE");
@@ -222,6 +233,9 @@ export async function main(argv = process.argv.slice(2)) {
     if (!options.client) {
       throw new SetupError("--client is required.", "USAGE");
     }
+    if (["codex", "claude-code"].includes(normalizeClient(options.client)) && options.scope !== "user") {
+      throw new SetupError("Project setup preserves targeted permission rules automatically. Broad approval changes require an explicit --scope user and a separate request.", "POLICY_CONFLICT");
+    }
     const policyOptions = {
       client: normalizeClient(options.client),
       configPath: options.config,
@@ -244,15 +258,15 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
   if (command === "configure") {
-    if (!options["token-stdin"]) {
+    if (adapter.scope !== "project" && !options["token-stdin"]) {
       throw new SetupError(
         "Configuration requires --token-stdin.",
         "USAGE",
       );
     }
     await checkPrerequisites();
-    const token = await readTokenStdin();
-    const result = await configureAdapter(adapter, { token });
+    const token = options["token-stdin"] ? await readTokenStdin() : undefined;
+    const result = await configureAdapter(adapter, { token, changeStore: Boolean(options["change-store"]), migrateServer: options["migrate-server"] });
     printResult(result, options.json);
     return;
   }
@@ -267,13 +281,15 @@ export async function main(argv = process.argv.slice(2)) {
       );
     }
     await checkPrerequisites();
+    const callbacks = adapter.scope === "project"
+      ? await (await import("./lib/project-setup.mjs")).projectTokenCallbacks(adapter,{changeStore:Boolean(options["change-store"]),migrateServer:options["migrate-server"]})
+      : {validateToken:(token)=>smokeMcp({token}),persistToken:(token)=>configureAdapter(adapter,{token})};
     const web = await startTokenWeb({
       timeoutSeconds: options["timeout-seconds"],
       mode: await selectTokenWebMode(adapter),
       // Same invariant as the chat route: the live read-only get_store must
       // pass before configureAdapter writes anything to the client config.
-      validateToken: (token) => smokeMcp({ token }),
-      persistToken: (token) => configureAdapter(adapter, { token }),
+      ...callbacks,
     });
     // Print the URL immediately: the agent relays it to the user while this
     // process keeps serving the page until the token is saved.

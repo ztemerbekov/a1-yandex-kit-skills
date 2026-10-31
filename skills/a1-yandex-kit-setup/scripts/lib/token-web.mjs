@@ -678,7 +678,7 @@ export async function startTokenWeb({
       if (
         phase === "acquiring" &&
         error instanceof SetupError &&
-        error.code === "SMOKE_AUTH"
+        ["SMOKE_AUTH", "STORE_MISMATCH"].includes(error.code)
       ) {
         // A wrong token is the owner's normal retry loop — show the form
         // again with a fixed message and keep the page alive, unlimited.

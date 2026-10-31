@@ -47,6 +47,7 @@ export function spawnCaptured(
     platform = process.platform,
     timeoutMs = 30_000,
     secret,
+    cwd,
   } = {},
 ) {
   return new Promise((resolve, reject) => {
@@ -57,6 +58,7 @@ export function spawnCaptured(
     });
     const child = spawn(invocation.command, invocation.args, {
       env: env || process.env,
+      cwd,
       shell: false,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -217,6 +219,7 @@ export async function configureNative({
 }
 
 export async function clientCheck(adapter, { run = spawnCaptured } = {}) {
+  if (adapter.scope === "project") return (await import("./project-check.mjs")).checkProjectClient(adapter, {run});
   const state = await inspectAdapter(adapter);
   const serverName = adapter.serverName;
   if (!state.canonical) {
