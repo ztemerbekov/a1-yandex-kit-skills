@@ -3,6 +3,7 @@ name: a1-yandex-kit-setup
 description: "Connect a Yandex KIT store to the current AI client, or reconnect it by replacing its token. Use for natural-language setup requests, including Russian text or voice transcripts such as «Связь с магазином», «Подключим магазин», «Переподключим магазин», «Переустановим связь с магазином» and «Поменяем токен». Treat short «Связь с магазином» as an orientation request."
 metadata:
   author: Zinnur Temerbekov
+  version: "1.12.0"
 ---
 
 # A1 Yandex KIT Setup
