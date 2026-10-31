@@ -66,7 +66,7 @@
 - [x] Проверить packaged runtime и standalone skill через существующие тесты упаковки/минимальные команды, без новой тестовой системы. Проверить 4-project isolation с recording stubs и отсутствие новых store/token telemetry fields.
 - [x] Выполнить `npm run typecheck && npm run build && npm test`, `npm run gen`, `npm run validate:agent-plugin`; затем проверить отсутствие generated drift через `git add -N -- packages/core/src/generated docs/TOOLS.md skills` и `git diff --exit-code -- packages/core/src/generated docs/TOOLS.md skills` относительно закоммиченных intended outputs. Offline inspector из CLAUDE.md выполнить, если доступен локально; если нужен download, использовать network-enabled путь, не объявлять GREEN при ошибке.
 - [x] Исправить обнаруженные ошибки и повторить только затронутые проверки плюс финальные обязательные проверки, когда изменения это требуют. Commit Task 3.
-- [ ] Свежий независимый whole-branch review: spec compliance, токены/пути/конкурентность, scopes/migration/packaging. Исправить actionable findings, повторить необходимые проверки. Обновить ledger фактическими результатами и ограничениями live client acceptance.
+- [x] Свежий независимый whole-branch review: spec compliance, токены/пути/конкурентность, scopes/migration/packaging. Исправить actionable findings, повторить необходимые проверки. Обновить ledger фактическими результатами и ограничениями live client acceptance.
 
 ## Acceptance boundary
 
@@ -83,5 +83,11 @@ Offline inspector tools/list — exit 0, 96 tools; schema portability: 0 errors,
 32 warnings across 29 tools. Intended outputs закоммичены; точные команды
 `git add -N -- packages/core/src/generated docs/TOOLS.md skills` и
 `git diff --exit-code -- packages/core/src/generated docs/TOOLS.md skills`
-завершились с exit 0. Итоговый whole-branch review остаётся отдельным следующим шагом.
+завершились с exit 0. Свежий whole-branch review выявил четыре существенных
+замечания; они исправлены одним пакетом `9f80961`. После исправлений focused
+regressions — 6/6, полный затронутый `npm run test:setup-skill` — 107/107,
+exit 0. Core/MCP/codegen и схемы инструментов не менялись; предыдущая полная
+проверка относится к этим неизменённым компонентам, а не заявляется новым
+полным прогоном после исправлений. Scoped re-review всех четырёх замечаний и
+изменённого diff одобрен: открытых замечаний не осталось.
 Реальные токены/настройки/магазины не менялись, npm/skills release не выполнялся.
