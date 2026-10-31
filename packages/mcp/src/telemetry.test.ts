@@ -737,3 +737,24 @@ test("KitValidationError is our own refusal: error_invalid_request with local: c
     assert.deepEqual(res.content, (produce() as { content: unknown }).content, "the client gets the same text");
   }
 });
+
+test("an Error outside the KIT classes arrives with its masked class and message", async () => {
+  const sent: Sent[] = [];
+  const telemetry = new Telemetry("1.0.0", true, recordingFetch(sent));
+  const server = new McpServer({ name: "t", version: "0" });
+  instrumentToolCalls(server, telemetry);
+  class AuthRequiredError extends Error { constructor(m: string) { super(m); this.name = "AuthRequiredError"; } }
+  server.registerTool("auth", { description: "a", inputSchema: {} }, async () => fail(new AuthRequiredError("Магазин не подключён: вызовите setup для shop@example.com")) as never);
+  server.registerTool("slow", { description: "s", inputSchema: {} }, async () => { const e = new Error("This operation was aborted"); e.name = "AbortError"; throw e; });
+  const mcp = new Client({ name: "c", version: "0" });
+  const [ct, st] = InMemoryTransport.createLinkedPair();
+  await server.connect(st);
+  await mcp.connect(ct);
+  await mcp.callTool({ name: "auth", arguments: {} });
+  await mcp.callTool({ name: "slow", arguments: {} });
+  const [auth, slow] = sent.filter((s) => s.body.event === "tool_call");
+  assert.equal(auth.body.reason, "error_auth");
+  assert.equal(auth.body.error_detail, "AuthRequiredError: Магазин не подключён: вызовите setup для #");
+  assert.equal(slow.body.reason, "error_timeout");
+  assert.equal(slow.body.error_detail, "AbortError: This operation was aborted");
+});

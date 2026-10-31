@@ -260,7 +260,7 @@ export function errorDetail(text: string): string {
 type NetworkFailure = { reason: ToolOutcome; text: string };
 type ApiFailure = { reason: ToolOutcome; head: string; text: string };
 type Origin =
-  | { origin: "local" | "internal"; text: string }
+  | { origin: "local" | "internal" | "error"; text: string }
   | ({ origin: "network" } & NetworkFailure)
   | ({ origin: "api" } & ApiFailure);
 
@@ -332,7 +332,9 @@ function originOf(err: unknown): Origin | undefined {
   const net = fetchFailure(err);
   if (net) return { origin: "network", ...net };
   const bug = jsBug(err);
-  return bug ? { origin: "internal", text: bug } : undefined;
+  if (bug) return { origin: "internal", text: bug };
+  // Any other Error (e.g. AuthRequiredError, AbortError): its text is used only when the allowlist finds nothing.
+  return err instanceof Error ? { origin: "error", text: `${err.name}: ${err.message.split("\n")[0]}` } : undefined;
 }
 
 export function noteFailure<T>(result: T, err: unknown): T {
@@ -372,7 +374,14 @@ function reportCall(telemetry: Telemetry, tool: string, value: unknown, thrown: 
       } else if (noted?.origin === "local") {
         reason = "error_invalid_request";
         detail = maskedOwnText("local: ", noted.text);
-      } else detail = errorDetail(resultText(value));
+      } else {
+        detail = errorDetail(resultText(value));
+        if (!detail && noted?.origin === "error") {
+          detail = maskedOwnText("", noted.text);
+          // The class name ("AuthRequiredError", "AbortError") often says more than the message.
+          if (reason === "error_other") reason = toolOutcome({ isError: true, content: [{ type: "text", text: noted.text }] });
+        }
+      }
     }
     telemetry.send("tool_call", { tool, reason, error_detail: detail || undefined });
   } catch {
