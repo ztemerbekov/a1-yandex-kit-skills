@@ -1,10 +1,13 @@
 import type { StartupFailedReason } from "./telemetry.js";
+import { isAbsolute } from "node:path";
+import { ConnectionStorageError, createConnectionStore } from "yandex-kit-core/connections";
 
 export interface Config {
-  token: string;
-  baseUrl?: string;
-  rps: number;
-  timeoutMs: number;
+  readonly token: string;
+  readonly baseUrl?: string;
+  readonly rps: number;
+  readonly timeoutMs: number;
+  readonly project?: Readonly<{ expectedStoreId: string; storeName?: string; storeUrl?: string }>;
 }
 
 /**
@@ -43,7 +46,7 @@ function positiveNumber(raw: string | undefined, fallback: number, name: string)
   if (raw === undefined || raw === "") return fallback;
   const value = Number(raw);
   if (!Number.isFinite(value) || value <= 0) {
-    throw new ConfigError(`${name} must be a positive number, got: ${raw}`, "invalid_config");
+    throw new ConfigError(`${name} must be a positive number.`, "invalid_config");
   }
   return value;
 }
@@ -57,10 +60,49 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       "missing_token",
     );
   }
-  return {
+  return freezeConfig({
     token,
     baseUrl: validBaseUrl(env.YANDEX_KIT_BASE_URL),
     rps: positiveNumber(env.YANDEX_KIT_RPS, 3, "YANDEX_KIT_RPS"),
     timeoutMs: positiveNumber(env.YANDEX_KIT_TIMEOUT_MS, 30_000, "YANDEX_KIT_TIMEOUT_MS"),
-  };
+  });
+}
+
+/** Direct token access is private; status/JSON serialization never includes it. */
+function freezeConfig(config: Config): Config {
+  Object.defineProperty(config, "token", { enumerable: false });
+  return Object.freeze(config);
+}
+
+/** An explicit flag is the only way to select a project. Invalid args never fall back. */
+function projectConfigArgument(argv: readonly string[]): string | undefined {
+  if (argv.length === 0) return undefined;
+  if (argv.length !== 2 || argv[0] !== "--project-config" || !argv[1] || !isAbsolute(argv[1]) || argv[1].includes("\0")) {
+    throw new ConfigError("Usage: mcp-yandex-kit [--project-config <absolute path>].", "invalid_config");
+  }
+  return argv[1];
+}
+
+export async function loadRuntimeConfig(
+  env: NodeJS.ProcessEnv = process.env,
+  argv: readonly string[] = [],
+  options: { storageRoot?: string } = {},
+): Promise<Config> {
+  const projectConfig = projectConfigArgument(argv);
+  if (projectConfig === undefined) return loadConfig(env);
+  try {
+    const storage = createConnectionStore({ ...options, env });
+    const binding = await storage.readBinding(projectConfig);
+    const { value } = await storage.readConnection(binding.value.connection_id);
+    return freezeConfig({
+      token: value.token,
+      // Project tokens can only go to the client's official default API URL.
+      rps: positiveNumber(env.YANDEX_KIT_RPS, 3, "YANDEX_KIT_RPS"),
+      timeoutMs: positiveNumber(env.YANDEX_KIT_TIMEOUT_MS, 30_000, "YANDEX_KIT_TIMEOUT_MS"),
+      project: Object.freeze({ expectedStoreId: value.store_id, storeName: value.store_name, storeUrl: value.store_url }),
+    });
+  } catch (err) {
+    if (err instanceof ConfigError) throw err;
+    throw new ConfigError(err instanceof ConnectionStorageError ? err.message : "Cannot load project connection. Run project setup again.", "invalid_config");
+  }
 }

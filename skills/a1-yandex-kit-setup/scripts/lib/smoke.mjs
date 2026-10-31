@@ -107,15 +107,23 @@ function extractStore(toolResult, secret) {
 // sequence share it, so per-step delays can never stack into minutes.
 export async function smokeMcp({
   token,
+  projectConfig,
+  expectedStoreId,
+  env = process.env,
   command = SERVER_COMMAND,
   args = SERVER_ARGS,
   timeoutMs = 60_000,
   probe = command === SERVER_COMMAND ? probeNetwork : null,
 }) {
-  if (!token) {
+  if (!token && !projectConfig) {
     throw new SetupError("A stored Yandex KIT token is required.", "TOKEN_REQUIRED");
   }
 
+  const childEnv = {...env};
+  delete childEnv.YANDEX_KIT_BASE_URL;
+  delete childEnv[TOKEN_KEY];
+  if (!projectConfig) childEnv[TOKEN_KEY] = token;
+  const selectedArgs = projectConfig ? [...args, "--project-config", projectConfig] : args;
   const startedAt = Date.now();
   let child = null;
   const pending = new Map();
@@ -142,11 +150,11 @@ export async function smokeMcp({
   const operation = (async () => {
     if (probe) await probe();
 
-    const invocation = buildSpawnInvocation(command, args, {
+    const invocation = buildSpawnInvocation(command, selectedArgs, {
       windowsShim: command === SERVER_COMMAND,
     });
     child = spawn(invocation.command, invocation.args, {
-      env: { ...process.env, [TOKEN_KEY]: token },
+      env: childEnv,
       shell: false,
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
@@ -268,6 +276,9 @@ export async function smokeMcp({
 
   try {
     const result = await Promise.race([operation, deadline]);
+    if (expectedStoreId !== undefined && String(result.store.id) !== String(expectedStoreId)) {
+      throw new SetupError("The project runtime returned a different store.", "STORE_MISMATCH");
+    }
     return { ...result, elapsedMs: Date.now() - startedAt };
   } finally {
     clearTimeout(deadlineTimer);
@@ -282,6 +293,7 @@ export async function smokeMcp({
 }
 
 export async function smokeAdapter(adapter, overrides = {}) {
+  if (adapter.scope === "project") return (await import("./project-setup.mjs")).smokeProject(adapter, overrides);
   const state = await inspectAdapter(adapter);
   if (!state.token) {
     throw new SetupError(

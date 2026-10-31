@@ -3,6 +3,7 @@ name: a1-yandex-kit-setup
 description: "Connect a Yandex KIT store to the current AI client, or reconnect it by replacing its token. Use for natural-language setup requests, including Russian text or voice transcripts such as «Связь с магазином», «Подключим магазин», «Переподключим магазин», «Переустановим связь с магазином» and «Поменяем токен». Treat short «Связь с магазином» as an orientation request."
 metadata:
   author: Zinnur Temerbekov
+  version: "1.12.0"
 ---
 
 # A1 Yandex KIT Setup
@@ -19,16 +20,22 @@ Start from the branch that invoked it:
 - For the short orientation request `Связь с магазином`, ask one question:
   `Что сделать: подключить магазин или переподключить его с новым токеном?`
 - A concrete request to connect or reconnect authorizes updating the selected
-  client's user-level MCP configuration after the required inputs are collected
+  client's selected MCP scope after the required inputs are collected
   and the candidate token passes validation. Reinstalling the connection and
   changing the token are both reconnection requests.
 
-A project-local skill installation does not limit the configuration to that
-project.
+Codex and Claude Code default to project scope. Other clients retain user scope;
+`--scope user` explicitly selects the legacy flow for Codex or Claude Code.
 
 Use `scripts/setup.mjs` for configuration and the direct read-only smoke test.
-Resolve every relative path from this skill directory, not from the user's
-project.
+Resolve the helper's path from this skill directory. Keep the selected project
+as the working directory and pass its absolute root through `--project-dir`;
+the installed skill directory is never the store's project root.
+
+Release boundary: the project flow is implemented in this source tree and needs
+a coordinated core/MCP/skill release. The currently published `@latest` runtime
+must not be assumed to support `--project-config`. Establish release availability
+before writing a real project entry; report this boundary if it is unavailable.
 
 ## 1. Identify the client and prerequisite
 
@@ -45,7 +52,19 @@ Kimi Code CLI and `kimi-desktop` for the Kimi Work desktop application. When
 the user says only “Kimi” and the host does not disambiguate it, ask:
 `Вы используете приложение Kimi на компьютере или Kimi Code в терминале?`
 
-For a tested client, run:
+For Codex or Claude Code, identify the root of the project the owner selected.
+Use the host's project root when established; otherwise resolve that choice
+before configuration. Pass `--scope project --project-dir <absolute-root>` on
+every scoped command. Read
+[`references/project-connections.md`](references/project-connections.md)
+completely and follow that flow instead of steps 2–6 below. It owns reuse,
+migration, refresh, store change, verification and transaction rollback.
+
+The remaining steps describe user scope. For Codex or Claude Code, use them
+only when the owner selected user scope, and append `--scope user` to every
+`status`, `configure`, `token-web`, `client-check`, `smoke` and approval command.
+A project-local skill installation does not change this explicitly selected
+user scope. For a tested client on this route, run:
 
 ```bash
 node "<skill-directory>/scripts/setup.mjs" status --client <client> --json
@@ -428,6 +447,11 @@ After the connection is proved, read
 [`references/approval-policies.md`](references/approval-policies.md) completely.
 Use the same branch when the user reports repeated `Allow` prompts during an
 import, even if the store was connected earlier.
+
+This is a separate opt-in user-scope feature. Project setup preserves existing
+targeted permission rules and proceeds directly to the finish step without
+offering or invoking broad approval configuration. For Codex and Claude Code,
+the approval CLI requires explicit `--scope user` and a separate user request.
 
 Inspect the current client's capability, state that the grant covers every
 current and future Yandex KIT tool, and ask once whether to enable **Работу без

@@ -1,7 +1,13 @@
 # Yandex KIT server wildcard
 
 Use this branch after the store connection is proved, or when the user reports
-repeated host approval prompts for Yandex KIT tools.
+repeated host approval prompts for Yandex KIT tools in user scope.
+
+Codex/Claude Code project setup preserves existing targeted policy and skips this
+branch. Their broad approval CLI is user-only: require an explicit user-scope
+choice and a separate request before this flow, append `--scope user` to both
+commands below, and use the legacy user entry returned by user-scope status.
+Do not apply this flow to `a1-yandex-kit-project` or widen migration policy.
 
 The **server wildcard** grants the managed Yandex KIT MCP server every current
 and future tool without another host-level Allow. It includes reads, imports,

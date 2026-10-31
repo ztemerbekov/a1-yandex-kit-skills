@@ -1,12 +1,17 @@
 {
   "name": "yandex-kit-core",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "description": "A1 Yandex KIT Core: typed client for the Yandex KIT API, driven by the official OpenAPI spec",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
+    "./connections": {
+      "types": "./dist/connections.d.mts",
+      "import": "./dist/connections.mjs",
+      "default": "./dist/connections.mjs"
+    },
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",

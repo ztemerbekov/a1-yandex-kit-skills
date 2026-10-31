@@ -10,6 +10,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
 import { instrumentToolCalls, Telemetry, telemetryEnabled } from "./telemetry.js";
+import { createRuntime } from "./runtime.js";
+import { createMcpServer } from "./server.js";
 
 // Hermetic: every enabled Telemetry() would otherwise create
 // ~/.config/mcp-yandex-kit in the developer's real home during npm test.
@@ -150,4 +152,24 @@ test("a failing telemetry endpoint never breaks the tool call", async () => {
   const res = await mcp.callTool({ name: "echo", arguments: { secret: "ok" } });
   assert.equal((res as { isError?: boolean }).isError, undefined);
   assert.ok(sent.length >= 1, "telemetry was attempted");
+});
+
+test("the real server factory instruments curated and universal tools before registration", async (t) => {
+  const sent: Sent[] = [];
+  const telemetry = new Telemetry("1.0.0", true, recordingFetch(sent));
+  const runtime = await createRuntime({
+    env: { YANDEX_KIT_TOKEN: "private-runtime-token", YANDEX_KIT_RPS: "1000" },
+    clientOptions: { fetchImpl: async () => new Response(JSON.stringify({ id: "fixture-store" })) },
+  });
+  const server = createMcpServer(runtime, "1.0.0", (server) => instrumentToolCalls(server, telemetry));
+  const mcp = new Client({ name: "factory-test", version: "0.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  t.after(async () => { await mcp.close(); await server.close(); });
+  await server.connect(serverTransport);
+  await mcp.connect(clientTransport);
+  await mcp.callTool({ name: "get_store", arguments: {} });
+  await mcp.callTool({ name: "kit_request", arguments: { operation_id: "GetStore", query: { private_argument: "private-tool-value" } } });
+  assert.deepEqual(sent.filter((ping) => ping.body.event === "tool_call").map((ping) => ping.body.tool), ["get_store", "kit_request"]);
+  assert.ok(!JSON.stringify(sent).includes("private-runtime-token"));
+  assert.ok(!JSON.stringify(sent).includes("private-tool-value"));
 });

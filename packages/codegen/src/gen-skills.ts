@@ -23,6 +23,7 @@ import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "no
 import { fileURLToPath } from "node:url";
 
 import { syncGeneratedSkillReference } from "./sync-generated-skill-reference.js";
+import { syncConnectionsModule } from "./sync-connections.js";
 
 const SPEC_PATH = fileURLToPath(new URL("../../../specs/kit-swagger.openapi.json", import.meta.url));
 const REGISTRY_PATH = fileURLToPath(new URL("../../core/src/generated/registry.json", import.meta.url));
@@ -33,7 +34,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
 const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
-const SKILL_VERSION = "1.11.0";
+const SKILL_VERSION = "1.12.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
@@ -1064,6 +1065,10 @@ if (merchantCommunicationHosts.length === 0) {
     `No SKILL.md declares a Markdown link to ${MERCHANT_COMMUNICATION_RELATIVE_PATH}`,
   );
 }
+
+// The manual setup skill is otherwise preserved; this one module is generated
+// from core so standalone installs use exactly the runtime's storage contract.
+syncConnectionsModule();
 
 console.log(
   `gen-skills: ${SKILLS.length} skills (${SKILLS.map((s) => s.name).join(", ")}), ` +

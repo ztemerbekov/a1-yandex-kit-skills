@@ -24,7 +24,7 @@ export function parseJsonConfig(content, configPath) {
     return parsed;
   } catch (error) {
     throw new SetupError(
-      `Cannot safely parse JSON config at ${configPath}: ${error.message}`,
+      `Cannot safely parse JSON config at ${configPath}. Inspect its JSON syntax before retrying.`,
       "MALFORMED_CONFIG",
     );
   }

@@ -4,6 +4,13 @@ Use this branch when a tested profile disagrees with the installed client or
 the user names another MCP client. Establish a current adapter immediately from
 local evidence and official vendor documentation.
 
+For Codex/Claude Code project setup, first follow
+[`project-connections.md`](project-connections.md). An unsupported native check,
+plugin identity or managed-policy conflict stops project readiness; do not
+silently switch that project to the global token route. The fallback ladder
+below configures user scope. Use it for those two clients only when the owner
+explicitly selected `--scope user`, and carry that flag on scoped helper commands.
+
 ## 1. Collect local evidence
 
 Identify the exact client name, version, operating system and user-level config

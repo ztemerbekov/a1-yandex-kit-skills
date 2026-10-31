@@ -1,6 +1,6 @@
 {
   "name": "a1-yandex-kit-skills",
-  "version": "1.11.0",
+  "version": "1.12.0",
   "private": true,
   "description": "A1 Yandex KIT Skills: typed client, MCP server and agent skills generated from the official OpenAPI spec",
   "license": "MIT",
@@ -15,7 +15,7 @@
     "build": "npm run build -w packages/core && npm run build -w packages/mcp",
     "typecheck": "npm run build -w packages/core && npm run typecheck -w packages/core && npm run typecheck -w packages/codegen && npm run typecheck -w packages/mcp",
     "test": "npm run test -w packages/core && npm run test -w packages/codegen && npm run test -w packages/mcp && npm run test:setup-skill",
-    "test:setup-skill": "node --test --test-timeout=60000 skills/a1-yandex-kit-setup/scripts/setup.test.mjs skills/a1-yandex-kit-setup/scripts/modules.test.mjs",
+    "test:setup-skill": "node --test --test-timeout=60000 skills/a1-yandex-kit-setup/scripts/setup.test.mjs skills/a1-yandex-kit-setup/scripts/modules.test.mjs skills/a1-yandex-kit-setup/scripts/project.test.mjs",
     "gen": "npm run gen -w packages/codegen",
     "validate:agent-plugin": "npm run validate -w packages/codegen",
     "spec:fetch": "npm run fetch -w packages/codegen",

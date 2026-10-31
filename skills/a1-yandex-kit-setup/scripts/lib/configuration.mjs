@@ -35,6 +35,7 @@ export function contentHash(content) {
 }
 
 export async function inspectAdapter(adapter) {
+  if (adapter.scope === "project") return (await import("./project-setup.mjs")).inspectProject(adapter);
   const exists = await fileExists(adapter.configPath);
   const content = exists ? await readFile(adapter.configPath, "utf8") : "";
   const state = inspectConfig(
@@ -211,7 +212,9 @@ export async function transactionalWrite(configPath, content, verify) {
   return { changed: true, created: !existed, backupPath };
 }
 
-export async function configureAdapter(adapter, { token }) {
+export async function configureAdapter(adapter, options) {
+  if (adapter.scope === "project") return (await import("./project-setup.mjs")).configureProject(adapter, options);
+  const {token} = options;
   const before = await inspectAdapter(adapter);
   if (!token) {
     throw new SetupError(
