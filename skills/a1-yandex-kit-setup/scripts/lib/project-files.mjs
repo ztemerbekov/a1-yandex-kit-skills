@@ -81,17 +81,40 @@ export async function canonicalPath(file) {
         return path.join(await canonicalPath(parent), path.basename(file));
     }
 }
+async function assertProjectLocalPath(adapter, file) {
+    const selected = path.resolve(adapter.projectDir);
+    const relative = path.relative(selected, path.resolve(file));
+    if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
+        throw new SetupError('A project-local setup file escapes the selected project.', 'UNSAFE_CONFIG');
+    for (let directory = path.dirname(path.resolve(file)); directory !== selected; directory = path.dirname(directory)) {
+        try {
+            const info = await lstat(directory);
+            if (!info.isDirectory() || info.isSymbolicLink())
+                throw new SetupError('A project-local setup directory is redirected. Restore real directories inside the selected project before retrying.', 'UNSAFE_CONFIG');
+        } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+    if (await canonicalPath(file) !== path.join(await canonicalPath(selected), relative))
+        throw new SetupError('A project-local setup file is redirected outside its intended project path.', 'UNSAFE_CONFIG');
+}
 export async function assertProjectConfigScope(adapter) {
-    if (adapter.scope !== 'project' || adapter.client !== 'codex') return;
+    if (adapter.scope !== 'project') return;
+    await assertProjectLocalPath(adapter, adapter.bindingPath);
+    if (adapter.client === 'claude-code') {
+        // The MCP record intentionally lives in shared ~/.claude.json. Only the
+        // permission output belongs in this project's own .claude directory.
+        await assertProjectLocalPath(adapter, path.join(adapter.projectDir, '.claude', 'settings.local.json'));
+        return;
+    }
+    if (adapter.client !== 'codex') return;
     const intended = path.join(path.resolve(adapter.projectDir), '.codex', 'config.toml');
     if (path.resolve(adapter.configPath) !== intended)
         throw new SetupError('Codex project configuration must stay in <project>/.codex/config.toml. Use --scope user for user config overrides.', 'UNSAFE_CONFIG');
-    try {
-        if ((await lstat(path.dirname(adapter.configPath))).isSymbolicLink())
-            throw new SetupError('A symbolic link redirects the project Codex configuration. Restore a real project .codex directory before retrying.', 'UNSAFE_CONFIG');
-    } catch(error) { if(error.code !== 'ENOENT') throw error; }
-    const project = await canonicalPath(adapter.projectDir);
-    const config = await canonicalPath(adapter.configPath);
-    if (config !== path.join(project, '.codex', 'config.toml') || config === await canonicalPath(adapter.userConfigPath))
-        throw new SetupError('A symbolic link redirects the project Codex configuration. Restore a real project .codex directory before retrying.', 'UNSAFE_CONFIG');
+    await assertProjectLocalPath(adapter, adapter.configPath);
+    if (await canonicalPath(adapter.configPath) === await canonicalPath(adapter.userConfigPath))
+        throw new SetupError('The project Codex file aliases the user configuration. Select a separate project directory.', 'UNSAFE_CONFIG');
+}
+export async function assertProjectWriteScope(adapter, file) {
+    await assertProjectConfigScope(adapter);
+    if (adapter.client === 'claude-code' && path.resolve(file) === path.resolve(adapter.configPath)) return;
+    await assertProjectLocalPath(adapter, file);
 }

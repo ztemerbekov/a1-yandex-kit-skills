@@ -124,6 +124,15 @@ export async function projectInventory(adapter, { discover = async () => [] } = 
             definitions.push({ name, entry, file: adapter.configPath, kind: 'server', scope: 'local' });
     }
     definitions.push(...await discover(adapter));
+    const reserved = definitions.filter(e => e.name === PROJECT_SERVER);
+    const establishedReserved = reserved.some(e => isKitEntry(e.entry));
+    const policyKeys = new Set(['enabled', 'env', 'default_tools_approval_mode', 'enabled_tools', 'disabled_tools', 'tools', 'startup_timeout_sec', 'tool_timeout_sec']);
+    for (const definition of reserved) {
+        const entry = definition.entry;
+        const policyOnly = object(entry) && Object.keys(entry).every(key => policyKeys.has(key));
+        if (!isKitEntry(entry) && !(establishedReserved && policyOnly))
+            throw new SetupError('An unrelated or unestablished server occupies a1-yandex-kit-project in an inherited or effective scope. Resolve that identity before project setup.', 'SERVER_CONFLICT');
+    }
     const entries = definitions.filter(e => isKitEntry(e.entry) && e.name !== PROJECT_SERVER);
     const kitNames = new Set(entries.map(e => e.name));
     // A name-wide disable also affects higher-scope unrelated definitions. Refuse
@@ -174,12 +183,10 @@ export async function prepareProjectConfig(adapter, root, inventory) {
     const { entries, read } = inventory;
     const updates = new Map();
     const desired = projectEntry(adapter, root);
+    await assertProjectConfigScope(adapter);
     await checkManagedPolicy(adapter, inventory);
     if (adapter.client === 'codex') {
         const chunks = validateTomlSubset(await read(adapter.configPath), adapter.configPath);
-        const existing = tableEntries(await read(adapter.configPath), adapter.configPath).find(e => e.name === PROJECT_SERVER);
-        if (existing && !isKitEntry(existing.entry))
-            throw new SetupError('An unrelated server occupies the project server name.', 'SERVER_CONFLICT');
         // Replace only our transport/env; keep targeted tool policy and unrelated tables.
         const prefix = `mcp_servers.${PROJECT_SERVER}`;
         for (let i = chunks.length - 1; i >= 0; i--)
@@ -223,8 +230,6 @@ export async function prepareProjectConfig(adapter, root, inventory) {
         const p = expectObject(config.projects[adapter.projectDir]);
         p.mcpServers ??= {};
         expectObject(p.mcpServers);
-        if (p.mcpServers[PROJECT_SERVER] && !isKitEntry(p.mcpServers[PROJECT_SERVER]))
-            throw new SetupError('An unrelated server occupies the project server name.', 'SERVER_CONFLICT');
         p.mcpServers[PROJECT_SERVER] = { type: 'stdio', ...desired };
         p.disabledMcpServers ??= [];
         if (!Array.isArray(p.disabledMcpServers) || p.disabledMcpServers.some(n => typeof n !== 'string'))

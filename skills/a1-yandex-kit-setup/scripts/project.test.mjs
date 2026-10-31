@@ -87,7 +87,7 @@ test('Codex effective check uses project cwd and exact binding without replacing
     const a = adapter('codex');
     await configureAdapter(a, options('one'));
     const calls = [];
-    const r = await clientCheck(a, { run: async (c, args, opts) => { calls.push({ c, args, opts }); return { available: true, code: 0, stdout: JSON.stringify(args[1] === 'get' ? { name: a.serverName, enabled: true, transport: { command: 'npx', args: ['-y', 'mcp-yandex-kit@latest', '--project-config', a.bindingPath], env: { YANDEX_KIT_CONNECTIONS_DIR: env.YANDEX_KIT_CONNECTIONS_DIR } } } : []), stderr: '' }; } });
+    const r = await clientCheck(a, { run: async (c, args, opts) => { calls.push({ c, args, opts }); return { available: true, code: 0, stdout: JSON.stringify(args[1] === 'get' ? { name: a.serverName, enabled: true, transport: { command: 'npx', args: ['-y', 'mcp-yandex-kit@latest', '--project-config', a.bindingPath], env: { YANDEX_KIT_CONNECTIONS_DIR: env.YANDEX_KIT_CONNECTIONS_DIR } } } : [nativeManaged(a)]), stderr: '' }; } });
     assert.equal(r.ok, true);
     assert.equal(calls[0].opts.cwd, a.projectDir);
     assert.equal(calls[0].opts.env.CODEX_HOME, env.CODEX_HOME);
@@ -143,7 +143,7 @@ test('effective plugin policy uses actual identity; unresolved plugin conflict r
     await assert.rejects(readFile(a.bindingPath), { code: 'ENOENT' });
     await configureAdapter(a, options('x', { discover: async () => [{ name: 'plugin:kit:main', entry, kind: 'plugin', pluginId: 'kit@market', serverKey: 'main' }] }));
     assert.match(await readFile(a.configPath, 'utf8'), /plugins\."kit@market".mcp_servers\."main"\]\nenabled = false/);
-    await assert.rejects(clientCheck(a, { run: async (c, args) => ({ available: true, code: 0, stdout: JSON.stringify(args[1] === 'get' ? { enabled: true, transport: { command: 'npx', args: ['-y', 'mcp-yandex-kit@latest', '--project-config', a.bindingPath], env: { YANDEX_KIT_CONNECTIONS_DIR: a.env.YANDEX_KIT_CONNECTIONS_DIR } } } : [{ name: 'plugin:kit:main', enabled: true, transport: entry }]), stderr: '' }) }), e => e.code === 'PLUGIN_CONFLICT');
+    await assert.rejects(clientCheck(a, { run: async (c, args) => ({ available: true, code: 0, stdout: JSON.stringify(args[1] === 'get' ? { name:a.serverName, enabled: true, transport: { command: 'npx', args: ['-y', 'mcp-yandex-kit@latest', '--project-config', a.bindingPath], env: { YANDEX_KIT_CONNECTIONS_DIR: a.env.YANDEX_KIT_CONNECTIONS_DIR } } } : [nativeManaged(a), { name: 'plugin:kit:main', plugin_id:'kit@market', server_name:'main', enabled: true, transport: entry }]), stderr: '' }) }), e => e.code === 'PLUGIN_CONFLICT');
 }));
 test('rollback restores binding and config but retains pre-existing secrets, and refuses concurrent edits', async () => fixture(async ({ adapter, options, storage }) => {
     const { rollbackProject } = await import('./lib/project-setup.mjs');
@@ -363,5 +363,60 @@ test('review: Claude inventory accepts only supported empty/entry grammar and re
     const run=output=>async(command,args)=>({available:true,code:0,stdout:args[1]==='get'?get:output,stderr:''});
     for(const output of ['unsupported localized inventory','Checking MCP server health...\n','', 'other: unexpected truncated output'])await assert.rejects(clientCheck(a,{run:run(output)}),error=>error.code==='PLUGIN_CONFLICT');
     assert.deepEqual(await discoverEffectiveEntries(a,{run:run('No MCP servers configured. Use `claude mcp add` to add a server.\n')}),[]);
-    assert.deepEqual(await discoverEffectiveEntries(a,{run:run('Checking MCP server health...\n\nother: npx unrelated-server - ✓ Connected\n')}),[]);
+    assert.deepEqual((await discoverEffectiveEntries(a,{run:run('Checking MCP server health...\n\nother: npx unrelated-server - ✓ Connected\n')})).map(entry=>entry.name),['other']);
+}));
+
+function nativeManaged(adapter) {
+    return {name:adapter.serverName,enabled:true,transport:{type:'stdio',command:'npx',args:['-y','mcp-yandex-kit@latest','--project-config',adapter.bindingPath],env:{YANDEX_KIT_CONNECTIONS_DIR:adapter.env.YANDEX_KIT_CONNECTIONS_DIR}}};
+}
+function nativeRun(adapter,list) {
+    const managed=nativeManaged(adapter);
+    return async (command,args)=>({available:true,code:0,stderr:'',stdout:adapter.client==='codex'?JSON.stringify(args[1]==='get'?managed:list):args[1]==='get'?`Name: ${adapter.serverName}\nScope: Local\nCommand: npx\nArgs: ${managed.transport.args.join(' ')}\nEnvironment:\nYANDEX_KIT_CONNECTIONS_DIR=${adapter.env.YANDEX_KIT_CONNECTIONS_DIR}\n`:list});
+}
+test('final: Claude project policy redirect fails before publication and preserves outside settings',async()=>fixture(async({adapter,options,home,env})=>{
+    const {symlink}=await import('node:fs/promises');const a=adapter('claude-code');await mkdir(a.projectDir,{recursive:true});await mkdir(path.join(home,'.claude'));
+    const outside=path.join(home,'.claude','settings.local.json'),before=JSON.stringify({permissions:{deny:['mcp__yandex-kit__update_product']}});await writeFile(outside,before);
+    const config=JSON.stringify({mcpServers:{'yandex-kit':{command:'npx',args:['-y','mcp-yandex-kit@latest']}}});await writeFile(a.configPath,config);await symlink(path.join(home,'.claude'),path.join(a.projectDir,'.claude'));
+    await assert.rejects(configureAdapter(a,options('one')),error=>error.code==='UNSAFE_CONFIG');assert.equal(await readFile(outside,'utf8'),before);assert.equal(await readFile(a.configPath,'utf8'),config);await assert.rejects(readFile(a.bindingPath),{code:'ENOENT'});
+    const {readdir}=await import('node:fs/promises');await assert.rejects(readdir(env.YANDEX_KIT_CONNECTIONS_DIR),{code:'ENOENT'});
+}));
+test('final: Claude rollback refuses a redirected project policy target',async()=>fixture(async({adapter,options,home,root})=>{
+    const {symlink,rename}=await import('node:fs/promises');const {rollbackProject}=await import('./lib/project-setup.mjs');const a=adapter('claude-code');await writeFile(a.configPath,JSON.stringify({mcpServers:{'yandex-kit':{command:'npx',args:['-y','mcp-yandex-kit@latest']}}}));await mkdir(path.join(home,'.claude'));await writeFile(path.join(home,'.claude','settings.json'),JSON.stringify({permissions:{deny:['mcp__yandex-kit__update_product']}}));
+    const result=await configureAdapter(a,options('one'));const policy=path.join(a.projectDir,'.claude','settings.local.json'),content=await readFile(policy,'utf8');const outside=path.join(root,'outside-policy');await mkdir(outside);await writeFile(path.join(outside,'settings.local.json'),content);await rename(path.dirname(policy),`${path.dirname(policy)}.saved`);await symlink(outside,path.dirname(policy));
+    await assert.rejects(rollbackProject(a,result.transactionId),error=>error.code==='UNSAFE_CONFIG'||error.code==='ROLLBACK_CONFLICT');assert.equal(await readFile(path.join(outside,'settings.local.json'),'utf8'),content);
+}));
+test('final: connection roots are outside every containing directory or worktree Git marker',async()=>fixture(async({adapter,options,root,home,env})=>{
+    const {symlink,readdir}=await import('node:fs/promises');
+    for(const marker of ['directory','file']) {
+        const outer=path.join(root,`outer-${marker}`),inner=path.join(outer,'inner');await mkdir(inner,{recursive:true});
+        for(const dir of [outer,inner])if(marker==='directory')await mkdir(path.join(dir,'.git'));else await writeFile(path.join(dir,'.git'),'gitdir: /fixture-only\n');
+        const alias=path.join(root,`selected-${marker}`);await symlink(inner,alias);const privateRoot=path.join(outer,'private-connections');const a=resolveAdapter({client:'codex',home,env:{...env,YANDEX_KIT_CONNECTIONS_DIR:privateRoot},projectDir:alias});
+        await assert.rejects(configureAdapter(a,options('one')),error=>error.code==='UNSAFE_CONNECTIONS_ROOT');await assert.rejects(readdir(privateRoot),{code:'ENOENT'});await assert.rejects(readFile(a.bindingPath),{code:'ENOENT'});
+    }
+}));
+test('final: Codex inventory rejects unsupported records while preserving complete stdio and HTTP entries',async()=>fixture(async({adapter})=>{
+    const {discoverEffectiveEntries}=await import('./lib/project-check.mjs');const a=adapter('codex');
+    for(const list of [[{name:'legacy',enabled:true,transport:{type:'stdio',program:'npx',arguments:['-y','mcp-yandex-kit@latest']}}],[{name:'legacy',enabled:true,transport:{type:'future',command:'npx',args:['-y','mcp-yandex-kit@latest']}}],[null],[{name:'legacy',enabled:true}]])await assert.rejects(discoverEffectiveEntries(a,{run:nativeRun(a,list)}),error=>error.code==='PLUGIN_CONFLICT');
+    const list=[nativeManaged(a),{name:'other',enabled:true,transport:{type:'stdio',command:'unrelated',args:[],env:null,env_vars:[],cwd:null}},{name:'remote',enabled:false,transport:{type:'streamable_http',url:'https://remote.example/mcp',bearer_token_env_var:null,http_headers:null,env_http_headers:null,http_headers_helper:null}}];
+    assert.deepEqual((await discoverEffectiveEntries(a,{run:nativeRun(a,list)})).map(entry=>entry.name),list.map(entry=>entry.name));
+}));
+test('final: both clients require managed presence and matching identity in complete list after get',async()=>fixture(async({adapter,options})=>{
+    for(const client of ['codex','claude-code']) {
+        const a=adapter(client,`consistent ${client}`);await configureAdapter(a,options('one'));const managed=nativeManaged(a);
+        const missing=client==='codex'?[[],[{name:'other',enabled:true,transport:{type:'stdio',command:'other-server',args:[]}}]]:['No MCP servers configured.','other: unrelated-server - ✓ Connected'];
+        for(const list of missing)await assert.rejects(clientCheck(a,{run:nativeRun(a,list)}),error=>error.code==='PLUGIN_CONFLICT');
+        const mismatch=client==='codex'?[{...managed,transport:{...managed.transport,args:['-y','mcp-yandex-kit@latest','--project-config','/wrong/project.json']}}]:`${a.serverName}: npx -y mcp-yandex-kit@latest --project-config /wrong/project.json - ✓ Connected`;
+        await assert.rejects(clientCheck(a,{run:nativeRun(a,mismatch)}),error=>error.code==='PLUGIN_CONFLICT');
+        const valid=client==='codex'?[managed,{name:'other',enabled:true,transport:{type:'streamable_http',url:'https://other.example/mcp'}}]:`${a.serverName}: npx ${managed.transport.args.join(' ')} - ✓ Connected\nother: https://other.example/mcp (HTTP) - ✓ Connected`;
+        assert.equal((await clientCheck(a,{run:nativeRun(a,valid)})).ok,true);
+    }
+}));
+test('final: unrelated inherited reserved project names conflict before either adapter publishes',async()=>fixture(async({adapter,options,env})=>{
+    for(const client of ['codex','claude-code']) {
+        const a=adapter(client,`reserved ${client}`);let file;
+        if(client==='codex') {file=a.userConfigPath;await mkdir(path.dirname(file),{recursive:true});await writeFile(file,'[mcp_servers.a1-yandex-kit-project]\ncommand = "unrelated-server"\nargs = []\n');}
+        else {file=a.configPath;await writeFile(file,JSON.stringify({mcpServers:{'a1-yandex-kit-project':{command:'unrelated-server',args:[]}}}));}
+        const before=await readFile(file,'utf8');await assert.rejects(configureAdapter(a,options('one')),error=>error.code==='SERVER_CONFLICT');assert.equal(await readFile(file,'utf8'),before);await assert.rejects(readFile(a.bindingPath),{code:'ENOENT'});
+    }
+    const {readdir}=await import('node:fs/promises');await assert.rejects(readdir(env.YANDEX_KIT_CONNECTIONS_DIR),{code:'ENOENT'});
 }));

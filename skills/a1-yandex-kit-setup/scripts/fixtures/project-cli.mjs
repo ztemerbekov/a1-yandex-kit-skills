@@ -12,14 +12,15 @@ if (executable === 'npx') {
     }
 }
 else if (executable === 'codex') {
-    if (process.argv[3] === 'list')
-        process.stdout.write('[]\n');
-    else {
+    let server;
+    try {
         const config = await readFile(path.join(process.cwd(), '.codex', 'config.toml'), 'utf8');
         const args = JSON.parse(config.match(/^args = (.+)$/m)[1]);
         const root = JSON.parse(config.match(/^YANDEX_KIT_CONNECTIONS_DIR = (.+)$/m)[1]);
-        process.stdout.write(JSON.stringify({ name: 'a1-yandex-kit-project', enabled: true, transport: { command: 'npx', args, env: { YANDEX_KIT_CONNECTIONS_DIR: root } } }) + '\n');
-    }
+        server = {name: 'a1-yandex-kit-project', enabled: true, transport: {type:'stdio', command:'npx', args, env:{YANDEX_KIT_CONNECTIONS_DIR:root}}};
+    } catch(error) { if(error.code !== 'ENOENT') throw error; }
+    if(process.argv[3] === 'list') process.stdout.write(JSON.stringify(server ? [server] : []) + '\n');
+    else if(server) process.stdout.write(JSON.stringify(server) + '\n');
+    else process.exitCode = 1;
 }
-else
-    throw new Error('Unexpected fixture executable');
+else throw new Error('Unexpected fixture executable');

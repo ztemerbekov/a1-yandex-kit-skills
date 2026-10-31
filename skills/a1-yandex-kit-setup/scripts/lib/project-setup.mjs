@@ -3,7 +3,7 @@ import { mkdir, chmod, realpath, access, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import { createConnectionStore, resolveConnectionsRoot } from './connections.mjs';
 import { SetupError, redactSecret } from './shared.mjs';
-import { readSnapshot, replaceSnapshot, withFileLocks, hash, assertProjectConfigScope } from './project-files.mjs';
+import { readSnapshot, replaceSnapshot, withFileLocks, hash, assertProjectConfigScope, assertProjectWriteScope } from './project-files.mjs';
 import { projectInventory, prepareProjectConfig, readProjectEntry, projectEntry } from './project-config.mjs';
 function within(parent, child) { const r = path.relative(parent, child); return r === '' || (!r.startsWith(`..${path.sep}`) && r !== '..' && !path.isAbsolute(r)); }
 async function canonical(file) {
@@ -31,7 +31,6 @@ export async function projectStorage(adapter) {
             await access(path.join(dir, '.git'));
             if (within(dir, resolved))
                 throw new SetupError('The private connections directory must be outside the project repository.', 'UNSAFE_CONNECTIONS_ROOT');
-            break;
         }
         catch (e) {
             if (e.code !== 'ENOENT')
@@ -98,7 +97,7 @@ function copyRecord(v) { return { ...v, token: v.token }; }
 async function undo(actions, storage, adapter) {
     for (const a of [...actions].reverse()) {
         if (a.kind === 'file') {
-            if(a.path===adapter.configPath) await assertProjectConfigScope(adapter);
+            await assertProjectWriteScope(adapter, a.path);
             await replaceSnapshot(a.path, a.before.revision === null ? null : a.before.content, a.after);
         }
         else if (a.kind === 'binding') {
@@ -181,7 +180,7 @@ export async function configureProject(adapter, options = {}) {
                     }
                 }
                 for (const [file, content] of updates) {
-                    if(file===adapter.configPath) await assertProjectConfigScope(adapter);
+                    await assertProjectWriteScope(adapter, file);
                     const before = inventory.snapshots.get(file);
                     if (before.content === content)
                         continue;
@@ -245,7 +244,10 @@ export async function rollbackProject(adapter, transactionId) {
         catch { throw new SetupError("The private rollback journal is invalid; inspect it locally before retrying.", "INVALID_ROLLBACK"); }
         if (journal.version !== 1 || journal.bindingPath !== adapter.bindingPath || journal.configPath !== adapter.configPath || journal.client !== adapter.client || !Array.isArray(journal.actions) || !journal.finalBinding?.revision || !journal.finalConnection?.revision || journal.finalBinding.connection_id !== journal.finalConnection.connection_id)
             throw new SetupError('Rollback transaction belongs to another project or client.', 'INVALID_ROLLBACK');
-        return withFileLocks([...(journal.guards || []).map(g => g.path), ...journal.actions.filter(a => a.kind === 'file').map(a => a.path)], async () => {
+        const guardedFiles = [...(journal.guards || []).map(g => g.path), ...journal.actions.filter(a => a.kind === 'file').map(a => a.path)];
+        for (const file of guardedFiles) await assertProjectWriteScope(adapter, file);
+        return withFileLocks(guardedFiles, async () => {
+            for (const file of guardedFiles) await assertProjectWriteScope(adapter, file);
             let finalBinding, finalConnection;
             try {
                 finalBinding = await storage.readBinding(adapter.bindingPath);
