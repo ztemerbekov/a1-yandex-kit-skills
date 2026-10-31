@@ -333,8 +333,11 @@ function originOf(err: unknown): Origin | undefined {
   if (net) return { origin: "network", ...net };
   const bug = jsBug(err);
   if (bug) return { origin: "internal", text: bug };
-  // Any other Error (e.g. AuthRequiredError, AbortError): its text is used only when the allowlist finds nothing.
-  return err instanceof Error ? { origin: "error", text: `${err.name}: ${err.message.split("\n")[0]}` } : undefined;
+  // Only the class name of our own errors (AuthRequiredError, AbortError), used when the allowlist finds
+  // nothing. Never the message: a plain Error or a system error (ENOENT …) can carry store data.
+  if (!(err instanceof Error) || "errno" in err || "syscall" in err) return undefined;
+  const own = /^[A-Z][A-Za-z0-9]*(?:Error|Exception)$/.test(err.name) && err.name !== "Error";
+  return own ? { origin: "error", text: err.name } : undefined;
 }
 
 export function noteFailure<T>(result: T, err: unknown): T {
@@ -377,7 +380,7 @@ function reportCall(telemetry: Telemetry, tool: string, value: unknown, thrown: 
       } else {
         detail = errorDetail(resultText(value));
         if (!detail && noted?.origin === "error") {
-          detail = maskedOwnText("", noted.text);
+          detail = noted.text;
           // The class name ("AuthRequiredError", "AbortError") often says more than the message.
           if (reason === "error_other") reason = toolOutcome({ isError: true, content: [{ type: "text", text: noted.text }] });
         }
