@@ -750,17 +750,25 @@ test("an Error outside the KIT classes sends its class name only, a plain or sys
   server.registerTool("fs", { description: "f", inputSchema: {} }, async () => {
     throw Object.assign(new Error("ENOENT: no such file or directory, open '/tmp/Иван's паспорт'"), { code: "ENOENT", errno: -2, syscall: "open" });
   });
+  server.registerTool("spoof", { description: "x", inputSchema: {} }, async () => {
+    throw Object.assign(new Error("open '/tmp/Иван паспорт'"), { name: "TypeError", errno: -2, syscall: "open" });
+  });
+  server.registerTool("arg", { description: "g", inputSchema: {} }, async () => {
+    throw Object.assign(new TypeError("Received 'Иван Иванов'"), { code: "ERR_INVALID_ARG_TYPE" });
+  });
   const mcp = new Client({ name: "c", version: "0" });
   const [ct, st] = InMemoryTransport.createLinkedPair();
   await server.connect(st);
   await mcp.connect(ct);
-  for (const name of ["auth", "slow", "plain", "fs"]) await mcp.callTool({ name, arguments: {} });
+  for (const name of ["auth", "slow", "plain", "fs", "spoof", "arg"]) await mcp.callTool({ name, arguments: {} });
   const calls = sent.filter((s) => s.body.event === "tool_call");
   assert.deepEqual(calls.map((c) => [c.body.reason, c.body.error_detail]), [
     ["error_auth", "AuthRequiredError"],
     ["error_timeout", "AbortError"],
     ["error_other", undefined],
     ["error_internal", undefined],
+    ["error_internal", "internal: TypeError"],
+    ["error_internal", "internal: TypeError ERR_INVALID_ARG_TYPE"],
   ]);
   assert.ok(!JSON.stringify(sent).includes("Иван"));
 });
