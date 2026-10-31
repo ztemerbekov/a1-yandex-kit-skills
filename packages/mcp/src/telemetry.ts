@@ -260,7 +260,7 @@ export function errorDetail(text: string): string {
 type NetworkFailure = { reason: ToolOutcome; text: string };
 type ApiFailure = { reason: ToolOutcome; head: string; text: string };
 type Origin =
-  | { origin: "local" | "internal"; text: string }
+  | { origin: "local" | "internal" | "error"; text: string }
   | ({ origin: "network" } & NetworkFailure)
   | ({ origin: "api" } & ApiFailure);
 
@@ -269,7 +269,13 @@ const FAILURE_ORIGIN = new WeakMap<object, Origin>();
 const JS_ERRORS = new Set(["TypeError", "ReferenceError", "RangeError", "SyntaxError", "EvalError", "URIError"]);
 
 function jsBug(err: unknown): string | undefined {
-  return err instanceof Error && JS_ERRORS.has(err.name) ? `${err.name}: ${err.message.split("\n")[0]}` : undefined;
+  if (!(err instanceof Error) || !JS_ERRORS.has(err.name)) return undefined;
+  // Node's own errors (ERR_INVALID_ARG_TYPE …, system errors) quote the values passed in: their code only.
+  const code: unknown = (err as { code?: unknown }).code;
+  if (code !== undefined || "errno" in err || "syscall" in err) {
+    return typeof code === "string" && /^[A-Z][A-Z0-9_]{2,40}$/.test(code) ? `${err.name} ${code}` : err.name;
+  }
+  return `${err.name}: ${err.message.split("\n")[0]}`;
 }
 
 /**
@@ -332,7 +338,12 @@ function originOf(err: unknown): Origin | undefined {
   const net = fetchFailure(err);
   if (net) return { origin: "network", ...net };
   const bug = jsBug(err);
-  return bug ? { origin: "internal", text: bug } : undefined;
+  if (bug) return { origin: "internal", text: bug };
+  // Only the class name of our own errors (AuthRequiredError, AbortError), used when the allowlist finds
+  // nothing. Never the message: a plain Error or a system error (ENOENT …) can carry store data.
+  if (!(err instanceof Error) || "errno" in err || "syscall" in err) return undefined;
+  const own = /^[A-Z][A-Za-z0-9]*(?:Error|Exception)$/.test(err.name) && err.name !== "Error";
+  return own ? { origin: "error", text: err.name } : undefined;
 }
 
 export function noteFailure<T>(result: T, err: unknown): T {
@@ -372,7 +383,14 @@ function reportCall(telemetry: Telemetry, tool: string, value: unknown, thrown: 
       } else if (noted?.origin === "local") {
         reason = "error_invalid_request";
         detail = maskedOwnText("local: ", noted.text);
-      } else detail = errorDetail(resultText(value));
+      } else {
+        detail = errorDetail(resultText(value));
+        if (!detail && noted?.origin === "error") {
+          detail = noted.text;
+          // The class name ("AuthRequiredError", "AbortError") often says more than the message.
+          if (reason === "error_other") reason = toolOutcome({ isError: true, content: [{ type: "text", text: noted.text }] });
+        }
+      }
     }
     telemetry.send("tool_call", { tool, reason, error_detail: detail || undefined });
   } catch {
