@@ -21,8 +21,7 @@ async function main(): Promise<void> {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
   const telemetry = new Telemetry(pkg.version);
   const runtime = await loadRuntimeOrExit(telemetry);
-  const server = createMcpServer(runtime, pkg.version);
-  instrumentToolCalls(server, telemetry);
+  const server = createMcpServer(runtime, pkg.version, (server) => instrumentToolCalls(server, telemetry));
   server.server.oninitialized = () => {
     telemetry.setClientInfo(server.server.getClientVersion());
     telemetry.send("server_start");

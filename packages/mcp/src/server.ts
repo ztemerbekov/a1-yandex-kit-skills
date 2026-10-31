@@ -21,7 +21,11 @@ import { registerAlertTools } from "./tools/alerts.js";
 import { registerBlogTools } from "./tools/blogs.js";
 
 /** Every curated tool and the universal request tool share the verified client. */
-export function createMcpServer(runtime: Runtime, version: string): McpServer {
+export function createMcpServer(
+  runtime: Runtime,
+  version: string,
+  beforeRegister?: (server: McpServer) => void,
+): McpServer {
   const { client, store } = runtime;
   const server = new McpServer({
     name: "mcp-yandex-kit",
@@ -29,6 +33,8 @@ export function createMcpServer(runtime: Runtime, version: string): McpServer {
     version,
   }, store ? { instructions: `This server is connected to the project store ${JSON.stringify(store.name)}. All tools operate on this store for the lifetime of this process.` } : undefined);
 
+  // registerTool wrappers must be installed before any domain registers tools.
+  beforeRegister?.(server);
   registerMetaTools(server, client);
   registerStoreTools(server, client);
   registerProductTools(server, client);
