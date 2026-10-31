@@ -7,6 +7,7 @@ import {
   KitValidationError,
   resolveOperationSchema,
 } from "yandex-kit-core";
+import { noteFailure } from "./telemetry.js";
 
 export const READ_ONLY = { readOnlyHint: true } as const;
 export const DESTRUCTIVE = { destructiveHint: true } as const;
@@ -25,7 +26,12 @@ export function ok(data: unknown): ToolResult {
   return { content: [{ type: "text", text: JSON.stringify(data ?? { ok: true }) }] };
 }
 
+/** The failed result; also notes, off the wire, whether it is our own refusal or a JS bug (telemetry). */
 export function fail(err: unknown): ToolResult {
+  return noteFailure(failText(err), err);
+}
+
+function failText(err: unknown): ToolResult {
   const payload: Record<string, unknown> = {};
   if (err instanceof KitApiError) {
     payload.error = err.message;
