@@ -365,6 +365,40 @@ test('review: Claude inventory accepts only supported empty/entry grammar and re
     assert.deepEqual(await discoverEffectiveEntries(a,{run:run('No MCP servers configured. Use `claude mcp add` to add a server.\n')}),[]);
     assert.deepEqual((await discoverEffectiveEntries(a,{run:run('Checking MCP server health...\n\nother: npx unrelated-server - ✓ Connected\n')})).map(entry=>entry.name),['other']);
 }));
+test('review: Claude 2.1 inventory glyphs, statuses and claude.ai connectors keep the pinned grammar',async()=>fixture(async({adapter})=>{
+    const {discoverEffectiveEntries}=await import('./lib/project-check.mjs');const {isKitEntry}=await import('./lib/project-config.mjs');const a=adapter('claude-code');
+    const run=output=>async()=>({available:true,code:0,stdout:output,stderr:''});
+    const output=['Checking MCP server health…','',
+        'plugin:figma:figma: https://mcp.figma.com/mcp (HTTP) - ! Needs authentication',
+        'a1-yandex-kit-global: npx -y mcp-yandex-kit@latest - ✔ Connected',
+        'claude.ai Google Drive: https://drive.mcp.claude.com/mcp - ✘ Failed to connect — timed out',
+        'tools: npx tools-server - ! Connected · tools fetch failed — 401',
+        'broken: npx broken-server - ✘ Connection error',
+        'missing: npx missing-server - - Not configured',
+        'pending: npx pending-server - ⏸ Pending approval (run `claude` to approve)',
+        'rejected: npx rejected-server - ✘ Rejected (see disabledMcpjsonServers in settings)',
+        'off: npx off-server - ⊘ Disabled for this project (re-enable via /mcp)',
+        'windows: npx windows-server - √ Connected','windows-down: npx windows-server - × Failed to connect',''].join('\n');
+    const entries=await discoverEffectiveEntries(a,{run:run(output)});
+    assert.deepEqual(entries.map(({name,state,enabled})=>[name,state,enabled]),[
+        ['plugin:figma:figma','needs-auth',true],['a1-yandex-kit-global','connected',true],['claude.ai Google Drive','failed',true],
+        ['tools','degraded',true],['broken','failed',true],['missing','not-configured',true],['pending','pending',true],
+        ['rejected','rejected',false],['off','disabled',false],['windows','connected',true],['windows-down','failed',true]]);
+    assert.equal(isKitEntry(entries[1].entry),true);assert.deepEqual(entries[2].entry,{url:'https://drive.mcp.claude.com/mcp',type:'claudeai-proxy'});
+    for(const bad of ['Checking MCP server health…\n','other: npx unrelated-server - ✔ Ready','other: npx unrelated-server - ✔ Connected —','remote: https://remote.example/mcp - ✔ Connected'])
+        await assert.rejects(discoverEffectiveEntries(a,{run:run(bad)}),error=>error.code==='PLUGIN_CONFLICT');
+}));
+test('review: Claude 2.1 get and list output confirm the managed project entry',async()=>fixture(async({adapter,options})=>{
+    const a=adapter('claude-code');await configureAdapter(a,options('one'));const args=['-y','mcp-yandex-kit@latest','--project-config',a.bindingPath].join(' ');
+    const get=status=>`${a.serverName}:\n  Scope: Local config (private to you in this project)\n  Status: ${status}\n  Type: stdio\n  Command: npx\n  Args: ${args}\n  Environment:\n    YANDEX_KIT_CONNECTIONS_DIR=${a.env.YANDEX_KIT_CONNECTIONS_DIR}\n\nTo remove this server, run: claude mcp remove "${a.serverName}" -s local\n`;
+    const run=(status,list)=>async(command,commandArgs)=>({available:true,code:0,stderr:'',stdout:commandArgs[1]==='get'?get(status):`Checking MCP server health…\n\n${list}\n`});
+    const managed=status=>`${a.serverName}: npx ${args} - ${status}`;
+    assert.equal((await clientCheck(a,{run:run('✔ Connected',managed('✔ Connected'))})).ok,true);
+    await assert.rejects(clientCheck(a,{run:run('✘ Failed to connect',managed('✘ Failed to connect'))}),error=>error.code==='SERVER_SHADOWED');
+    await assert.rejects(clientCheck(a,{run:run('✔ Connected',managed('! Connected · tools fetch failed'))}),error=>error.code==='PLUGIN_CONFLICT');
+    await assert.rejects(clientCheck(a,{run:run('✔ Connected',`${managed('✔ Connected')}\nlegacy: npx -y mcp-yandex-kit@latest - ✔ Connected`)}),error=>error.code==='PLUGIN_CONFLICT');
+    assert.equal((await clientCheck(a,{run:run('✔ Connected',`${managed('✔ Connected')}\nlegacy: npx -y mcp-yandex-kit@latest - ⊘ Disabled for this project (re-enable via /mcp)`)})).ok,true);
+}));
 
 function nativeManaged(adapter) {
     return {name:adapter.serverName,enabled:true,transport:{type:'stdio',command:'npx',args:['-y','mcp-yandex-kit@latest','--project-config',adapter.bindingPath],env:{YANDEX_KIT_CONNECTIONS_DIR:adapter.env.YANDEX_KIT_CONNECTIONS_DIR}}};

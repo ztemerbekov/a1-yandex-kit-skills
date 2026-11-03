@@ -12,6 +12,23 @@ function httpUrl(value) {
     try { return typeof value === 'string' && ['https:', 'http:'].includes(new URL(value).protocol); }
     catch { return false; }
 }
+// `claude mcp list` has no JSON mode, so its grammar is pinned: the original glyphs and the
+// 2.1 set (figures tick/cross with the Windows fallbacks √ and ×). Anything else stays a conflict.
+const CLAUDE_HEADERS = new Set(['Checking MCP server health...', 'Checking MCP server health…']);
+const CLAUDE_STATUSES = [
+    ['connected', String.raw`(?:✓|✔|√) Connected`],
+    ['degraded', String.raw`! Connected · tools fetch failed`],
+    ['needs-auth', String.raw`(?:⚠|!) Needs authentication`],
+    ['failed', String.raw`(?:✗|✘|×) (?:Failed to connect|Connection error)`],
+    ['not-configured', String.raw`- Not configured`],
+    ['pending', String.raw`⏸ Pending approval \(run ${'`'}claude${'`'} to approve\)`],
+    ['rejected', String.raw`(?:✗|✘|×) Rejected \(see disabledMcpjsonServers in settings\)`],
+    ['disabled', String.raw`Disabled|⊘ Disabled for this project \(re-enable via /mcp\)`],
+];
+const CLAUDE_LINE = new RegExp(String.raw`^(\S+|claude\.ai \S.*?):\s+(.+?)\s+-\s+(${CLAUDE_STATUSES.map(([, pattern]) => pattern).join('|')})(?: — .+)?$`, 'u');
+function claudeState(status) {
+    return CLAUDE_STATUSES.find(([, pattern]) => new RegExp(`^(?:${pattern})$`, 'u').test(status))?.[0];
+}
 function parseCodexEntry(item) {
     if (!record(item) || typeof item.name !== 'string' || !item.name.trim() || /\s/.test(item.name) || typeof item.enabled !== 'boolean' || !record(item.transport))
         throw conflict('Codex returned an incomplete MCP inventory record. Inspect /mcp and the client version before retrying.');
@@ -59,21 +76,25 @@ export async function discoverEffectiveEntries(adapter, { run = spawnCaptured } 
     let empty = false;
     const lines = `${result.stdout}\n${result.stderr}`.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     for (const line of lines) {
-        if (line === 'Checking MCP server health...') continue;
+        if (CLAUDE_HEADERS.has(line)) continue;
         if (/^No MCP servers configured\.(?: Use `claude mcp add` to add a server\.)?$/.test(line)) {
             if (empty || entries.length) throw conflict('Claude returned a conflicting MCP inventory; inspect /mcp and retry.');
             empty = true;
             continue;
         }
-        const match = line.match(/^(\S+):\s+(.+?)\s+-\s+(✓ Connected|✗ Failed to connect|⚠ Needs authentication|Disabled)$/u);
+        const match = line.match(CLAUDE_LINE);
         if (!match || empty)
             throw conflict('Claude MCP inventory output is unsupported or incomplete. Inspect /mcp and disable legacy KIT entries for this project, then retry.');
         const [,name,definition,status] = match;
+        const state = claudeState(status);
         const remote = definition.match(/^(https?:\/\/\S+)\s+\((HTTP|SSE)\)$/);
         let entry;
         if (remote) {
             if (!httpUrl(remote[1])) throw conflict('Claude returned an unsupported remote MCP definition. Inspect /mcp before continuing.');
             entry = {url: remote[1], type: remote[2].toLowerCase()};
+        } else if (name.startsWith('claude.ai ') && httpUrl(definition)) {
+            // claude.ai connectors print a bare URL and carry a display name with spaces.
+            entry = {url: definition, type: 'claudeai-proxy'};
         } else {
             if (/^https?:\/\//.test(definition))
                 throw conflict('Claude returned an unestablished MCP transport. Inspect /mcp before continuing.');
@@ -82,7 +103,7 @@ export async function discoverEffectiveEntries(adapter, { run = spawnCaptured } 
             if (definition.includes('mcp-yandex-kit') && !isKitEntry(entry))
                 throw conflict('Claude did not establish the identity of a possible legacy KIT entry. Inspect /mcp before continuing.');
         }
-        entries.push({name, entry, definition, status, kind: name.startsWith('plugin:') ? 'plugin' : 'server', enabled: status !== 'Disabled'});
+        entries.push({name, entry, definition, status, state, kind: name.startsWith('plugin:') ? 'plugin' : 'server', enabled: state !== 'disabled' && state !== 'rejected'});
     }
     if (!empty && !entries.length)
         throw conflict('Claude did not return a complete MCP inventory. Inspect /mcp and retry.');
@@ -116,12 +137,13 @@ export async function checkProjectClient(adapter, { run = spawnCaptured } = {}) 
         const commandValue = output.match(/^\s*Command:\s*(.+?)\s*$/mi)?.[1];
         const argsValue = output.match(/^\s*Args:\s*(.+?)\s*$/mi)?.[1];
         const environment = output.match(/^\s*YANDEX_KIT_CONNECTIONS_DIR[=:]\s*(.+?)\s*$/mi)?.[1];
-        if (commandValue !== desired.command || argsValue !== desired.args.join(' ') || environment !== root || /Scope:\s*(?:User|Project)/i.test(output) || /Status:\s*(?:disabled|failed)/i.test(output))
+        const state = claudeState(output.match(/^\s*Status:\s*(.+?)(?: — .+)?\s*$/mi)?.[1] ?? '');
+        if (commandValue !== desired.command || argsValue !== desired.args.join(' ') || environment !== root || /Scope:\s*(?:User|Project)/i.test(output) || /Status:\s*(?:disabled|failed)/i.test(output) || ['failed', 'disabled', 'rejected'].includes(state))
             throw new SetupError('Claude did not confirm the local project binding and private storage root. Inspect /mcp and the effective entry, then retry.', 'SERVER_SHADOWED');
     }
     const inventory = await discoverEffectiveEntries(adapter, {run});
     const managed = inventory.find(entry => entry.name === adapter.serverName);
-    if (!managed || !managed.enabled || (codex ? !matchesManaged(managed.entry, desired) : managed.definition !== [desired.command, ...desired.args].join(' ') || managed.status !== '✓ Connected'))
+    if (!managed || !managed.enabled || (codex ? !matchesManaged(managed.entry, desired) : managed.definition !== [desired.command, ...desired.args].join(' ') || managed.state !== 'connected'))
         throw conflict('The complete effective MCP inventory omits or contradicts the managed project definition. Inspect /mcp, project trust and config precedence before retrying.');
     if (inventory.some(entry => entry.name !== adapter.serverName && isKitEntry(entry.entry) && entry.enabled))
         throw conflict();
