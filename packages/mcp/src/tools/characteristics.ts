@@ -16,12 +16,20 @@ import {
   withCoverage,
 } from "../util.js";
 
+// The API requires the status filter on GetCharacteristics (a call without it is a 400
+// "Обязательный параметр 'status' отсутствует"); default to all statuses, so an archived
+// characteristic is still seen before a duplicate of it is created.
+const ALL_STATUSES = ["ACTIVE", "ARCHIVED"] as const;
+
 export function registerCharacteristicTools(server: McpServer, client: KitClient): void {
   server.registerTool(
     "list_characteristics",
     {
       title: "List characteristics",
-      description: "List product characteristics (paginated). " + COVERAGE_DESCRIPTION,
+      description:
+        "List product characteristics (paginated). Archived characteristics are included by " +
+        "default — each item carries its status; pass status to narrow. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -34,18 +42,23 @@ export function registerCharacteristicTools(server: McpServer, client: KitClient
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        status: z
+          .array(z.enum(["ACTIVE", "ARCHIVED"]))
+          .optional()
+          .describe("Filter by characteristic status (default: both ACTIVE and ARCHIVED)."),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
         fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, format, fields }) => {
+    async ({ page, per_page, all, status, format, fields }) => {
+      const filters = { status: status ?? ALL_STATUSES };
       try {
         const perPage = clampPerPage(per_page);
         const data = all
-          ? withCoverage({ all: await client.listAll("GetCharacteristics") })
+          ? withCoverage({ all: await client.listAll("GetCharacteristics", { query: filters }) })
           : withCoverage({
               page: await client.call("GetCharacteristics", {
-                query: { page, per_page: perPage },
+                query: { page, per_page: perPage, ...filters },
               }),
               operationId: "GetCharacteristics",
               perPage,
