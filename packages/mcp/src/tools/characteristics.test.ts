@@ -189,3 +189,30 @@ test("update_characteristic_color accepts the special multicoloured value", asyn
   assert.equal((res as { isError?: boolean }).isError, undefined);
   assert.equal(JSON.parse(String(calls[0]!.init?.body)).color_hex, "multicoloured");
 });
+
+// GetCharacteristics requires the status filter: without it the API answers
+// 400 VALIDATION_ERROR «Обязательный параметр 'status' отсутствует» (live, 2026-11-12).
+test("list_characteristics always sends status, both values by default", async () => {
+  const { calls, mcp } = await setup({ characteristics: [], total_count: 0 });
+  const res = await mcp.callTool({ name: "list_characteristics", arguments: {} });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/characteristics");
+  assert.deepEqual(url.searchParams.getAll("status"), ["ACTIVE", "ARCHIVED"]);
+});
+
+test("list_characteristics narrows to the requested status", async () => {
+  const { calls, mcp } = await setup({ characteristics: [], total_count: 0 });
+  await mcp.callTool({ name: "list_characteristics", arguments: { status: ["ACTIVE"] } });
+  assert.deepEqual(new URL(calls[0]!.url).searchParams.getAll("status"), ["ACTIVE"]);
+});
+
+test("list_characteristics all=true sends status on the auto-paginated path too", async () => {
+  const { calls, mcp } = await setup({
+    characteristics: [{ id: "c1", title: "Цвет", status: "ARCHIVED" }],
+    total_count: 1,
+  });
+  const res = await mcp.callTool({ name: "list_characteristics", arguments: { all: true } });
+  assert.deepEqual(new URL(calls[0]!.url).searchParams.getAll("status"), ["ACTIVE", "ARCHIVED"]);
+  assert.deepEqual(JSON.parse(resultText(res)).items, [{ id: "c1", title: "Цвет", status: "ARCHIVED" }]);
+});
