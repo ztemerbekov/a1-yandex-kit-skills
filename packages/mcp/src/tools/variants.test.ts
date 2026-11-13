@@ -16,7 +16,7 @@ interface RecordedCall {
  * `payload` may be a function of the 0-based call index and the request URL,
  * to vary responses per call (by order, or by endpoint when a tool fans out).
  */
-async function setup(payload: unknown = { ok: true }) {
+async function setup(payload: unknown = { ok: true }, status = 200) {
   const calls: RecordedCall[] = [];
   const client = new KitClient({
     token: "t",
@@ -26,7 +26,7 @@ async function setup(payload: unknown = { ok: true }) {
       const body =
         typeof payload === "function" ? payload(calls.length - 1, String(url)) : payload;
       return new Response(JSON.stringify(body), {
-        status: 200,
+        status,
         headers: { "content-type": "application/json" },
       });
     }) as typeof fetch,
@@ -285,6 +285,24 @@ test("bulk_update_prices rejects a repeated variant before the network call", as
   assert.equal(payload.code, "DUPLICATE_VARIANT_ID");
   assert.match(payload.error, /v1/);
   assert.equal(calls.length, 0);
+});
+
+test("bulk_update_prices surfaces the per-item errors of a rejected batch", async () => {
+  const itemError = { variant_id: "v2", code: "VARIANT_ARCHIVED", message: "Товар архивирован" };
+  const { calls, mcp } = await setup(
+    { code: "VALIDATION_ERROR", message: "Bulk failed", trace_id: "tr-2", errors: [itemError] },
+    400,
+  );
+  const res = await mcp.callTool({
+    name: "bulk_update_prices",
+    arguments: { items: [{ variant_id: "v2", price: "1" }] },
+  });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  const payload = JSON.parse(resultText(res));
+  assert.equal(payload.code, "VALIDATION_ERROR");
+  assert.equal(payload.status, 400);
+  assert.deepEqual(payload.errors, [itemError]);
+  assert.equal(calls.length, 1);
 });
 
 test("bulk_update_prices rejects an empty batch before the network call", async () => {

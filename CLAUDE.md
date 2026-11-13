@@ -2,7 +2,7 @@
 
 npm-workspaces monorepo: typed client, MCP server (stdio) and Claude agent skills for the
 Yandex KIT e-commerce API, all driven by the bundled OpenAPI spec
-(`specs/kit-swagger.openapi.json` — 178 operations, 25 tag groups, the single source of truth).
+(`specs/kit-swagger.openapi.json` — 179 operations, 25 tag groups, the single source of truth).
 
 ## Commands
 
@@ -40,9 +40,9 @@ More detail in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Tool list: [docs/TOOL
   duplicate the change), auto-pagination via `listAll`, per-operation content type:
   merge-patch and multipart where the spec says so), `KitApiError`, ajv-based
   `validateRequestBody`/`resolveOperationSchema`, and `src/generated/{registry.json,types.ts}`.
-- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 96 tools; `src/tools/*.ts` is
+- `packages/mcp` — `mcp-yandex-kit`: stdio MCP server with 97 tools; `src/tools/*.ts` is
   one file per domain; `meta.ts` hosts the trio (`search_operations`,
-  `get_operation_schema`, `kit_request`) that covers all 178 operations (104 have curated tools).
+  `get_operation_schema`, `kit_request`) that covers all 179 operations (105 have curated tools).
   `telemetry.ts` — anonymous usage pings to usage.gistrec.cloud (ids/names/versions only,
   never data or arguments; fire-and-forget, must never block or throw; opt-out
   `YANDEX_KIT_TELEMETRY=0`). `startup_failed` is the exception: `sendBlocking` awaits it,
@@ -91,7 +91,7 @@ only replaces the six directories it owns and must preserve these five.
   the consumer LLM's only documentation. Runtime guidance (one-time webhook secret,
   merge-patch semantics, archive vs delete) belongs in tool descriptions, not this file.
 - **Reads return `ok()`** — compact JSON, no pretty-printing (tokens). Errors go through
-  `fail()`, which maps `KitApiError` to `{error, code, status, traceId}`.
+  `fail()`, which maps `KitApiError` to `{error, code, status, traceId, errors?}` (`errors` — per-item list of a bulk operation, first 50, `errors_total` when cut).
 - **Annotations from `util.ts`:** read-only tools get `READ_ONLY`; irreversible deletes
   get `DESTRUCTIVE`.
 - **Write tools call `validateRequestBody(operationId, body)` before the API call** so

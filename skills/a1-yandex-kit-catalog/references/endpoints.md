@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT — Catalog — endpoints
 
-## Endpoints (80 operations)
+## Endpoints (81 operations)
 
 ### Товары
 
@@ -12,7 +12,8 @@
 | POST | `/v1/products` | `CreateProduct` | Создание нового продукта |
 | GET | `/v1/products/{id}` | `GetProductById` | Получение продукта по ID |
 | PATCH | `/v1/products/{id}` | `UpdateProduct` | Обновление продукта |
-| GET | `/v1/products/cards/{product_card_id}/similar` | `GetSimilarProductCardIDs` | Получение списка похожих карточек товара. |
+| POST | `/v1/products/cards/slugs/bulk_update` | `BulkUpdateProductCardSlugs` | Массовое изменение URL карточек товаров |
+| GET | `/v1/products/cards/{product_card_id}/similar` | `GetSimilarProductCardIDs` | Получение списка похожих карточек товара |
 | POST | `/v1/products/cards/{product_card_id}/similar/add` | `AddSimilarProductCards` | Добавление похожих карточек товара |
 | POST | `/v1/products/cards/{product_card_id}/similar/remove` | `DeleteSimilarProductCards` | Удаление похожих карточек товара |
 | GET | `/v1/variants` | `GetVariants` | Получение списка товаров |
@@ -31,15 +32,15 @@
 | DELETE | `/v1/variants/{id}/attachments/{file_id}` | `DeleteVariantAttachment` | Открепление документа от товара |
 | POST | `/v1/variants/stocks/bulk_update` | `BulkUpdateStocks` | Массовое обновление остатков |
 | POST | `/v1/variants/prices/bulk_update` | `BulkUpdatePrices` | Массовое обновление цен |
-| GET | `/v1/similar-cards/{product_card_id}` | `GetSimilarCardsById` | Получение настроек похожих карточек |
-| POST | `/v1/similar-cards/{product_card_id}` | `CreateSimilarCards` | Создание настроек похожих карточек |
-| PUT | `/v1/similar-cards/{product_card_id}` | `UpdateSimilarCards` | Обновление настроек похожих карточек |
-| DELETE | `/v1/similar-cards/{product_card_id}` | `DeleteSimilarCards` | Удаление настроек похожих карточек |
-| GET | `/v1/similar-cards/{product_card_id}/cards` | `GetSimilarCardsCardIDs` | Получение идентификаторов выбранных похожих карточек |
-| GET | `/v1/similar-cards/{product_card_id}/categories` | `GetSimilarCardsCategoryIDs` | Получение идентификаторов категорий похожих карточек |
-| GET | `/v1/similar-cards/{product_card_id}/collections` | `GetSimilarCardsCollectionIDs` | Получение идентификаторов коллекций похожих карточек |
-| POST | `/v1/similar-cards/{product_card_id}/objects/add` | `AddSimilarCardsObjects` | Добавление объектов в настройки похожих карточек |
-| POST | `/v1/similar-cards/{product_card_id}/objects/remove` | `RemoveSimilarCardsObjects` | Удаление объектов из настроек похожих карточек |
+| GET | `/v1/similar-cards/{product_card_id}` | `GetSimilarCardsById` | Получение настроек дополнительных товаров |
+| POST | `/v1/similar-cards/{product_card_id}` | `CreateSimilarCards` | Создание настроек дополнительных товаров |
+| PUT | `/v1/similar-cards/{product_card_id}` | `UpdateSimilarCards` | Обновление настроек дополнительных товаров |
+| DELETE | `/v1/similar-cards/{product_card_id}` | `DeleteSimilarCards` | Удаление настроек дополнительных товаров |
+| GET | `/v1/similar-cards/{product_card_id}/cards` | `GetSimilarCardsCardIDs` | Получение идентификаторов карточек выбранных дополнительных товаров |
+| GET | `/v1/similar-cards/{product_card_id}/categories` | `GetSimilarCardsCategoryIDs` | Получение идентификаторов категорий дополнительных товаров |
+| GET | `/v1/similar-cards/{product_card_id}/collections` | `GetSimilarCardsCollectionIDs` | Получение идентификаторов коллекций дополнительных товаров |
+| POST | `/v1/similar-cards/{product_card_id}/objects/add` | `AddSimilarCardsObjects` | Добавление объектов в настройки дополнительных товаров |
+| POST | `/v1/similar-cards/{product_card_id}/objects/remove` | `RemoveSimilarCardsObjects` | Удаление объектов из настроек дополнительных товаров |
 
 ### Категории товаров
 

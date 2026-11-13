@@ -66,7 +66,8 @@ A variant carries two **distinct** identifiers:
 (`/v1/similar-cards/{product_card_id}...`, the deprecated
 `/v1/products/cards/{product_card_id}/similar...` and collection card management,
 «Добавление/Удаление карточек») take `product_card_id`, never a product id; read it
-from the variant first. Similar products are configured per card under
+from the variant first. Similar products (the spec now calls them «дополнительные
+товары», additional products — same endpoints) are configured per card under
 `/v1/similar-cards/{product_card_id}`: a `binding_mode` (`ALL_VARIANTS`,
 `SELECTED_CARDS` or `SELECTED_CATEGORIES_COLLECTIONS`) plus bound cards or
 categories/collections via `objects/add` and `objects/remove`. Unlike the deprecated
@@ -93,6 +94,19 @@ request with 400 and applies nothing, listing every offender in `errors`. In a p
 both fields are optional: omit a key to keep the current value, send `null` to reset it
 (resetting `price` works only on unpublished variants).
 
+A product card's URL identifier (slug) changes only through
+`POST /v1/products/cards/slugs/bulk_update` (`BulkUpdateProductCardSlugs`, MCP tool
+`bulk_update_card_slugs`) — `UpdateVariant` has no slug field. It takes up to **100
+cards** per request, addressed by `product_card_id` (from the variant, never a product
+id); a slug is 1-200 characters of `[a-z0-9_-]`. It is **atomic** too: an unknown card,
+a card or slug repeated in the batch, a malformed slug or one already taken by another
+card rejects the whole request with 400 and applies nothing, and `errors` names each
+offending `product_card_id` with its code (`PRODUCT_CARD_NOT_FOUND`, `DUPLICATE_ITEM`,
+`INVALID_SLUG`, `DUPLICATE_SLUG`, `SLUG_ALREADY_TAKEN`). Old links keep working
+after the change. No field returns the card slug: `Variant.slug` is the variant's own
+slug and does **not** change. Verify the write by re-reading `relative_link_url`, which
+carries the new slug at once (`/products/<card slug>-<number>?variant=<number>`).
+
 Product videos are a separate tag: use `POST /v1/videos` for a local file
 (`multipart/form-data`) or `POST /v1/videos/from_url` for a public link. Both accept
 videos up to 100 MB in mp4/mov/webm/avi/flv and deduplicate by content. Poll
@@ -111,6 +125,8 @@ from the store's path settings and already selecting the variant
 (`/products/iphone-15-pro-100000?variant=100001`). Do **not** assemble product URLs
 from slugs and ids: resolve that path against `b2c_url` from `GetStore` (the
 `list_variant_links` MCP tool does exactly this join) and the link stays correct
-when the store's URL rules change.
+when the store's URL rules change. To change the address itself, change the card's slug
+with `bulk_update_card_slugs`, then read the new link from `relative_link_url` again
+rather than building it from the slug you sent.
 
 For authentication (`Authorization: Bearer <token>`), the base URL (`https://api.kit.yandex.net`, all paths under `/v1/`), the 3 rps rate limit and the `{code, message, trace_id}` error contract, see the `a1-yandex-kit` skill. Its Boundaries section also maps what the public API cannot do at all (refunds, reviews, feed import, acquiring setup) and where in the cabinet to send the owner instead.

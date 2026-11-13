@@ -34,7 +34,7 @@ const OUT_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));
 const ICON_LARGE_PATH = fileURLToPath(new URL("../assets/icon-large.svg", import.meta.url));
 const ICON_SMALL_PATH = fileURLToPath(new URL("../assets/icon-small.svg", import.meta.url));
 
-const SKILL_VERSION = "1.13.1";
+const SKILL_VERSION = "1.14.0";
 const SKILL_AUTHOR = "Aleksandr Kovalko";
 const MERGE_PATCH_OPS = [
   "UpdateCategory",
@@ -96,8 +96,8 @@ function parseToolsMd(): Map<string, { name: string; description: string }[]> {
 
 const toolSections = parseToolsMd();
 const toolCount = [...toolSections.values()].reduce((sum, tools) => sum + tools.length, 0);
-if (toolCount !== 96) {
-  throw new Error(`Expected 96 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
+if (toolCount !== 97) {
+  throw new Error(`Expected 97 MCP tools in docs/TOOLS.md, found ${toolCount} — update gen-skills.ts`);
 }
 
 // ---------------------------------------------------------------------------
@@ -174,7 +174,8 @@ docs are in Russian; the full OpenAPI spec (${registry.opsCount} operations) is 
   and \`POST /v1/videos\` (\`UploadVideo\`) are \`multipart/form-data\`.
 - **Bulk writes**: \`BulkUpdatePrices\` and \`BulkUpdateStocks\` take up to 5000 items per
   request and are atomic — a single invalid item rejects the whole batch (400) and applies
-  nothing. Prefer them over per-variant updates for catalog syncs.`;
+  nothing. Prefer them over per-variant updates for catalog syncs. \`BulkUpdateProductCardSlugs\`
+  (product card URLs) follows the same all-or-nothing rule with up to 100 cards per request.`;
 
 const ROUTER_DOMAIN_SKILLS = `## Domain skills
 
@@ -182,7 +183,7 @@ Prefer the focused skill when the task clearly belongs to one domain — each bu
 same scripts and data, plus the endpoint tables of its tags:
 
 - \`a1-yandex-kit-catalog\` — products, variants (SKUs, prices, stocks, bulk price/stock
-  sync), categories, characteristics (groups, colors), videos, collections, context
+  sync), product card URLs (slugs), categories, characteristics (groups, colors), videos, collections, context
   collections, badges.
 - \`a1-yandex-kit-orders\` — orders, customers, gift cards, additional services (addons).
 - \`a1-yandex-kit-promotions\` — discounts, promo codes, promocode groups, gifts.
@@ -267,11 +268,15 @@ const WEBHOOKS_DETAILS = `Key facts:
   parsing or re-serialization) and compare in constant time; reject a mismatch.
 - **Delivery is at-least-once and unordered.** Deduplicate by \`event_id\` (a redelivery
   reuses it) and order by \`occurred_at\`, not by arrival. Retries back off exponentially
-  (1 s → 10 min, at most 8 attempts within a 10-minute window) on \`5xx\`, \`408\`,
+  (5 s doubling up to 1 hour, ±20% jitter, for **72 hours** from enqueueing; for
+  \`CART_UPDATED\` the cap is 10 minutes and the window **1 hour**) on \`5xx\`, \`408\`,
   \`429\`, \`401\`, \`403\`, \`404\`, \`3xx\` (redirects are not followed), network errors
-  and the 10-second timeout; any other \`4xx\` (including \`410\`) is final. After the
-  last attempt the event is dropped — reconcile through the list endpoints, never assume
-  the callback stream is complete.
+  and the 10-second timeout; any other \`4xx\` (including \`410\`) is final. A
+  \`Retry-After\` header on \`429\`/\`503\` postpones the next attempt (never beyond the
+  cap). Each subscription is retried independently, and retries stop once the webhook is
+  deleted, deactivated or unsubscribed from the event. So a missing event is not lost
+  while its window is open — it is dropped only when the window ends; reconcile through
+  the list endpoints, never assume the callback stream is complete.
 - \`ValidateWebhook\` asks the API to POST a \`WEBHOOK_VALIDATE\` event to your URL — use it
   to test reachability after deploying the receiver.
 
@@ -305,10 +310,12 @@ const SKILLS: SkillDef[] = [
       "characteristics (including groups and colors), product videos, collections, " +
       "context collections and badges. " +
       "Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store, " +
-      "or when exporting storefront links of products to a CMS, PIM or feed. " +
+      "when exporting storefront links of products to a CMS, PIM or feed, or when changing a " +
+      "product card's URL (slug). " +
       "Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», " +
       "«поменяй категорию», «добавь видео к товару», «синхронизируй каталог», " +
-      "«дай ссылку на товар», «выгрузи ссылки на товары».",
+      "«дай ссылку на товар», «выгрузи ссылки на товары», «поменяй адрес карточки», " +
+      "«смени URL товара».",
     overview: `Covers the catalog domain of the Yandex KIT e-commerce API — tags: Товары,
 Категории товаров, Характеристики товаров, Видео, Коллекции, Контекстные коллекции, Бейджи.
 In KIT's model the variant (\`/v1/variants\`) is the sellable unit carrying SKU, prices
@@ -382,7 +389,8 @@ A variant carries two **distinct** identifiers:
 (\`/v1/similar-cards/{product_card_id}...\`, the deprecated
 \`/v1/products/cards/{product_card_id}/similar...\` and collection card management,
 «Добавление/Удаление карточек») take \`product_card_id\`, never a product id; read it
-from the variant first. Similar products are configured per card under
+from the variant first. Similar products (the spec now calls them «дополнительные
+товары», additional products — same endpoints) are configured per card under
 \`/v1/similar-cards/{product_card_id}\`: a \`binding_mode\` (\`ALL_VARIANTS\`,
 \`SELECTED_CARDS\` or \`SELECTED_CATEGORIES_COLLECTIONS\`) plus bound cards or
 categories/collections via \`objects/add\` and \`objects/remove\`. Unlike the deprecated
@@ -409,6 +417,19 @@ request with 400 and applies nothing, listing every offender in \`errors\`. In a
 both fields are optional: omit a key to keep the current value, send \`null\` to reset it
 (resetting \`price\` works only on unpublished variants).
 
+A product card's URL identifier (slug) changes only through
+\`POST /v1/products/cards/slugs/bulk_update\` (\`BulkUpdateProductCardSlugs\`, MCP tool
+\`bulk_update_card_slugs\`) — \`UpdateVariant\` has no slug field. It takes up to **100
+cards** per request, addressed by \`product_card_id\` (from the variant, never a product
+id); a slug is 1-200 characters of \`[a-z0-9_-]\`. It is **atomic** too: an unknown card,
+a card or slug repeated in the batch, a malformed slug or one already taken by another
+card rejects the whole request with 400 and applies nothing, and \`errors\` names each
+offending \`product_card_id\` with its code (\`PRODUCT_CARD_NOT_FOUND\`, \`DUPLICATE_ITEM\`,
+\`INVALID_SLUG\`, \`DUPLICATE_SLUG\`, \`SLUG_ALREADY_TAKEN\`). Old links keep working
+after the change. No field returns the card slug: \`Variant.slug\` is the variant's own
+slug and does **not** change. Verify the write by re-reading \`relative_link_url\`, which
+carries the new slug at once (\`/products/<card slug>-<number>?variant=<number>\`).
+
 Product videos are a separate tag: use \`POST /v1/videos\` for a local file
 (\`multipart/form-data\`) or \`POST /v1/videos/from_url\` for a public link. Both accept
 videos up to 100 MB in mp4/mov/webm/avi/flv and deduplicate by content. Poll
@@ -427,7 +448,9 @@ from the store's path settings and already selecting the variant
 (\`/products/iphone-15-pro-100000?variant=100001\`). Do **not** assemble product URLs
 from slugs and ids: resolve that path against \`b2c_url\` from \`GetStore\` (the
 \`list_variant_links\` MCP tool does exactly this join) and the link stays correct
-when the store's URL rules change.
+when the store's URL rules change. To change the address itself, change the card's slug
+with \`bulk_update_card_slugs\`, then read the new link from \`relative_link_url\` again
+rather than building it from the slug you sent.
 
 ${DOMAIN_TRAILER}`,
     tags: ["Товары", "Категории товаров", "Характеристики товаров", "Видео", "Коллекции", "Контекстные коллекции", "Бейджи"],
@@ -493,10 +516,13 @@ there is temporary and worth retrying. The sizes a service accepts in
 \`label_format\` come from \`GetDeliveryLabelFormats\`; a service in mode
 \`PROVIDER_DEFAULT\` ignores the parameter and prints its own size. Read the
 delivery address from \`delivery_info.address.locality\`/\`.address\` — they follow
-the chosen \`method\`, while the \`courier_*\`, \`pickup_point_*\` and \`self_pick_up_*\`
-groups keep the buyer's earlier checkout choices and go stale; the delivery
+the chosen \`method\`; of the \`courier_*\`, \`pickup_point_*\` and \`self_pick_up_*\`
+groups only the one matching \`method\` is returned; the delivery
 service of a chunk is \`delivery_info.delivery_service_type\` (the \`courier_*\`/
-\`pickup_point_*\` variants of it are deprecated).
+\`pickup_point_*\` variants of it are deprecated). \`payment_info.amount\` is the full
+amount paid for the order — discounts and delivery included, item addons excluded, not
+reduced by refunds — and each addon from \`GetOrderAddons\` carries its own \`status\`
+(\`NEW\`, \`ACTIVE\`, \`DONE\`, \`CANCELLED\`).
 \`GetOrderPaymentLink\` returns the order's permanent
 signed payment-page URL: same value every time, works in any status, never
 expires and cannot be revoked — hand it out deliberately. All datetimes are UTC, and list endpoints paginate with

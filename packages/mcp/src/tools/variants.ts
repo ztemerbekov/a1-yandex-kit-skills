@@ -382,7 +382,10 @@ export function registerVariantTools(server: McpServer, client: KitClient): void
       title: "Archive or unarchive variant",
       description:
         "Archive a variant (soft delete: status becomes ARCHIVED, item is hidden from the storefront " +
-        "but restorable) or unarchive it (status becomes HIDDEN; publish it afterwards via update_variant).",
+        "but restorable) or unarchive it (status becomes HIDDEN; publish it afterwards via update_variant). " +
+        "Success ({\"ok\":true}) only means the request was processed: for an unknown id or a " +
+        "transition that does not apply the API also answers 204 and changes nothing — confirm " +
+        "the new status with get_variant.",
       inputSchema: {
         id: z.string().describe("Variant ID (UUID)."),
         action: z.enum(["archive", "unarchive"]).describe("Action to perform."),

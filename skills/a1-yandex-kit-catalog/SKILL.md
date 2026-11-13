@@ -1,11 +1,11 @@
 ---
 name: a1-yandex-kit-catalog
-description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), bulk price/stock sync, variant documents (attachments), categories, characteristics (including groups and colors), product videos, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store, or when exporting storefront links of products to a CMS, PIM or feed. Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», «поменяй категорию», «добавь видео к товару», «синхронизируй каталог», «дай ссылку на товар», «выгрузи ссылки на товары»."
+description: "Manage the Yandex KIT store catalog over its REST API: products, variants (SKUs, prices, stocks), bulk price/stock sync, variant documents (attachments), categories, characteristics (including groups and colors), product videos, collections, context collections and badges. Use when creating, updating, archiving or querying catalog entities in a Yandex KIT store, when exporting storefront links of products to a CMS, PIM or feed, or when changing a product card's URL (slug). Russian triggers include: «заведи товар», «обнови цены», «загрузи остатки», «поменяй категорию», «добавь видео к товару», «синхронизируй каталог», «дай ссылку на товар», «выгрузи ссылки на товары», «поменяй адрес карточки», «смени URL товара»."
 compatibility: "Requires Node.js >= 20"
 allowed-tools: mcp__a1-yandex-kit__* mcp__a1-yandex-kit-global__* mcp__yandex-kit__* Bash(node scripts/search_docs.mjs:*) Bash(node scripts/validate.mjs:*)
 metadata:
   author: Aleksandr Kovalko
-  version: "1.13.1"
+  version: "1.14.0"
 ---
 
 # A1 Yandex KIT — Catalog
@@ -101,21 +101,22 @@ Load only the page the task needs:
   identifiers, content types, lifecycle rules and edge cases. Read it before
   planning any write.
 - [`references/endpoints.md`](references/endpoints.md) — the full operation
-  tables of this domain (80 operations: method, path, operationId,
+  tables of this domain (81 operations: method, path, operationId,
   Russian summary). Load it when you need an exact path or operationId.
 
 ## Related MCP tools
 
 Curated `mcp-yandex-kit` tools for these tags (the server also exposes the meta trio —
 `search_operations`, `get_operation_schema`, `kit_request` — reaching all
-178 operations):
+179 operations):
 
 - `list_products` — List product records (paginated); for export requests, use this for explicit raw product-group or catalog-structure dumps.
 - `get_product` — Get a single product by its ID, including its category bindings.
 - `create_product` — Create a new product.
 - `update_product` — Update an existing product (plain JSON PATCH, not merge-patch).
-- `get_similar_cards` — Get the similar-products settings of a product card: its binding_mode plus the bound objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 IDs each).
-- `set_similar_cards_mode` — Create the similar-products settings of a product card (action="create"; 409 if they already exist) or change the binding mode of existing ones (action="update"; 404 if there are none — check with get_similar_cards).
+- `bulk_update_card_slugs` — Change the URL identifier (slug) of up to 100 product cards in one synchronous, atomic request — the only way to change a card's storefront URL (update_variant has no slug field).
+- `get_similar_cards` — Get the similar-products settings of a product card (the API docs now call this feature «дополнительные товары» / additional products — same /v1/similar-cards endpoints): its binding_mode plus the bound objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 IDs each).
+- `set_similar_cards_mode` — Create the similar-products («дополнительные товары») settings of a product card (action="create"; 409 if they already exist) or change the binding mode of existing ones (action="update"; 404 if there are none — check with get_similar_cards).
 - `manage_similar_cards_objects` — Bind objects to a product card's similar-products settings or unbind them (up to 500 per call).
 - `delete_similar_cards` — Delete the similar-products settings of a product card.
 - `list_variants` — Primary sellable catalog/export listing: list variants (SKUs), one item per sellable SKU.

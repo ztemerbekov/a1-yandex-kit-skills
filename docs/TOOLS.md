@@ -2,7 +2,7 @@
 
 # A1 Yandex KIT MCP — Tool Reference
 
-The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 178 API operations, including those without a dedicated tool.
+The `mcp-yandex-kit` MCP server exposes **97 tools** for the Yandex KIT e-commerce API. Curated tools cover the everyday catalog, order and promotions workflows; the meta trio — `search_operations`, `get_operation_schema` and `kit_request` — reaches all 179 API operations, including those without a dedicated tool.
 
 ## Alerts (`alerts.ts`)
 
@@ -96,9 +96,9 @@ The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `search_operations` | yes | Search the full catalog of all 178 Yandex KIT API operations by keyword. |
+| `search_operations` | yes | Search the full catalog of all 179 Yandex KIT API operations by keyword. |
 | `get_operation_schema` | yes | Get full metadata for one KIT API operation by operationId: HTTP method, path, path/query parameters, request content type, pagination info, and the fully dereferenced JSON schemas of the request body and response. |
-| `kit_request` | no | Escape hatch that executes ANY of the 178 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
+| `kit_request` | no | Escape hatch that executes ANY of the 179 Yandex KIT API operations by operationId, including operations without a dedicated tool. |
 
 ## Orders (`orders.ts`)
 
@@ -110,7 +110,7 @@ The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commer
 | `cancel_order` | no | Cancel an order. |
 | `complete_order_delivery` | no | Mark the delivery of an order as fully completed. |
 | `set_order_marking_codes` | no | Write «Честный знак» (Chestny ZNAK) marking codes onto order items, or remove them. |
-| `get_order_addons` | yes | List additional services (addons) attached to an order by the order ID. |
+| `get_order_addons` | yes | List additional services (addons) attached to an order by the order ID; each addon carries its own status (NEW, ACTIVE — in progress, DONE, CANCELLED). |
 | `get_order_payment_link` | yes | Get the signed payment-page link for an order, to be sent to the buyer — they can pay without logging in. |
 | `generate_order_waybills` | no | Generate waybills (акты приёма-передачи отправлений) for order delivery chunks and return links to PDF documents. |
 | `get_order_delivery_labels` | yes | Get the delivery labels (ярлыки) of an order's delivery chunks — the PDF with the address, tracking number and barcode that goes onto the parcel. |
@@ -124,6 +124,7 @@ The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commer
 | `get_product` | yes | Get a single product by its ID, including its category bindings. |
 | `create_product` | no | Create a new product. |
 | `update_product` | no | Update an existing product (plain JSON PATCH, not merge-patch). |
+| `bulk_update_card_slugs` | no | Change the URL identifier (slug) of up to 100 product cards in one synchronous, atomic request — the only way to change a card's storefront URL (update_variant has no slug field). |
 
 ## Promo codes (`promocodes.ts`)
 
@@ -139,8 +140,8 @@ The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commer
 
 | Tool | Read-only | Description |
 | --- | --- | --- |
-| `get_similar_cards` | yes | Get the similar-products settings of a product card: its binding_mode plus the bound objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 IDs each). |
-| `set_similar_cards_mode` | no | Create the similar-products settings of a product card (action="create"; 409 if they already exist) or change the binding mode of existing ones (action="update"; 404 if there are none — check with get_similar_cards). |
+| `get_similar_cards` | yes | Get the similar-products settings of a product card (the API docs now call this feature «дополнительные товары» / additional products — same /v1/similar-cards endpoints): its binding_mode plus the bound objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 IDs each). |
+| `set_similar_cards_mode` | no | Create the similar-products («дополнительные товары») settings of a product card (action="create"; 409 if they already exist) or change the binding mode of existing ones (action="update"; 404 if there are none — check with get_similar_cards). |
 | `manage_similar_cards_objects` | no | Bind objects to a product card's similar-products settings or unbind them (up to 500 per call). |
 | `delete_similar_cards` | no | Delete the similar-products settings of a product card. |
 
@@ -197,7 +198,7 @@ The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commer
 
 ## Operation coverage
 
-**104 of 178 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
+**105 of 179 operations** have dedicated tools. The remaining 74 operations below are reachable via `kit_request` (discover them with `search_operations`, inspect with `get_operation_schema`).
 
 ### Бейджи
 
@@ -304,7 +305,7 @@ The `mcp-yandex-kit` MCP server exposes **96 tools** for the Yandex KIT e-commer
 | `DeleteVariant` | DELETE | `/v1/variants/{id}` | Безвозвратное удаление архивного товара |
 | `DeleteVariantAttachment` | DELETE | `/v1/variants/{id}/attachments/{file_id}` | Открепление документа от товара |
 | `DeleteVariantExternalID` | DELETE | `/v1/variants/{id}/external_ids/{system_type}` | Удаление внешнего идентификатора |
-| `GetSimilarProductCardIDs` | GET | `/v1/products/cards/{product_card_id}/similar` | Получение списка похожих карточек товара. |
+| `GetSimilarProductCardIDs` | GET | `/v1/products/cards/{product_card_id}/similar` | Получение списка похожих карточек товара |
 | `GetVariantAttachments` | GET | `/v1/variants/{id}/attachments` | Получение документов товара |
 | `GetVariantExternalIDs` | GET | `/v1/variants/{id}/external_ids` | Получение внешних идентификаторов товара |
 | `SetVariantExternalID` | PUT | `/v1/variants/{id}/external_ids/{system_type}` | Установка внешнего идентификатора |

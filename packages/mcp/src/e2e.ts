@@ -5,7 +5,8 @@
 //
 // Flow: connect over stdio -> tools/list sanity -> get_store -> create an E2E
 // category -> create a product in it -> create a HIDDEN variant (never visible
-// on the storefront) -> update its price -> read it back -> similar-products
+// on the storefront) -> update its price -> read it back -> change its card's
+// slug (bulk_update_card_slugs, read back from relative_link_url) -> similar-products
 // settings on its card (none yet -> create + bind the e2e category -> a mode
 // change drops the bindings -> delete) -> a webhook subscribed to CART_UPDATED
 // (create INACTIVE -> read -> delete) -> archive the variant
@@ -32,6 +33,7 @@ const REQUIRED_TOOLS = [
   "update_variant",
   "get_variant",
   "variant_action",
+  "bulk_update_card_slugs",
   "get_similar_cards",
   "set_similar_cards_mode",
   "manage_similar_cards_objects",
@@ -42,7 +44,7 @@ const REQUIRED_TOOLS = [
   "kit_request",
 ];
 
-const TOTAL_STEPS = 17;
+const TOTAL_STEPS = 18;
 
 const PRICE_INITIAL = "999.00";
 const PRICE_UPDATED = "1499.00";
@@ -266,11 +268,26 @@ async function main(): Promise<void> {
     assertOk(variantBack.status === "HIDDEN", "variant stays HIDDEN after update");
     step(7, `update_variant + get_variant: price=${String(pricing.price)}, still HIDDEN`);
 
-    // Similar products: the card of the e2e variant, bound to the e2e category.
     const cardId = variantBack.product_card_id;
     assertOk(typeof cardId === "string" && cardId.length > 0, "variant has a product_card_id");
+
+    // Card slug: the only way to change a card's URL. A mutation, so plain tool()
+    // without a 429 retry — the outcome of a failed write is not repeated blindly.
+    const slug = `e2e-${Date.now()}`;
+    const slugResult = await tool(client, "bulk_update_card_slugs", {
+      items: [{ product_card_id: cardId, slug }],
+    });
+    assertOk(slugResult.ok === true, `bulk_update_card_slugs answers {ok:true} (${JSON.stringify(slugResult)})`);
+    const slugBack = await tool(client, "get_variant", { id: variantId });
+    // The card slug has no field of its own (Variant.slug is the variant's slug and
+    // stays put); the tool description sends agents to relative_link_url instead.
+    const link = String(slugBack.relative_link_url);
+    assertOk(link.includes(`/${slug}-`), `card slug shows up in relative_link_url (${link} has ${slug})`);
+    step(8, `bulk_update_card_slugs + get_variant: relative_link_url=${link}`);
+
+    // Similar products: the card of the e2e variant, bound to the e2e category.
     await expectNotFound(client, "get_similar_cards", { product_card_id: cardId });
-    step(8, "get_similar_cards: a fresh card has no settings (404)");
+    step(9, "get_similar_cards: a fresh card has no settings (404)");
 
     await tool(client, "set_similar_cards_mode", {
       product_card_id: cardId,
@@ -296,7 +313,7 @@ async function main(): Promise<void> {
       bound.categories?.items?.includes(categoryId) === true,
       "the e2e category is bound to the similar-cards settings",
     );
-    step(9, "set_similar_cards_mode + manage_similar_cards_objects: category bound");
+    step(10, "set_similar_cards_mode + manage_similar_cards_objects: category bound");
 
     // Tool descriptions promise that a mode change drops every binding; a
     // change in this live behaviour must fail e2e so the guidance gets updated.
@@ -319,12 +336,12 @@ async function main(): Promise<void> {
       flipped.categories?.items?.length === 0,
       `a binding_mode change drops the bound categories (left: ${JSON.stringify(flipped.categories?.items)})`,
     );
-    step(10, "set_similar_cards_mode update: a mode change drops the bindings");
+    step(11, "set_similar_cards_mode update: a mode change drops the bindings");
 
     await toolRetrying(client, "delete_similar_cards", { product_card_id: cardId });
     await expectNotFound(client, "get_similar_cards", { product_card_id: cardId });
     similarCardId = undefined;
-    step(11, "delete_similar_cards: settings deleted, readback is 404");
+    step(12, "delete_similar_cards: settings deleted, readback is 404");
 
     // Webhooks: created INACTIVE, so nothing is ever delivered to the URL.
     const webhook = await tool<{ id?: string; events?: unknown[]; status?: string; secret?: unknown }>(
@@ -340,19 +357,19 @@ async function main(): Promise<void> {
     webhookId = idOf(webhook, "webhook");
     assertOk(webhook.events?.includes("CART_UPDATED") === true, "created webhook subscribes to CART_UPDATED");
     assertOk(typeof webhook.secret === "string", "create_webhook returns the one-time secret");
-    step(12, `create_webhook: id=${webhookId} status=${String(webhook.status)} (secret not printed)`);
+    step(13, `create_webhook: id=${webhookId} status=${String(webhook.status)} (secret not printed)`);
 
     const webhookBack = await tool<{ events?: unknown[]; status?: string }>(client, "get_webhook", {
       id: webhookId,
     });
     assertOk(webhookBack.events?.includes("CART_UPDATED") === true, "get_webhook keeps CART_UPDATED");
     assertOk(webhookBack.status === "INACTIVE", `new webhook is INACTIVE (${String(webhookBack.status)})`);
-    step(13, "get_webhook: CART_UPDATED subscribed, INACTIVE");
+    step(14, "get_webhook: CART_UPDATED subscribed, INACTIVE");
 
     await toolRetrying(client, "delete_webhook", { id: webhookId });
     await expectNotFound(client, "get_webhook", { id: webhookId });
     webhookId = undefined;
-    step(14, "delete_webhook: webhook deleted, readback is 404");
+    step(15, "delete_webhook: webhook deleted, readback is 404");
   } catch (err) {
     failed = true;
     console.log(err instanceof Error ? err.message : String(err));
@@ -383,7 +400,7 @@ async function main(): Promise<void> {
         const archived = await tool(client, "get_variant", { id: variantId });
         assertOk(archived.status === "ARCHIVED", "variant is ARCHIVED after archive");
         variantArchived = true;
-        step(15, "variant_action: variant archived");
+        step(16, "variant_action: variant archived");
       } catch (err) {
         failed = true;
         console.log(`cleanup: variant archive failed: ${err instanceof Error ? err.message : err}`);
@@ -419,7 +436,7 @@ async function main(): Promise<void> {
           );
         }
         assertOk(readBack === undefined, "deleted variant must not be readable");
-        step(16, "kit_request DeleteVariant: variant deleted, readback is 404");
+        step(17, "kit_request DeleteVariant: variant deleted, readback is 404");
       } catch (err) {
         failed = true;
         console.log(`cleanup: variant delete failed: ${err instanceof Error ? err.message : err}`);
@@ -432,7 +449,7 @@ async function main(): Promise<void> {
           action: "archive",
           archive_variants: true,
         });
-        step(17, "category_action: category archived");
+        step(18, "category_action: category archived");
       } catch (err) {
         failed = true;
         console.log(`cleanup: category archive failed: ${err instanceof Error ? err.message : err}`);

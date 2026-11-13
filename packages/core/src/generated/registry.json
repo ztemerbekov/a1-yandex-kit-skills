@@ -1,7 +1,7 @@
 {
   "specTitle": "Yandex KITᵝ API",
   "specVersion": "1.0.0",
-  "opsCount": 178,
+  "opsCount": 179,
   "ops": {
     "GetCategories": {
       "id": "GetCategories",
@@ -712,12 +712,27 @@
       "paginated": false,
       "itemsProp": "category_ids"
     },
+    "BulkUpdateProductCardSlugs": {
+      "id": "BulkUpdateProductCardSlugs",
+      "method": "post",
+      "path": "/v1/products/cards/slugs/bulk_update",
+      "tag": "Товары",
+      "summaryRu": "Массовое изменение URL карточек товаров",
+      "descriptionRu": "Обновляет URL-идентификаторы карточек товаров. За один запрос можно передать до 100 карточек.\nИдентификатор карточки доступен в поле `Variant.product_card_id`.\nСтарые ссылки на карточки продолжат работать.\n\nОперация атомарная: если карточка не найдена, карточка повторяется в запросе несколько раз или один из slug\nнекорректен, дублируется либо занят другой карточкой, изменения не применяются.\nВ поле `errors` ответа перечислены невалидные элементы с идентификаторами карточек, кодами и описаниями ошибок.",
+      "pathParams": [],
+      "queryParams": [],
+      "requestContentType": "application/json",
+      "requestSchemaRef": "#/components/schemas/BulkUpdateProductCardSlugsRequest",
+      "responseSchemaRef": null,
+      "paginated": false,
+      "itemsProp": null
+    },
     "GetSimilarProductCardIDs": {
       "id": "GetSimilarProductCardIDs",
       "method": "get",
       "path": "/v1/products/cards/{product_card_id}/similar",
       "tag": "Товары",
-      "summaryRu": "Получение списка похожих карточек товара.",
+      "summaryRu": "Получение списка похожих карточек товара",
       "descriptionRu": "Deprecated. Используйте `GET /v1/similar-cards/{product_card_id}/cards`.\n\nВозвращает список уникальных идентификаторов похожих карточек товара по идентификатору карточки товара.\nПохожие карточки симметричны, то есть если карточка **A** является похожей для карточки **B**, то карточка **B** также является похожей для карточки **A**.",
       "pathParams": [
         "product_card_id"
@@ -3847,7 +3862,8 @@
             "META_SHIP_PECOM",
             "OZON",
             "MERCHANT_SHIP",
-            "YANDEX_MARKET_FBO"
+            "YANDEX_MARKET_FBO",
+            "UNIVERSAL_DELIVERY_CSE"
           ],
           "minimum": null,
           "maximum": null,
@@ -4116,8 +4132,8 @@
       "method": "get",
       "path": "/v1/similar-cards/{product_card_id}",
       "tag": "Товары",
-      "summaryRu": "Получение настроек похожих карточек",
-      "descriptionRu": "Возвращает настройки похожих карточек по идентификатору карточки товара.",
+      "summaryRu": "Получение настроек дополнительных товаров",
+      "descriptionRu": "Возвращает настройки дополнительных товаров по идентификатору карточки товара.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4133,8 +4149,8 @@
       "method": "post",
       "path": "/v1/similar-cards/{product_card_id}",
       "tag": "Товары",
-      "summaryRu": "Создание настроек похожих карточек",
-      "descriptionRu": "Создает настройки похожих карточек для указанной карточки товара.\nЕсли настройки для карточки уже существуют, возвращает `409`.",
+      "summaryRu": "Создание настроек дополнительных товаров",
+      "descriptionRu": "Создает настройки дополнительных товаров для указанной карточки товара.\nЕсли настройки для карточки уже существуют, возвращает `409`.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4150,8 +4166,8 @@
       "method": "put",
       "path": "/v1/similar-cards/{product_card_id}",
       "tag": "Товары",
-      "summaryRu": "Обновление настроек похожих карточек",
-      "descriptionRu": "Обновляет режим привязки похожих карточек из поля `binding_mode`.",
+      "summaryRu": "Обновление настроек дополнительных товаров",
+      "descriptionRu": "Обновляет режим подбора дополнительных товаров, переданный в `binding_mode`.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4167,8 +4183,8 @@
       "method": "delete",
       "path": "/v1/similar-cards/{product_card_id}",
       "tag": "Товары",
-      "summaryRu": "Удаление настроек похожих карточек",
-      "descriptionRu": "Удаляет настройки похожих карточек по идентификатору карточки товара.",
+      "summaryRu": "Удаление настроек дополнительных товаров",
+      "descriptionRu": "Удаляет настройки дополнительных товаров по идентификатору карточки товара.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4184,8 +4200,8 @@
       "method": "get",
       "path": "/v1/similar-cards/{product_card_id}/cards",
       "tag": "Товары",
-      "summaryRu": "Получение идентификаторов выбранных похожих карточек",
-      "descriptionRu": "Возвращает идентификаторы выбранных похожих карточек.\nРаботает только для настроек с `binding_mode = SELECTED_CARDS`.",
+      "summaryRu": "Получение идентификаторов карточек выбранных дополнительных товаров",
+      "descriptionRu": "Возвращает идентификаторы карточек товаров, выбранных в качестве дополнительных.\nРаботает только для настроек с `binding_mode = SELECTED_CARDS`.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4222,8 +4238,8 @@
       "method": "get",
       "path": "/v1/similar-cards/{product_card_id}/categories",
       "tag": "Товары",
-      "summaryRu": "Получение идентификаторов категорий похожих карточек",
-      "descriptionRu": "Возвращает идентификаторы категорий настроек похожих карточек.\nРаботает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "summaryRu": "Получение идентификаторов категорий дополнительных товаров",
+      "descriptionRu": "Возвращает идентификаторы категорий, заданных в настройках дополнительных товаров.\nРаботает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4260,8 +4276,8 @@
       "method": "get",
       "path": "/v1/similar-cards/{product_card_id}/collections",
       "tag": "Товары",
-      "summaryRu": "Получение идентификаторов коллекций похожих карточек",
-      "descriptionRu": "Возвращает идентификаторы коллекций настроек похожих карточек.\nРаботает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
+      "summaryRu": "Получение идентификаторов коллекций дополнительных товаров",
+      "descriptionRu": "Возвращает идентификаторы коллекций, заданных в настройках дополнительных товаров.\nРаботает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4298,8 +4314,8 @@
       "method": "post",
       "path": "/v1/similar-cards/{product_card_id}/objects/add",
       "tag": "Товары",
-      "summaryRu": "Добавление объектов в настройки похожих карточек",
-      "descriptionRu": "Добавляет карточки, категории или коллекции в настройки похожих карточек. Лимит на количество объектов — 500.\nМетод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).\nВ одном запросе передавайте либо карточки, либо категории и коллекции.\nМетод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не создает.",
+      "summaryRu": "Добавление объектов в настройки дополнительных товаров",
+      "descriptionRu": "Добавляет карточки, категории или коллекции в настройки дополнительных товаров. Лимит на количество объектов — 500.\nМетод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).\nВ одном запросе передавайте либо карточки, либо категории и коллекции.\nМетод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не создает.",
       "pathParams": [
         "product_card_id"
       ],
@@ -4315,8 +4331,8 @@
       "method": "post",
       "path": "/v1/similar-cards/{product_card_id}/objects/remove",
       "tag": "Товары",
-      "summaryRu": "Удаление объектов из настроек похожих карточек",
-      "descriptionRu": "Удаляет карточки, категории или коллекции из настроек похожих карточек. Лимит на количество объектов — 500.\nМетод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).\nВ одном запросе передавайте либо карточки, либо категории и коллекции.\nМетод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не удаляет.",
+      "summaryRu": "Удаление объектов из настроек дополнительных товаров",
+      "descriptionRu": "Удаляет карточки, категории или коллекции из настроек дополнительных товаров. Лимит на количество объектов — 500.\nМетод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).\nВ одном запросе передавайте либо карточки, либо категории и коллекции.\nМетод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не удаляет.",
       "pathParams": [
         "product_card_id"
       ],
