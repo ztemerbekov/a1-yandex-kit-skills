@@ -31,6 +31,9 @@ export function fail(err: unknown): ToolResult {
   return noteFailure(failText(err), err);
 }
 
+/** Per-item errors of a bulk operation surfaced by fail(); the rest are counted in errors_total. */
+const MAX_ITEM_ERRORS = 50;
+
 function failText(err: unknown): ToolResult {
   const payload: Record<string, unknown> = {};
   if (err instanceof KitApiError) {
@@ -38,6 +41,13 @@ function failText(err: unknown): ToolResult {
     payload.code = err.code;
     payload.status = err.status;
     if (err.traceId) payload.traceId = err.traceId;
+    // Bulk operations (BulkOperationError) name every offending item in `errors`;
+    // without them the caller cannot tell which variant or card to fix.
+    const itemErrors = (err.details as { errors?: unknown } | null | undefined)?.errors;
+    if (Array.isArray(itemErrors) && itemErrors.length > 0) {
+      payload.errors = itemErrors.slice(0, MAX_ITEM_ERRORS);
+      if (itemErrors.length > MAX_ITEM_ERRORS) payload.errors_total = itemErrors.length;
+    }
   } else if (err instanceof KitValidationError) {
     // Local (pre-network) failure: code but no HTTP status/traceId.
     payload.error = err.message;

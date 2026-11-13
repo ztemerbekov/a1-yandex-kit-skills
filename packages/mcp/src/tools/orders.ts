@@ -113,11 +113,12 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
       description:
         "Get a single order by its ID, including line items (items[].name is the product " +
         "name at order time), delivery chunks, payment and status. customer_id links the " +
-        "order to its buyer — read the card with get_customer. " +
+        "order to its buyer — read the card with get_customer. payment_info.amount is the full " +
+        "amount paid for the order (discounts and delivery included, item addons excluded; " +
+        "refunds do not reduce it). " +
         "Read the delivery address from delivery_chunks[].delivery_info.address.locality/.address: " +
-        "they always match the chosen delivery method, while the courier_*, pickup_point_* and " +
-        "self_pick_up_* groups keep whatever the buyer picked earlier in checkout and are stale " +
-        "unless the group matches `method`.",
+        "they always match the chosen delivery method; of the courier_*, pickup_point_* and " +
+        "self_pick_up_* groups only the one matching `method` is returned.",
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Order ID (UUID)."),
@@ -274,7 +275,9 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
     "get_order_addons",
     {
       title: "Get order addons",
-      description: "List additional services (addons) attached to an order by the order ID.",
+      description:
+        "List additional services (addons) attached to an order by the order ID; each addon " +
+        "carries its own status (NEW, ACTIVE — in progress, DONE, CANCELLED).",
       annotations: READ_ONLY,
       inputSchema: {
         id: z.string().describe("Order ID (UUID)."),
@@ -463,6 +466,7 @@ export function registerOrderTools(server: McpServer, client: KitClient): void {
               "OZON",
               "MERCHANT_SHIP",
               "YANDEX_MARKET_FBO",
+              "UNIVERSAL_DELIVERY_CSE",
             ]),
           )
           .min(1)

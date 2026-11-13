@@ -489,6 +489,32 @@ export interface paths {
         patch: operations["UpdateProduct"];
         trace?: never;
     };
+    "/v1/products/cards/slugs/bulk_update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Массовое изменение URL карточек товаров
+         * @description Обновляет URL-идентификаторы карточек товаров. За один запрос можно передать до 100 карточек.
+         *     Идентификатор карточки доступен в поле `Variant.product_card_id`.
+         *     Старые ссылки на карточки продолжат работать.
+         *
+         *     Операция атомарная: если карточка не найдена, карточка повторяется в запросе несколько раз или один из slug
+         *     некорректен, дублируется либо занят другой карточкой, изменения не применяются.
+         *     В поле `errors` ответа перечислены невалидные элементы с идентификаторами карточек, кодами и описаниями ошибок.
+         */
+        post: operations["BulkUpdateProductCardSlugs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/products/cards/{product_card_id}/similar": {
         parameters: {
             query?: never;
@@ -499,7 +525,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение списка похожих карточек товара.
+         * Получение списка похожих карточек товара
          * @deprecated
          * @description Deprecated. Используйте `GET /v1/similar-cards/{product_card_id}/cards`.
          *
@@ -2909,24 +2935,24 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение настроек похожих карточек
-         * @description Возвращает настройки похожих карточек по идентификатору карточки товара.
+         * Получение настроек дополнительных товаров
+         * @description Возвращает настройки дополнительных товаров по идентификатору карточки товара.
          */
         get: operations["GetSimilarCardsById"];
         /**
-         * Обновление настроек похожих карточек
-         * @description Обновляет режим привязки похожих карточек из поля `binding_mode`.
+         * Обновление настроек дополнительных товаров
+         * @description Обновляет режим подбора дополнительных товаров, переданный в `binding_mode`.
          */
         put: operations["UpdateSimilarCards"];
         /**
-         * Создание настроек похожих карточек
-         * @description Создает настройки похожих карточек для указанной карточки товара.
+         * Создание настроек дополнительных товаров
+         * @description Создает настройки дополнительных товаров для указанной карточки товара.
          *     Если настройки для карточки уже существуют, возвращает `409`.
          */
         post: operations["CreateSimilarCards"];
         /**
-         * Удаление настроек похожих карточек
-         * @description Удаляет настройки похожих карточек по идентификатору карточки товара.
+         * Удаление настроек дополнительных товаров
+         * @description Удаляет настройки дополнительных товаров по идентификатору карточки товара.
          */
         delete: operations["DeleteSimilarCards"];
         options?: never;
@@ -2944,8 +2970,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение идентификаторов выбранных похожих карточек
-         * @description Возвращает идентификаторы выбранных похожих карточек.
+         * Получение идентификаторов карточек выбранных дополнительных товаров
+         * @description Возвращает идентификаторы карточек товаров, выбранных в качестве дополнительных.
          *     Работает только для настроек с `binding_mode = SELECTED_CARDS`.
          */
         get: operations["GetSimilarCardsCardIDs"];
@@ -2967,8 +2993,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение идентификаторов категорий похожих карточек
-         * @description Возвращает идентификаторы категорий настроек похожих карточек.
+         * Получение идентификаторов категорий дополнительных товаров
+         * @description Возвращает идентификаторы категорий, заданных в настройках дополнительных товаров.
          *     Работает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.
          */
         get: operations["GetSimilarCardsCategoryIDs"];
@@ -2990,8 +3016,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Получение идентификаторов коллекций похожих карточек
-         * @description Возвращает идентификаторы коллекций настроек похожих карточек.
+         * Получение идентификаторов коллекций дополнительных товаров
+         * @description Возвращает идентификаторы коллекций, заданных в настройках дополнительных товаров.
          *     Работает только для настроек с `binding_mode = SELECTED_CATEGORIES_COLLECTIONS`.
          */
         get: operations["GetSimilarCardsCollectionIDs"];
@@ -3015,8 +3041,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Добавление объектов в настройки похожих карточек
-         * @description Добавляет карточки, категории или коллекции в настройки похожих карточек. Лимит на количество объектов — 500.
+         * Добавление объектов в настройки дополнительных товаров
+         * @description Добавляет карточки, категории или коллекции в настройки дополнительных товаров. Лимит на количество объектов — 500.
          *     Метод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).
          *     В одном запросе передавайте либо карточки, либо категории и коллекции.
          *     Метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не создает.
@@ -3040,8 +3066,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Удаление объектов из настроек похожих карточек
-         * @description Удаляет карточки, категории или коллекции из настроек похожих карточек. Лимит на количество объектов — 500.
+         * Удаление объектов из настроек дополнительных товаров
+         * @description Удаляет карточки, категории или коллекции из настроек дополнительных товаров. Лимит на количество объектов — 500.
          *     Метод работает с настройками, у которых `binding_mode = SELECTED_CARDS` (для карточек) или `SELECTED_CATEGORIES_COLLECTIONS` (для категорий и коллекций).
          *     В одном запросе передавайте либо карточки, либо категории и коллекции.
          *     Метод изменяет только настройки карточки `product_card_id`. Обратные связи у карточек из запроса метод не удаляет.
@@ -3116,16 +3142,17 @@ export interface components {
             trace_id: string;
         };
         /**
-         * @description Ошибка массовой операции. В дополнение к обычной ошибке содержит список ошибок по элементам батча:
-         *     - идентификаторы товара и склада;
-         *     - невалидного элемента, код и описание ошибки.
+         * @description Ошибка массовой операции. В дополнение к обычной ошибке содержит список невалидных элементов батча.
+         *     Для каждого элемента передаются код и описание ошибки, а также идентификаторы товара, склада или карточки
+         *     в зависимости от операции.
          */
         BulkOperationError: components["schemas"]["Error"] & {
             errors?: components["schemas"]["BulkOperationItemError"][];
         };
-        /** @description Ошибка обработки одного элемента массовой операции. */
+        /** @description Ошибка обработки одного элемента массовой операции. Для обновления slug передается product_card_id, для обновления цен и остатков — variant_id. */
         BulkOperationItemError: {
-            variant_id: components["schemas"]["VariantID"];
+            product_card_id?: components["schemas"]["ProductCardID"];
+            variant_id?: components["schemas"]["VariantID"];
             warehouse_id?: components["schemas"]["WarehouseID"];
             /**
              * @description Код ошибки элемента:
@@ -3136,6 +3163,10 @@ export interface components {
              *     - `DUPLICATE_ITEM` — элемент с таким идентификатором передан более одного раза.
              *     - `INVALID_QUANTITY` — некорректное количество.
              *     - `INVALID_PRICE` — некорректная цена.
+             *     - `PRODUCT_CARD_NOT_FOUND` — карточка товара не найдена.
+             *     - `DUPLICATE_SLUG` — ссылка передана более одного раза.
+             *     - `INVALID_SLUG` — некорректная ссылка.
+             *     - `SLUG_ALREADY_TAKEN` — ссылка занята другой карточкой.
              * @example VARIANT_NOT_FOUND
              */
             code: string;
@@ -3787,6 +3818,17 @@ export interface components {
          * @example 019b21d9-c5d9-777d-80bd-d67c664bc6d9
          */
         ProductCardID: string;
+        ProductCardSlugUpdate: {
+            product_card_id: components["schemas"]["ProductCardID"];
+            /**
+             * @description URL-идентификатор карточки. Строчные латинские буквы, цифры, дефис и подчеркивание.
+             * @example iphone-15-pro-black
+             */
+            slug: string;
+        };
+        BulkUpdateProductCardSlugsRequest: {
+            items: components["schemas"]["ProductCardSlugUpdate"][];
+        };
         /** @description Список идентификаторов карточек. */
         ProductCardIDCollection: {
             product_card_ids: components["schemas"]["ProductCardID"][];
@@ -4462,6 +4504,7 @@ export interface components {
         OrderAddonCollection: {
             order_addons: components["schemas"]["OrderAddon"][];
         };
+        /** @description Услуга, связанная с позицией заказа, и ее статус в заказе. */
         OrderAddon: {
             /**
              * Format: uuid
@@ -4481,6 +4524,7 @@ export interface components {
              * @example 019b56d1-5ef0-7ed2-a155-7110d25ca5ce
              */
             order_item_id: string;
+            status: components["schemas"]["OrderItemAddonStatus"];
         };
         /**
          * Format: uuid
@@ -4488,7 +4532,7 @@ export interface components {
          * @example 019b56d1-5ef0-7ed2-a155-7110d25ca5ce
          */
         OrderID: string;
-        /** @description Ссылка на оплату заказа. */
+        /** @description Ссылка на оплату за каза. */
         OrderPaymentLink: {
             /**
              * Format: uri
@@ -4869,6 +4913,14 @@ export interface components {
         OrderPaymentInfo: {
             method?: components["schemas"]["PaymentMethod"];
             status?: components["schemas"]["PaymentStatus"];
+            /**
+             * Format: decimal
+             * @description Сумма оплаты заказа с учетом скидок и доставки, включая оплату сервисов магазина
+             *     и покупаемого подарочного сертификата. Дополнительные услуги позиций в сумму не входят.
+             *     Это полная сумма оплаты, а не остаток долга; возвраты ее не уменьшают.
+             * @example 1350.00
+             */
+            amount: string;
         };
         /**
          * Format: uuid
@@ -4970,12 +5022,20 @@ export interface components {
             gift_card_discount: string;
         };
         /**
+         * @description Статус услуги:
+         *     - `NEW` — новая.
+         *     - `ACTIVE` — в работе.
+         *     - `DONE` — выполнена.
+         *     - `CANCELLED` — отменена.
+         * @enum {string}
+         */
+        OrderItemAddonStatus: "NEW" | "ACTIVE" | "DONE" | "CANCELLED";
+        /**
          * @description Адрес доставки заказа.
          *
          *     Поля `courier_*`, `pickup_point_*` и `self_pick_up_*` относятся каждое к своему способу доставки
-         *     и заполнены только для соответствующего `method`. Заполненная группа, не совпадающая с `method`, —
-         *     это более ранний выбор покупателя в оформлении: она не очищается при смене способа доставки
-         *     и содержит неактуальные данные. Читайте `locality` и `address`.
+         *     и заполняются только для способа, который указан в `method`. Группы полей для остальных
+         *     способов доставки не возвращаются. Поля `locality` и `address` соответствуют выбранному способу доставки.
          */
         OrderAddressInfo: {
             /**
@@ -5049,7 +5109,15 @@ export interface components {
         };
         /** @enum {string} */
         PaymentMethod: "CARD_ONLINE" | "CARD_ON_DELIVERY" | "CASH_ON_DELIVERY";
-        /** @enum {string} */
+        /**
+         * @description Статус оплаты заказа:
+         *     - `PAYMENT_PENDING_OR_UNPAID` — заказ не оплачен.
+         *     - `PAYMENT_PAID` — оплата получена, но итоговая сумма может измениться. Позже статус меняется:
+         *       после окончательного расчета на `PAYMENT_FINALLY_PAID`, при полном возврате на `PAYMENT_REFUNDED`.
+         *     - `PAYMENT_REFUNDED` — выполнен полный возврат оплаты.
+         *     - `PAYMENT_FINALLY_PAID` — окончательный успешный статус оплаты после возможной корректировки суммы.
+         * @enum {string}
+         */
         PaymentStatus: "PAYMENT_PENDING_OR_UNPAID" | "PAYMENT_PAID" | "PAYMENT_REFUNDED" | "PAYMENT_FINALLY_PAID";
         /** @enum {string} */
         DeliveryMethod: "COURIER" | "POSTAL_SERVICE" | "PICKUP_POINT" | "SELF_PICK_UP";
@@ -5063,9 +5131,10 @@ export interface components {
          *     - `OZON` — Ozon Доставка.
          *     - `MERCHANT_SHIP` — собственная служба доставки магазина.
          *     - `YANDEX_MARKET_FBO` — Фулфилмент Яндекс Маркета.
+         *     - `UNIVERSAL_DELIVERY_CSE` — КСЭ.
          * @enum {string}
          */
-        DeliveryServiceType: "YANDEX_DELIVERY" | "CDEK" | "META_SHIP_DALLI" | "META_SHIP_RUSSIAN_POST" | "META_SHIP_PECOM" | "OZON" | "MERCHANT_SHIP" | "YANDEX_MARKET_FBO";
+        DeliveryServiceType: "YANDEX_DELIVERY" | "CDEK" | "META_SHIP_DALLI" | "META_SHIP_RUSSIAN_POST" | "META_SHIP_PECOM" | "OZON" | "MERCHANT_SHIP" | "YANDEX_MARKET_FBO" | "UNIVERSAL_DELIVERY_CSE";
         /**
          * @description Тип платежной системы.
          * @enum {string}
@@ -6174,6 +6243,11 @@ export interface components {
              */
             image_path?: string;
             collection_sort: components["schemas"]["CollectionSort"];
+            /**
+             * @description Автоматическая коллекция. Создается и наполняется автоматически, ее нельзя изменить или удалить.
+             * @example false
+             */
+            is_automatic: boolean;
         };
         CollectionList: {
             collections: components["schemas"]["Collection"][];
@@ -6904,8 +6978,26 @@ export interface components {
              * @example true
              */
             is_system: boolean;
+            status: components["schemas"]["BadgeStatus"];
+            /**
+             * @description Заблокировано ли изменение списка товаров, категорий и коллекций бейджа.
+             * @example false
+             */
+            is_objects_locked: boolean;
+            /**
+             * @description Заблокировано ли изменение названия бейджа.
+             * @example false
+             */
+            is_label_locked: boolean;
             binding_mode: components["schemas"]["BadgeBindingMode"];
         };
+        /**
+         * @description Статус бейджа:
+         *     - `ACTIVE` — активен, отображается на витрине.
+         *     - `INACTIVE` — неактивен, не отображается на витрине.
+         * @enum {string}
+         */
+        BadgeStatus: "ACTIVE" | "INACTIVE";
         BadgeCollection: {
             badges: components["schemas"]["Badge"][];
             /**
@@ -7268,10 +7360,10 @@ export interface components {
             collection_ids?: string[];
         };
         /**
-         * @description Режим привязки похожих карточек:
-         *     - `ALL_VARIANTS` — похожи все товары магазина.
-         *     - `SELECTED_CARDS` — похожи выбранные карточки товара.
-         *     - `SELECTED_CATEGORIES_COLLECTIONS` — похожи товары из выбранных категорий и коллекций.
+         * @description Режим подбора дополнительных товаров:
+         *     - `ALL_VARIANTS` — дополнительные товары подбираются из всех товаров магазина.
+         *     - `SELECTED_CARDS` — дополнительные товары подбираются из выбранных карточек товара.
+         *     - `SELECTED_CATEGORIES_COLLECTIONS` — дополнительные товары подбираются из выбранных категорий и коллекций.
          * @enum {string}
          */
         SimilarCardBindingMode: "ALL_VARIANTS" | "SELECTED_CARDS" | "SELECTED_CATEGORIES_COLLECTIONS";
@@ -7286,7 +7378,7 @@ export interface components {
             binding_mode: components["schemas"]["SimilarCardBindingMode"];
         };
         /**
-         * @description Объекты для привязки к настройкам похожих карточек:
+         * @description Объекты, привязываемые к настройкам дополнительных товаров:
          *     - `product_card_ids` — для привязки конкретных карточек.
          *     - `category_ids` — для привязки категорий.
          *     - `collection_ids` — для привязки коллекций.
@@ -8983,7 +9075,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProductCollection"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: один из параметров `page`, `per_page` имеет неверный формат или равен нулю. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9034,7 +9126,7 @@ export interface operations {
                     "application/json": components["schemas"]["Product"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; категории или настройки группировки продукта не удовлетворяют правилам каталога. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9083,7 +9175,7 @@ export interface operations {
                     "application/json": components["schemas"]["Product"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9101,7 +9193,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Продукт с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9145,7 +9237,7 @@ export interface operations {
                     "application/merge-patch+json": components["schemas"]["Product"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; переданный набор категорий или настройки группировки нарушают правила продукта. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9163,8 +9255,57 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Продукт с переданным `id` либо одна из указанных категорий, группирующих или разделяющих характеристик не найдены. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Внутренняя ошибка сервера. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BulkUpdateProductCardSlugs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUpdateProductCardSlugsRequest"];
+            };
+        };
+        responses: {
+            /** @description URL-идентификаторы карточек обновлены. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Некорректный запрос, карточка не найдена либо slug занят другой карточкой. Для невалидных элементов в поле `errors` перечислены идентификаторы карточек, коды и описания ошибок. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkOperationError"];
+                };
+            };
+            /** @description Не авторизован. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9208,7 +9349,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProductCardIDCollection"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `product_card_id` имеет неверный формат либо один из параметров `page`, `per_page` имеет неверный формат или равен нулю. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9226,7 +9367,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Карточка товара с переданным `product_card_id` не найдена. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9268,7 +9409,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `product_card_id` имеет неверный формат; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; передана исходная карточка, отсутствует одна из карточек, указанных в теле запроса, или список содержит недопустимые связи. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9328,7 +9469,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `product_card_id` имеет неверный формат; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; список содержит недопустимые связи. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9388,7 +9529,7 @@ export interface operations {
                     "application/json": components["schemas"]["VariantCollection"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: один из параметров `page`, `per_page` имеет неверный формат или равен нулю; `product_id`, `product_card_id` или `status` имеет неверный формат или недопустимое значение. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9439,7 +9580,7 @@ export interface operations {
                     "application/json": components["schemas"]["Variant"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; данные товара, цены, остатки, медиа, характеристики или связь с продуктом нарушают правила каталога. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9450,6 +9591,15 @@ export interface operations {
             };
             /** @description Не авторизован. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Не найдены указанная характеристика, указанный файл изображения или указанное видео. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9488,7 +9638,7 @@ export interface operations {
                     "application/json": components["schemas"]["Variant"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9506,7 +9656,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9544,7 +9694,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат либо товар не находится в статусе `ARCHIVED`. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9562,7 +9712,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9606,7 +9756,7 @@ export interface operations {
                     "application/json": components["schemas"]["Variant"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; архивный товар нельзя обновлять; изменение статуса, характеристик, цен, остатков, медиа или связи с продуктом недопустимо; указанный продукт или склад не найден. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9624,7 +9774,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден либо не найдены указанная характеристика, указанный файл изображения или указанное видео. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9655,14 +9805,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Товар успешно архивирован. */
+            /** @description Запрос на архивирование обработан; если товар с переданным `id` не найден или переход в `ARCHIVED` неприменим, состояние товара не изменяется. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9673,15 +9823,6 @@ export interface operations {
             };
             /** @description Не авторизован. */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9711,14 +9852,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Товар успешно восстановлен. */
+            /** @description Запрос на восстановление обработан; если товар с переданным `id` не найден или переход в `HIDDEN` неприменим, состояние товара не изменяется. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9729,15 +9870,6 @@ export interface operations {
             };
             /** @description Не авторизован. */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Ресурс не найден. */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9776,7 +9908,7 @@ export interface operations {
                     "application/json": components["schemas"]["VariantExternalIDsCollection"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9794,7 +9926,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9837,7 +9969,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат либо `system_type` имеет неверное или неподдерживаемое значение; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; внешний идентификатор не соответствует ограничениям метода. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9855,7 +9987,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9887,14 +10019,14 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Внешний идентификатор успешно удален. */
+            /** @description Запрос на удаление обработан; отсутствие внешнего идентификатора для указанного `system_type` не считается ошибкой. */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат либо `system_type` имеет неверное или неподдерживаемое значение. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9912,7 +10044,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -9952,7 +10084,7 @@ export interface operations {
                     "application/json": components["schemas"]["VariantAttachmentCollection"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -9970,7 +10102,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10014,7 +10146,7 @@ export interface operations {
                     "application/json": components["schemas"]["VariantAttachment"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` имеет неверный формат; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; товар архивирован, файл не является допустимым документом, превышен лимит 10 документов или неверны название и порядок отображения. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -10032,7 +10164,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` или файл с переданным `file_id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10041,7 +10173,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Конфликт данных. */
+            /** @description Файл уже прикреплён к товару или переданный `display_sequence` занят другим документом. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -10080,7 +10212,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` или `file_id` имеет неверный формат либо товар архивирован и его документы нельзя изменять. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -10098,7 +10230,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` или прикреплённый документ с переданным `file_id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10143,7 +10275,7 @@ export interface operations {
                     "application/json": components["schemas"]["VariantAttachment"];
                 };
             };
-            /** @description Некорректный запрос. */
+            /** @description Некорректный запрос: параметр `id` или `file_id` имеет неверный формат; тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; товар архивирован либо название или порядок отображения документа недопустимы. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -10161,7 +10293,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Ресурс не найден. */
+            /** @description Товар с переданным `id` или прикреплённый документ с переданным `file_id` не найден. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10170,7 +10302,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Конфликт данных. */
+            /** @description Переданный `display_sequence` занят другим документом товара. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -10210,7 +10342,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. Для невалидных элементов батча в поле `errors` перечислены идентификаторы, коды и описания ошибок. */
+            /** @description Некорректный запрос: тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; батч пуст, содержит больше 5000 элементов, повторяющиеся пары товара и склада, товары или склады, которые не найдены либо архивированы, недопустимое количество. Для невалидных элементов батча в поле `errors` перечислены идентификаторы, коды и описания ошибок. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -10259,7 +10391,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Некорректный запрос. Для невалидных элементов батча в поле `errors` перечислены идентификаторы, коды и описания ошибок. */
+            /** @description Некорректный запрос: тело запроса отсутствует, содержит некорректный JSON или не соответствует контракту метода; батч пуст, содержит больше 5000 элементов, повторяющиеся товары, товары, которые не найдены либо архивированы, или недопустимые цены. Для невалидных элементов батча в поле `errors` перечислены идентификаторы, коды и описания ошибок. */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -17196,7 +17328,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Настройки похожих карточек. */
+            /** @description Настройки дополнительных товаров. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -17448,7 +17580,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description ID похожих карточек. */
+            /** @description Идентификаторы карточек дополнительных товаров. */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -300,7 +300,7 @@ const KIT_CODE_OUTCOMES = new Map<string, ToolOutcome>([
   ["LIMIT_EXCEEDED", "error_rate_limit"],
   ["AUTHENTICATION_ERROR", "error_auth"],
   ["FORBIDDEN_ERROR", "error_permission"],
-  ...["NOT_FOUND", "VARIANT_NOT_FOUND", "WAREHOUSE_NOT_FOUND"].map((c) => [c, "error_not_found"] as const),
+  ...["NOT_FOUND", "VARIANT_NOT_FOUND", "WAREHOUSE_NOT_FOUND", "PRODUCT_CARD_NOT_FOUND"].map((c) => [c, "error_not_found"] as const),
   ...["VALIDATION_ERROR", "UNSUPPORTED_MEDIA_TYPE", "CONFLICT"].map((c) => [c, "error_invalid_request"] as const),
   ...["UNKNOWN_ERROR", "INVALID_JSON"].map((c) => [c, "error_upstream"] as const),
 ]);

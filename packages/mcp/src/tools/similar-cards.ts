@@ -31,7 +31,9 @@ export function registerSimilarCardsTools(server: McpServer, client: KitClient):
     {
       title: "Get similar-products settings",
       description:
-        "Get the similar-products settings of a product card: its binding_mode plus the bound " +
+        "Get the similar-products settings of a product card (the API docs now call this " +
+        "feature «дополнительные товары» / additional products — same /v1/similar-cards " +
+        "endpoints): its binding_mode plus the bound " +
         "objects for that mode — product_card_ids for SELECTED_CARDS, category_ids and " +
         "collection_ids for SELECTED_CATEGORIES_COLLECTIONS, none for ALL_VARIANTS (up to 500 " +
         "IDs each). A 404 means the card has no settings yet — create them with " +
@@ -75,7 +77,8 @@ export function registerSimilarCardsTools(server: McpServer, client: KitClient):
     {
       title: "Create or change similar-products settings",
       description:
-        "Create the similar-products settings of a product card (action=\"create\"; 409 if " +
+        "Create the similar-products («дополнительные товары») settings of a product card " +
+        "(action=\"create\"; 409 if " +
         "they already exist) or change the binding mode of existing ones (action=\"update\"; " +
         "404 if there are none — check with get_similar_cards). Changing the mode drops every " +
         "bound card, category and collection, and switching back does not restore them — read " +

@@ -133,7 +133,8 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
       title: "Update collection",
       description:
         "Update an existing collection (plain JSON PATCH; only the provided fields are changed). " +
-        "The collection type itself cannot be changed. " +
+        "The collection type itself cannot be changed. A collection with is_automatic: true is " +
+        "created and filled by KIT itself and cannot be changed — check get_collection first. " +
         'Call get_operation_schema("UpdateCollection") for the exact request shape.',
       inputSchema: {
         id: z.string().describe("Collection ID (UUID)."),
@@ -168,7 +169,9 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
     "delete_collection",
     {
       title: "Delete collection",
-      description: "Permanently delete a collection by its ID. This cannot be undone.",
+      description:
+        "Permanently delete a collection by its ID. This cannot be undone. A collection with " +
+        "is_automatic: true is created and filled by KIT itself and cannot be deleted.",
       annotations: DESTRUCTIVE,
       inputSchema: {
         id: z.string().describe("Collection ID (UUID)."),

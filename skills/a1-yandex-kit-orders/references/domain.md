@@ -37,10 +37,13 @@ there is temporary and worth retrying. The sizes a service accepts in
 `label_format` come from `GetDeliveryLabelFormats`; a service in mode
 `PROVIDER_DEFAULT` ignores the parameter and prints its own size. Read the
 delivery address from `delivery_info.address.locality`/`.address` — they follow
-the chosen `method`, while the `courier_*`, `pickup_point_*` and `self_pick_up_*`
-groups keep the buyer's earlier checkout choices and go stale; the delivery
+the chosen `method`; of the `courier_*`, `pickup_point_*` and `self_pick_up_*`
+groups only the one matching `method` is returned; the delivery
 service of a chunk is `delivery_info.delivery_service_type` (the `courier_*`/
-`pickup_point_*` variants of it are deprecated).
+`pickup_point_*` variants of it are deprecated). `payment_info.amount` is the full
+amount paid for the order — discounts and delivery included, item addons excluded, not
+reduced by refunds — and each addon from `GetOrderAddons` carries its own `status`
+(`NEW`, `ACTIVE`, `DONE`, `CANCELLED`).
 `GetOrderPaymentLink` returns the order's permanent
 signed payment-page URL: same value every time, works in any status, never
 expires and cannot be revoked — hand it out deliberately. All datetimes are UTC, and list endpoints paginate with
