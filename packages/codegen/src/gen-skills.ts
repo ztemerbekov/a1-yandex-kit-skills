@@ -268,11 +268,15 @@ const WEBHOOKS_DETAILS = `Key facts:
   parsing or re-serialization) and compare in constant time; reject a mismatch.
 - **Delivery is at-least-once and unordered.** Deduplicate by \`event_id\` (a redelivery
   reuses it) and order by \`occurred_at\`, not by arrival. Retries back off exponentially
-  (1 s → 10 min, at most 8 attempts within a 10-minute window) on \`5xx\`, \`408\`,
+  (5 s doubling up to 1 hour, ±20% jitter, for **72 hours** from enqueueing; for
+  \`CART_UPDATED\` the cap is 10 minutes and the window **1 hour**) on \`5xx\`, \`408\`,
   \`429\`, \`401\`, \`403\`, \`404\`, \`3xx\` (redirects are not followed), network errors
-  and the 10-second timeout; any other \`4xx\` (including \`410\`) is final. After the
-  last attempt the event is dropped — reconcile through the list endpoints, never assume
-  the callback stream is complete.
+  and the 10-second timeout; any other \`4xx\` (including \`410\`) is final. A
+  \`Retry-After\` header on \`429\`/\`503\` postpones the next attempt (never beyond the
+  cap). Each subscription is retried independently, and retries stop once the webhook is
+  deleted, deactivated or unsubscribed from the event. So a missing event is not lost
+  while its window is open — it is dropped only when the window ends; reconcile through
+  the list endpoints, never assume the callback stream is complete.
 - \`ValidateWebhook\` asks the API to POST a \`WEBHOOK_VALIDATE\` event to your URL — use it
   to test reachability after deploying the receiver.
 
