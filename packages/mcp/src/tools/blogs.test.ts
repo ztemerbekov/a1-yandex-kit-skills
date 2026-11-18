@@ -42,6 +42,37 @@ test("blog tools expose read and write operations without delete", async () => {
   assert.equal(tools.find((tool) => tool.name === "create_blog")?.annotations?.readOnlyHint, undefined);
 });
 
+// GetBlogs requires the status filter: without it the API answers
+// 400 VALIDATION_ERROR «Обязательный параметр 'status' отсутствует» (live, 2026-11-18).
+test("list_blogs always sends status, both values by default", async () => {
+  const { calls, mcp } = await setup({ blogs: [], total_count: 0 });
+  const res = await mcp.callTool({ name: "list_blogs", arguments: {} });
+  assert.equal((res as { isError?: boolean }).isError, undefined);
+  const url = new URL(calls[0]!.url);
+  assert.equal(url.pathname, "/v1/blogs");
+  assert.deepEqual(url.searchParams.getAll("status"), ["ACTIVE", "INACTIVE"]);
+});
+
+test("list_blogs narrows to the requested status", async () => {
+  const { calls, mcp } = await setup({ blogs: [], total_count: 0 });
+  await mcp.callTool({ name: "list_blogs", arguments: { status: ["ACTIVE"] } });
+  assert.deepEqual(new URL(calls[0]!.url).searchParams.getAll("status"), ["ACTIVE"]);
+});
+
+// An empty array would serialize to no status parameter at all — the same 400.
+test("list_blogs rejects an empty status array before the network", async () => {
+  const { calls, mcp } = await setup({ blogs: [], total_count: 0 });
+  const res = await mcp.callTool({ name: "list_blogs", arguments: { status: [] } });
+  assert.equal((res as { isError?: boolean }).isError, true);
+  assert.equal(calls.length, 0);
+});
+
+test("list_blogs all=true sends status on the auto-paginated path too", async () => {
+  const { calls, mcp } = await setup({ blogs: [], total_count: 0 });
+  await mcp.callTool({ name: "list_blogs", arguments: { all: true } });
+  assert.deepEqual(new URL(calls[0]!.url).searchParams.getAll("status"), ["ACTIVE", "INACTIVE"]);
+});
+
 test("create_blog sends a validated POST", async () => {
   const { calls, mcp } = await setup({ id: "b1" });
   const blog = {

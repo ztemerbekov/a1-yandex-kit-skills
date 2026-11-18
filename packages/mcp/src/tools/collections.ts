@@ -44,6 +44,7 @@ export function registerCollectionTools(server: McpServer, client: KitClient): v
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
         status: z
           .array(z.enum(["ACTIVE", "INACTIVE"]))
+          .min(1)
           .optional()
           .describe("Filter by collection status (default: both ACTIVE and INACTIVE)."),
         type: z
