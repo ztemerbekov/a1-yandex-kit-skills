@@ -16,12 +16,20 @@ import {
   withCoverage,
 } from "../util.js";
 
+// The API requires the status filter on GetBlogs (a call without it is a 400
+// "Обязательный параметр 'status' отсутствует", live 2026-11-18); default to both statuses,
+// so an unpublished article is still listed.
+const ALL_STATUSES = ["ACTIVE", "INACTIVE"] as const;
+
 export function registerBlogTools(server: McpServer, client: KitClient): void {
   server.registerTool(
     "list_blogs",
     {
       title: "List news articles",
-      description: "List store news articles (paginated). " + COVERAGE_DESCRIPTION,
+      description:
+        "List store news articles (paginated). Unpublished (INACTIVE) articles are included by " +
+        "default — each item carries its status; pass status to narrow. " +
+        COVERAGE_DESCRIPTION,
       annotations: READ_ONLY,
       inputSchema: {
         page: z.number().int().min(1).optional().describe("Page number, starting at 1 (default 1)."),
@@ -34,17 +42,25 @@ export function registerBlogTools(server: McpServer, client: KitClient): void {
           .boolean()
           .optional()
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
+        status: z
+          .array(z.enum(["ACTIVE", "INACTIVE"]))
+          .min(1)
+          .optional()
+          .describe("Filter by article status (default: both ACTIVE and INACTIVE)."),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),
         fields: z.array(z.string()).min(1).optional().describe(CSV_FIELDS_DESCRIPTION),
       },
     },
-    async ({ page, per_page, all, format, fields }) => {
+    async ({ page, per_page, all, status, format, fields }) => {
+      const filters = { status: status ?? ALL_STATUSES };
       try {
         const perPage = clampPerPage(per_page);
         const data = all
-          ? withCoverage({ all: await client.listAll("GetBlogs") })
+          ? withCoverage({ all: await client.listAll("GetBlogs", { query: filters }) })
           : withCoverage({
-              page: await client.call("GetBlogs", { query: { page, per_page: perPage } }),
+              page: await client.call("GetBlogs", {
+                query: { page, per_page: perPage, ...filters },
+              }),
               operationId: "GetBlogs",
               perPage,
               pageNumber: page ?? 1,

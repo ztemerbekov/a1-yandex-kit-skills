@@ -39,6 +39,7 @@ export function registerWarehouseTools(server: McpServer, client: KitClient): vo
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
         status: z
           .array(z.enum(["ACTIVE", "ARCHIVED"]))
+          .min(1)
           .optional()
           .describe("Filter by warehouse status (default: [ACTIVE])."),
         format: z.enum(["csv"]).optional().describe(CSV_FORMAT_DESCRIPTION),

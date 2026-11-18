@@ -42,6 +42,7 @@ export function registerVideoTools(server: McpServer, client: KitClient): void {
           .describe("Fetch all pages via auto-pagination, up to 500 items; ignores page/per_page."),
         status: z
           .array(z.enum(VIDEO_STATUSES))
+          .min(1)
           .optional()
           .describe(
             "Filter by processing status (default: all of UPLOADED, PROCESSING, READY, ERROR).",
